@@ -10,6 +10,7 @@ from typing import Any
 
 from pydantic import Field
 
+from autoreview.analysis.comprehensiveness import ComprehensiveCheckResult
 from autoreview.analysis.evidence_map import EvidenceMap
 from autoreview.critique.models import CritiqueReport
 from autoreview.extraction.models import PaperExtraction
@@ -70,6 +71,7 @@ class KnowledgeBase(TimestampedModel):
     section_drafts: dict[str, str] = Field(default_factory=dict)
     full_draft: str | None = None
     critique_history: list[CritiqueReport] = Field(default_factory=list)
+    comprehensiveness_checks: list[ComprehensiveCheckResult] = Field(default_factory=list)
     current_phase: PipelinePhase = PipelinePhase.INITIALIZED
     iteration_counts: dict[str, int] = Field(default_factory=dict)
     audit_log: list[AuditEntry] = Field(default_factory=list)
