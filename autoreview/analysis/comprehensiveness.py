@@ -7,6 +7,11 @@ from typing import Any
 import structlog
 from pydantic import Field
 
+from autoreview.llm.prompts.comprehensiveness import (
+    QUERY_COVERAGE_SYSTEM_PROMPT,
+    QueryCoverageResult,
+    build_query_coverage_prompt,
+)
 from autoreview.models.base import AutoReviewModel
 from autoreview.models.paper import CandidatePaper, ScreenedPaper
 
@@ -109,5 +114,58 @@ class CoverageAnomalyChecker:
                 "rejection_rate": round(rejection_rate, 3),
                 "no_abstract_rate": round(no_abstract_rate, 3),
                 "source_counts": source_counts,
+            },
+        )
+
+
+class QueryCoverageChecker:
+    """Validates that search queries cover all scope document sub-topics."""
+
+    def __init__(self, llm: Any) -> None:
+        self.llm = llm
+
+    async def check(
+        self,
+        queries_by_source: dict[str, list[str]],
+        scope_document: str,
+    ) -> ComprehensiveCheckResult:
+        prompt = build_query_coverage_prompt(scope_document, queries_by_source)
+        response = await self.llm.generate_structured(
+            prompt=prompt,
+            response_model=QueryCoverageResult,
+            system=QUERY_COVERAGE_SYSTEM_PROMPT,
+        )
+        result: QueryCoverageResult = response.parsed
+
+        uncovered = [a.sub_topic for a in result.sub_topic_assessments if not a.covered]
+        total = len(result.sub_topic_assessments)
+        covered = total - len(uncovered)
+
+        if uncovered:
+            status = CheckStatus.WARNING
+            details = f"Queries miss {len(uncovered)} sub-topic(s): {', '.join(uncovered)}"
+        else:
+            status = CheckStatus.PASSED
+            details = f"All {total} sub-topics covered by queries"
+
+        score = max(0.0, min(1.0, result.overall_coverage_score))
+
+        logger.info(
+            "comprehensiveness.query_coverage",
+            status=status,
+            covered=covered,
+            total=total,
+            uncovered=uncovered,
+        )
+
+        return ComprehensiveCheckResult(
+            check_name="query_coverage",
+            status=status,
+            score=score,
+            details=details,
+            metrics={
+                "sub_topics_covered": covered,
+                "sub_topics_total": total,
+                "uncovered_topics": uncovered,
             },
         )

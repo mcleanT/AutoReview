@@ -104,3 +104,68 @@ class TestCoverageAnomalyChecker:
         assert "total_screened" in result.metrics
         assert "rejection_rate" in result.metrics
         assert "source_counts" in result.metrics
+
+
+from autoreview.analysis.comprehensiveness import QueryCoverageChecker
+from autoreview.llm.provider import LLMStructuredResponse
+
+
+class MockQueryCoverageLLM:
+    """Returns a structured coverage assessment."""
+
+    def __init__(self, uncovered: list[str] | None = None):
+        self.uncovered = uncovered or []
+
+    async def generate_structured(self, prompt, response_model, system="", max_tokens=4096, temperature=0.0):
+        from autoreview.llm.prompts.comprehensiveness import QueryCoverageResult, SubTopicCoverage
+        if response_model == QueryCoverageResult:
+            subtopics = [
+                SubTopicCoverage(
+                    sub_topic="Gut-brain axis",
+                    covered=True,
+                    matching_queries=["gut brain interaction"],
+                ),
+                SubTopicCoverage(
+                    sub_topic="Microbiome composition",
+                    covered=True,
+                    matching_queries=["microbiome diversity"],
+                ),
+            ]
+            for topic in self.uncovered:
+                subtopics.append(
+                    SubTopicCoverage(sub_topic=topic, covered=False, matching_queries=[])
+                )
+            return LLMStructuredResponse(
+                parsed=QueryCoverageResult(
+                    sub_topic_assessments=subtopics,
+                    overall_coverage_score=0.5 if self.uncovered else 1.0,
+                ),
+                input_tokens=300,
+                output_tokens=200,
+            )
+        raise ValueError(f"Unexpected: {response_model}")
+
+
+class TestQueryCoverageChecker:
+    async def test_full_coverage_passes(self):
+        llm = MockQueryCoverageLLM(uncovered=[])
+        checker = QueryCoverageChecker(llm)
+        queries = {"pubmed": ["q1"], "semantic_scholar": ["q2"]}
+        result = await checker.check(queries, "scope doc text")
+        assert result.status == "passed"
+        assert result.score == 1.0
+
+    async def test_missing_subtopic_warns(self):
+        llm = MockQueryCoverageLLM(uncovered=["Viral metagenomics"])
+        checker = QueryCoverageChecker(llm)
+        queries = {"pubmed": ["q1"]}
+        result = await checker.check(queries, "scope doc text")
+        assert result.status == "warning"
+        assert "Viral metagenomics" in result.details
+
+    async def test_metrics_include_subtopic_details(self):
+        llm = MockQueryCoverageLLM(uncovered=[])
+        checker = QueryCoverageChecker(llm)
+        result = await checker.check({"pubmed": ["q1"]}, "scope")
+        assert "sub_topics_covered" in result.metrics
+        assert "sub_topics_total" in result.metrics
