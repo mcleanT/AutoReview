@@ -218,3 +218,77 @@ class TestBorderlineRescreener:
         assert result.status == "passed"
         assert len(promoted) == 0
         assert result.details == "No borderline papers to re-screen"
+
+
+from autoreview.analysis.comprehensiveness import PostGapRevalidator
+from autoreview.analysis.evidence_map import (
+    EvidenceMap, GapSeverity, IdentifiedGap, Theme,
+)
+from autoreview.llm.prompts.clustering import GapAnalysisResult, GapItem
+
+
+class MockPostGapLLM:
+    """Returns improved or unchanged gap analysis."""
+
+    def __init__(self, post_score: float = 0.9, remaining_major: int = 0):
+        self.post_score = post_score
+        self.remaining_major = remaining_major
+
+    async def generate_structured(self, prompt, response_model, system="", max_tokens=4096, temperature=0.0):
+        if response_model == GapAnalysisResult:
+            gaps = []
+            for i in range(self.remaining_major):
+                gaps.append(GapItem(
+                    expected_topic=f"Unfilled gap {i}",
+                    current_coverage="Still missing",
+                    severity="major",
+                    suggested_queries=[],
+                ))
+            return LLMStructuredResponse(
+                parsed=GapAnalysisResult(gaps=gaps, coverage_score=self.post_score),
+                input_tokens=400,
+                output_tokens=200,
+            )
+        raise ValueError(f"Unexpected: {response_model}")
+
+
+class TestPostGapRevalidator:
+    async def test_gaps_filled_passes(self):
+        llm = MockPostGapLLM(post_score=0.9, remaining_major=0)
+        revalidator = PostGapRevalidator(llm)
+        themes = [Theme(name="T1", description="D", paper_ids=["p1"])]
+        pre_gaps = [
+            IdentifiedGap(
+                expected_topic="Topic A",
+                current_coverage="None",
+                severity=GapSeverity.MAJOR,
+                suggested_queries=["query"],
+            )
+        ]
+        result = await revalidator.check(themes, "scope", pre_gaps, pre_coverage=0.6)
+        assert result.status == "passed"
+        assert result.metrics["pre_coverage"] == 0.6
+        assert result.metrics["post_coverage"] == 0.9
+
+    async def test_remaining_major_gaps_warns(self):
+        llm = MockPostGapLLM(post_score=0.65, remaining_major=2)
+        revalidator = PostGapRevalidator(llm)
+        themes = [Theme(name="T1", description="D", paper_ids=["p1"])]
+        pre_gaps = [
+            IdentifiedGap(
+                expected_topic="Topic A",
+                current_coverage="None",
+                severity=GapSeverity.MAJOR,
+                suggested_queries=[],
+            )
+        ]
+        result = await revalidator.check(themes, "scope", pre_gaps, pre_coverage=0.6)
+        assert result.status == "warning"
+        assert result.metrics["remaining_major_gaps"] == 2
+
+    async def test_no_pre_gaps_skips(self):
+        llm = MockPostGapLLM()
+        revalidator = PostGapRevalidator(llm)
+        result = await revalidator.check([], "scope", pre_gaps=[], pre_coverage=0.9)
+        assert result.status == "passed"
+        assert result.details == "No prior gaps to revalidate"

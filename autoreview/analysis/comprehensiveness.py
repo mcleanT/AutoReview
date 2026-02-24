@@ -7,6 +7,8 @@ from typing import Any
 import structlog
 from pydantic import Field
 
+from autoreview.analysis.evidence_map import IdentifiedGap, Theme
+from autoreview.analysis.gap_detector import GapDetector
 from autoreview.extraction.extractor import PaperScreener
 from autoreview.llm.prompts.comprehensiveness import (
     QUERY_COVERAGE_SYSTEM_PROMPT,
@@ -225,3 +227,68 @@ class BorderlineRescreener:
             details=f"Re-screened {total} borderline papers, promoted {promoted_count}",
             metrics={"borderline_count": total, "promoted_count": promoted_count},
         ), promoted
+
+
+class PostGapRevalidator:
+    """Re-runs gap detection after supplementary search to verify gaps were filled."""
+
+    def __init__(self, llm: Any) -> None:
+        self.llm = llm
+
+    async def check(
+        self,
+        themes: list[Theme],
+        scope_document: str,
+        pre_gaps: list[IdentifiedGap],
+        pre_coverage: float,
+    ) -> ComprehensiveCheckResult:
+        if not pre_gaps:
+            return ComprehensiveCheckResult(
+                check_name="post_gap_revalidation",
+                status=CheckStatus.PASSED,
+                score=1.0,
+                details="No prior gaps to revalidate",
+                metrics={"pre_coverage": pre_coverage, "post_coverage": pre_coverage},
+            )
+
+        detector = GapDetector(self.llm)
+        post_gaps, post_coverage = await detector.detect_gaps(themes, scope_document)
+
+        remaining_major = [g for g in post_gaps if g.severity == "major"]
+        pre_major = [g for g in pre_gaps if g.severity == "major"]
+
+        if remaining_major:
+            status = CheckStatus.WARNING
+            unfilled = [g.expected_topic for g in remaining_major]
+            details = (
+                f"Coverage improved {pre_coverage:.2f} -> {post_coverage:.2f}, "
+                f"but {len(remaining_major)} major gap(s) remain: {', '.join(unfilled)}"
+            )
+        else:
+            status = CheckStatus.PASSED
+            details = (
+                f"All major gaps filled. Coverage improved {pre_coverage:.2f} -> {post_coverage:.2f}"
+            )
+
+        logger.info(
+            "comprehensiveness.post_gap_revalidation",
+            status=status,
+            pre_coverage=pre_coverage,
+            post_coverage=post_coverage,
+            pre_major_gaps=len(pre_major),
+            remaining_major_gaps=len(remaining_major),
+        )
+
+        return ComprehensiveCheckResult(
+            check_name="post_gap_revalidation",
+            status=status,
+            score=post_coverage,
+            details=details,
+            metrics={
+                "pre_coverage": pre_coverage,
+                "post_coverage": post_coverage,
+                "pre_major_gaps": len(pre_major),
+                "remaining_major_gaps": len(remaining_major),
+                "remaining_gap_topics": [g.expected_topic for g in remaining_major],
+            },
+        )
