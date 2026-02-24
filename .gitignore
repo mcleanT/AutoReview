@@ -34,8 +34,8 @@ htmlcov/
 .mypy_cache/
 
 # Pipeline output (user-generated, not committed)
-output/
-snapshots/
+/output/
+/snapshots/
 
 # Environment
 .env
