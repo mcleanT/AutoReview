@@ -1,0 +1,69 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "autoreview"
+version = "0.1.0"
+description = "Fully autonomous pipeline for generating publication-ready scientific review papers"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [
+    { name = "McLean", email = "mcleantaggart@gmail.com" },
+]
+dependencies = [
+    "anthropic>=0.40.0",
+    "pydantic>=2.10",
+    "httpx>=0.27",
+    "typer>=0.12",
+    "structlog>=24.0",
+    "pyyaml>=6.0",
+    "jinja2>=3.1",
+    "tenacity>=9.0",
+    "aiosqlite>=0.20",
+]
+
+[project.optional-dependencies]
+search = [
+    "biopython>=1.84",
+    "pyalex>=0.14",
+]
+output = [
+    "pypandoc>=1.13",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.8",
+    "mypy>=1.13",
+    "respx>=0.21",
+]
+all = [
+    "autoreview[search,output,dev]",
+]
+
+[project.scripts]
+autoreview = "autoreview.cli:app"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = [
+    "integration: marks tests that call real external APIs (deselect with '-m \"not integration\"')",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "SIM", "TCH"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+plugins = ["pydantic.mypy"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["autoreview"]

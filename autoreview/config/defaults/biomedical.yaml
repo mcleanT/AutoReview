@@ -1,0 +1,36 @@
+domain: biomedical
+databases:
+  primary:
+    - pubmed
+    - semantic_scholar
+  secondary:
+    - openalex
+  discovery:
+    - perplexity
+search:
+  date_range: "2015-2025"
+  max_results_per_source: 500
+  relevance_threshold: 3
+  screening_batch_size: 20
+extraction:
+  domain_fields:
+    sample_size: true
+    study_design: true
+    p_values: true
+critique:
+  rubric_weights:
+    coverage: 0.25
+    synthesis: 0.30
+    accuracy: 0.20
+    balance: 0.15
+    narrative: 0.10
+writing:
+  style: academic_biomedical
+  citation_format: vancouver
+outline:
+  required_sections:
+    - Introduction
+    - Methods of Review
+    - Results
+    - Discussion
+    - Future Directions

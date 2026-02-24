@@ -1,0 +1,39 @@
+domain: chemistry
+databases:
+  primary:
+    - pubmed
+    - semantic_scholar
+  secondary:
+    - openalex
+  discovery:
+    - perplexity
+search:
+  date_range: "2015-2025"
+  max_results_per_source: 400
+  relevance_threshold: 3
+  screening_batch_size: 20
+extraction:
+  domain_fields:
+    reaction_type: true
+    yield: true
+    catalyst: true
+    conditions: true
+critique:
+  rubric_weights:
+    coverage: 0.25
+    synthesis: 0.25
+    accuracy: 0.25
+    balance: 0.10
+    narrative: 0.10
+    gaps: 0.05
+writing:
+  style: academic_chemistry
+  citation_format: acs
+outline:
+  required_sections:
+    - Introduction
+    - Scope and Methodology
+    - Mechanistic Insights
+    - Synthetic Applications
+    - Comparative Analysis
+    - Outlook

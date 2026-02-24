@@ -1,0 +1,157 @@
+from __future__ import annotations
+
+import asyncio
+from pathlib import Path
+from typing import Optional
+
+import structlog
+import typer
+
+app = typer.Typer(
+    name="autoreview",
+    help="Fully autonomous pipeline for generating publication-ready scientific review papers.",
+    no_args_is_help=True,
+)
+
+
+def _setup_logging(verbose: bool = False) -> None:
+    """Configure structlog."""
+    structlog.configure(
+        processors=[
+            structlog.contextvars.merge_contextvars,
+            structlog.processors.add_log_level,
+            structlog.processors.TimeStamper(fmt="iso"),
+            structlog.dev.ConsoleRenderer() if verbose else structlog.processors.JSONRenderer(),
+        ],
+        wrapper_class=structlog.make_filtering_bound_logger(
+            structlog.processors._NAME_TO_LEVEL["debug" if verbose else "info"]
+        ),
+        context_class=dict,
+        logger_factory=structlog.PrintLoggerFactory(),
+        cache_logger_on_first_use=True,
+    )
+
+
+@app.command()
+def run(
+    topic: str = typer.Argument(..., help="Research topic or question for the review"),
+    domain: str = typer.Option("general", "--domain", "-d", help="Domain preset (biomedical, cs_ai, chemistry, general)"),
+    output_dir: str = typer.Option("output", "--output-dir", "-o", help="Output directory"),
+    output_format: str = typer.Option("markdown", "--format", "-f", help="Output format (markdown, latex, docx)"),
+    model: Optional[str] = typer.Option(None, "--model", "-m", help="Override LLM model"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
+) -> None:
+    """Run the full AutoReview pipeline to generate a review paper."""
+    _setup_logging(verbose)
+    logger = structlog.get_logger()
+
+    logger.info(
+        "pipeline.start",
+        topic=topic,
+        domain=domain,
+        output_dir=output_dir,
+        output_format=output_format,
+    )
+
+    from autoreview.config import load_config
+    from autoreview.models.knowledge_base import KnowledgeBase
+
+    config = load_config(domain=domain, overrides={"llm": {"model": model}} if model else None)
+
+    kb = KnowledgeBase(
+        topic=topic,
+        domain=domain,
+        output_dir=output_dir,
+    )
+
+    typer.echo(f"AutoReview: Generating review paper on '{topic}'")
+    typer.echo(f"Domain: {domain} | Output: {output_dir} | Format: {output_format}")
+
+    kb.save_snapshot("initialized")
+
+    from autoreview.llm.claude import ClaudeLLMProvider
+    from autoreview.pipeline.runner import run_pipeline
+    from autoreview.output.formatter import OutputFormatter
+
+    llm = ClaudeLLMProvider(model=config.llm.model)
+
+    try:
+        kb = asyncio.run(run_pipeline(llm=llm, config=config, kb=kb))
+    except Exception as e:
+        logger.error("pipeline.failed", error=str(e))
+        typer.echo(f"Pipeline failed: {e}", err=True)
+        raise typer.Exit(code=1)
+
+    formatter = OutputFormatter(style=config.writing.citation_format)
+    created = formatter.save(kb, output_dir, fmt=output_format)
+
+    typer.echo(f"Review paper generated successfully!")
+    for path in created:
+        typer.echo(f"  -> {path}")
+
+
+@app.command()
+def resume(
+    snapshot: str = typer.Argument(..., help="Path to a snapshot JSON file"),
+    start_from: Optional[str] = typer.Option(None, "--start-from", "-s", help="DAG node to start from"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
+) -> None:
+    """Resume pipeline from a saved snapshot."""
+    _setup_logging(verbose)
+
+    from autoreview.models.knowledge_base import KnowledgeBase
+
+    kb = KnowledgeBase.load_snapshot(snapshot)
+    typer.echo(f"Loaded snapshot: {snapshot}")
+    typer.echo(f"Topic: {kb.topic} | Phase: {kb.current_phase}")
+    typer.echo(f"Papers: {len(kb.candidate_papers)} candidates, {len(kb.screened_papers)} screened")
+
+    from autoreview.config import load_config
+    from autoreview.llm.claude import ClaudeLLMProvider
+    from autoreview.pipeline.runner import run_pipeline
+    from autoreview.output.formatter import OutputFormatter
+
+    config = load_config(domain=kb.domain)
+    llm = ClaudeLLMProvider(model=config.llm.model)
+
+    try:
+        kb = asyncio.run(run_pipeline(llm=llm, config=config, kb=kb, start_from=start_from))
+    except Exception as e:
+        typer.echo(f"Pipeline failed: {e}", err=True)
+        raise typer.Exit(code=1)
+
+    formatter = OutputFormatter(style=config.writing.citation_format)
+    created = formatter.save(kb, kb.output_dir, fmt="markdown")
+
+    typer.echo(f"Review paper generated successfully!")
+    for path in created:
+        typer.echo(f"  -> {path}")
+
+
+@app.command()
+def inspect(
+    snapshot: str = typer.Argument(..., help="Path to a snapshot JSON file"),
+) -> None:
+    """Inspect a pipeline snapshot."""
+    from autoreview.models.knowledge_base import KnowledgeBase
+
+    kb = KnowledgeBase.load_snapshot(snapshot)
+    typer.echo(f"Topic: {kb.topic}")
+    typer.echo(f"Domain: {kb.domain}")
+    typer.echo(f"Phase: {kb.current_phase}")
+    typer.echo(f"Candidate papers: {len(kb.candidate_papers)}")
+    typer.echo(f"Screened papers: {len(kb.screened_papers)}")
+    typer.echo(f"Extractions: {len(kb.extractions)}")
+    typer.echo(f"Evidence map: {'yes' if kb.evidence_map else 'no'}")
+    typer.echo(f"Section drafts: {len(kb.section_drafts)}")
+    typer.echo(f"Full draft: {'yes' if kb.full_draft else 'no'}")
+    typer.echo(f"Critique history: {len(kb.critique_history)} reports")
+    typer.echo(f"Audit log: {len(kb.audit_log)} entries")
+
+    tokens = kb.total_tokens()
+    if tokens["input_tokens"] > 0 or tokens["output_tokens"] > 0:
+        typer.echo(f"Total tokens: {tokens['input_tokens']:,} input, {tokens['output_tokens']:,} output")
+
+
+if __name__ == "__main__":
+    app()
