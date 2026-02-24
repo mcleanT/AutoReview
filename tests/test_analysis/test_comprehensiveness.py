@@ -356,3 +356,29 @@ class TestBenchmarkValidator:
         validator = BenchmarkValidator(s2_client=s2)
         result = await validator.check("topic", {"10.1000/a"})
         assert result.status == "passed"
+
+
+class TestComprehensiveCheckIntegration:
+    def test_knowledge_base_has_field(self):
+        from autoreview.models.knowledge_base import KnowledgeBase
+        kb = KnowledgeBase(topic="test", domain="general", output_dir="/tmp/test")
+        assert hasattr(kb, "comprehensiveness_checks")
+        assert kb.comprehensiveness_checks == []
+
+    def test_results_serialize(self):
+        from autoreview.models.knowledge_base import KnowledgeBase
+        kb = KnowledgeBase(topic="test", domain="general", output_dir="/tmp/test")
+        kb.comprehensiveness_checks.append(
+            ComprehensiveCheckResult(
+                check_name="test",
+                status=CheckStatus.WARNING,
+                score=0.7,
+                details="Test warning",
+                metrics={"key": "value"},
+            )
+        )
+        data = kb.model_dump_json()
+        restored = KnowledgeBase.model_validate_json(data)
+        assert len(restored.comprehensiveness_checks) == 1
+        assert restored.comprehensiveness_checks[0].check_name == "test"
+        assert restored.comprehensiveness_checks[0].status == "warning"
