@@ -7,6 +7,7 @@ from typing import Any
 import structlog
 from pydantic import Field
 
+from autoreview.extraction.extractor import PaperScreener
 from autoreview.llm.prompts.comprehensiveness import (
     QUERY_COVERAGE_SYSTEM_PROMPT,
     QueryCoverageResult,
@@ -169,3 +170,58 @@ class QueryCoverageChecker:
                 "uncovered_topics": uncovered,
             },
         )
+
+
+class BorderlineRescreener:
+    """Re-screens borderline papers (score = threshold - 1) with enriched context."""
+
+    def __init__(self, llm: Any, batch_size: int = 20) -> None:
+        self.llm = llm
+        self.batch_size = batch_size
+
+    async def rescreen(
+        self,
+        borderline_papers: list[CandidatePaper],
+        scope_document: str,
+        threshold: int = 3,
+    ) -> tuple[ComprehensiveCheckResult, list[ScreenedPaper]]:
+        if not borderline_papers:
+            return ComprehensiveCheckResult(
+                check_name="borderline_rescreening",
+                status=CheckStatus.PASSED,
+                score=1.0,
+                details="No borderline papers to re-screen",
+                metrics={"borderline_count": 0, "promoted_count": 0},
+            ), []
+
+        enriched_scope = (
+            f"{scope_document}\n\n"
+            "IMPORTANT: These papers were previously scored as borderline relevant. "
+            "Re-evaluate carefully — consider whether the paper could contribute to "
+            "any sub-topic of this review, even tangentially. Be inclusive rather than "
+            "exclusive on this second pass."
+        )
+
+        screener = PaperScreener(self.llm, batch_size=self.batch_size)
+        promoted = await screener.screen(
+            borderline_papers,
+            scope_document=enriched_scope,
+            threshold=threshold,
+        )
+
+        promoted_count = len(promoted)
+        total = len(borderline_papers)
+
+        logger.info(
+            "comprehensiveness.borderline_rescreening",
+            borderline_count=total,
+            promoted=promoted_count,
+        )
+
+        return ComprehensiveCheckResult(
+            check_name="borderline_rescreening",
+            status=CheckStatus.PASSED if promoted_count == 0 else CheckStatus.WARNING,
+            score=1.0 - (promoted_count / total) if total > 0 else 1.0,
+            details=f"Re-screened {total} borderline papers, promoted {promoted_count}",
+            metrics={"borderline_count": total, "promoted_count": promoted_count},
+        ), promoted

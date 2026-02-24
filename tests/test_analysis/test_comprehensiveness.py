@@ -169,3 +169,52 @@ class TestQueryCoverageChecker:
         result = await checker.check({"pubmed": ["q1"]}, "scope")
         assert "sub_topics_covered" in result.metrics
         assert "sub_topics_total" in result.metrics
+
+
+from autoreview.analysis.comprehensiveness import BorderlineRescreener
+from autoreview.llm.prompts.screening import ScreeningBatchResult, ScreeningDecision
+
+
+class MockRescreeningLLM:
+    """First call returns borderline scores, second call promotes some."""
+
+    def __init__(self):
+        self.call_count = 0
+
+    async def generate_structured(self, prompt, response_model, system="", max_tokens=4096, temperature=0.0):
+        self.call_count += 1
+        if response_model == ScreeningBatchResult:
+            # Second pass: promote the first paper, keep second as marginal
+            return LLMStructuredResponse(
+                parsed=ScreeningBatchResult(decisions=[
+                    ScreeningDecision(paper_index=0, relevance_score=3, rationale="Relevant on second look"),
+                    ScreeningDecision(paper_index=1, relevance_score=2, rationale="Still marginal"),
+                ]),
+                input_tokens=300,
+                output_tokens=150,
+            )
+        raise ValueError(f"Unexpected: {response_model}")
+
+
+class TestBorderlineRescreener:
+    async def test_promotes_borderline_papers(self):
+        llm = MockRescreeningLLM()
+        rescreener = BorderlineRescreener(llm)
+        borderline = [
+            CandidatePaper(title="Borderline 1", authors=["A"], source_database="test", abstract="Abstract 1"),
+            CandidatePaper(title="Borderline 2", authors=["A"], source_database="test", abstract="Abstract 2"),
+        ]
+        result, promoted = await rescreener.rescreen(borderline, "scope doc")
+        assert result.check_name == "borderline_rescreening"
+        assert len(promoted) == 1
+        assert promoted[0].relevance_score == 3
+        assert result.metrics["promoted_count"] == 1
+        assert result.metrics["borderline_count"] == 2
+
+    async def test_no_borderlines_passes(self):
+        llm = MockRescreeningLLM()
+        rescreener = BorderlineRescreener(llm)
+        result, promoted = await rescreener.rescreen([], "scope doc")
+        assert result.status == "passed"
+        assert len(promoted) == 0
+        assert result.details == "No borderline papers to re-screen"

@@ -31,6 +31,7 @@ class PaperScreener:
         threshold: int = 3,
     ) -> list[ScreenedPaper]:
         all_screened: list[ScreenedPaper] = []
+        self.borderline_papers: list[CandidatePaper] = []
 
         for batch_start in range(0, len(papers), self.batch_size):
             batch = papers[batch_start:batch_start + self.batch_size]
@@ -68,8 +69,15 @@ class PaperScreener:
                     )
                     if screened.include:
                         all_screened.append(screened)
+                    elif score == threshold - 1:
+                        self.borderline_papers.append(paper)
 
-        logger.info("screening.complete", total_papers=len(papers), included=len(all_screened))
+        logger.info(
+            "screening.complete",
+            total_papers=len(papers),
+            included=len(all_screened),
+            borderline=len(self.borderline_papers),
+        )
         return all_screened
 
 
