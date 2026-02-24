@@ -292,3 +292,67 @@ class TestPostGapRevalidator:
         result = await revalidator.check([], "scope", pre_gaps=[], pre_coverage=0.9)
         assert result.status == "passed"
         assert result.details == "No prior gaps to revalidate"
+
+
+from autoreview.analysis.comprehensiveness import BenchmarkValidator
+
+
+class MockS2Client:
+    """Mock Semantic Scholar client for benchmark validation."""
+
+    def __init__(
+        self,
+        review_title: str = "A Comprehensive Review",
+        review_citations: int = 500,
+        reference_dois: list[str] | None = None,
+    ):
+        self.review_title = review_title
+        self.review_citations = review_citations
+        self.reference_dois = reference_dois if reference_dois is not None else ["10.1000/ref1", "10.1000/ref2", "10.1000/ref3"]
+
+    async def find_review(self, topic: str) -> dict | None:
+        return {
+            "paperId": "review123",
+            "title": self.review_title,
+            "citationCount": self.review_citations,
+            "externalIds": {"DOI": "10.1000/review"},
+        }
+
+    async def get_references(self, paper_id: str) -> list[str]:
+        return self.reference_dois
+
+
+class TestBenchmarkValidator:
+    async def test_high_recall_passes(self):
+        # Pipeline found 2 of 3 reference DOIs
+        s2 = MockS2Client(reference_dois=["10.1000/ref1", "10.1000/ref2", "10.1000/ref3"])
+        validator = BenchmarkValidator(s2_client=s2)
+        pipeline_dois = {"10.1000/ref1", "10.1000/ref2", "10.1000/other"}
+        result = await validator.check("test topic", pipeline_dois)
+        assert result.status == "passed"
+        assert result.metrics["recall"] == pytest.approx(2 / 3)
+
+    async def test_low_recall_warns(self):
+        s2 = MockS2Client(reference_dois=["10.1000/a", "10.1000/b", "10.1000/c", "10.1000/d"])
+        validator = BenchmarkValidator(s2_client=s2)
+        pipeline_dois = {"10.1000/a"}  # Only 1 of 4
+        result = await validator.check("test topic", pipeline_dois)
+        assert result.status == "warning"
+        assert result.metrics["recall"] == pytest.approx(0.25)
+
+    async def test_no_review_found_passes(self):
+        class NoReviewClient:
+            async def find_review(self, topic: str) -> dict | None:
+                return None
+            async def get_references(self, paper_id: str) -> list[str]:
+                return []
+        validator = BenchmarkValidator(s2_client=NoReviewClient())
+        result = await validator.check("obscure topic", set())
+        assert result.status == "passed"
+        assert "no benchmark review" in result.details.lower()
+
+    async def test_no_reference_dois_passes(self):
+        s2 = MockS2Client(reference_dois=[])
+        validator = BenchmarkValidator(s2_client=s2)
+        result = await validator.check("topic", {"10.1000/a"})
+        assert result.status == "passed"

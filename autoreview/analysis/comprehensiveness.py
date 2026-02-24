@@ -1,9 +1,11 @@
 """Comprehensiveness checks for literature search validation."""
 from __future__ import annotations
 
+import os
 from enum import Enum
 from typing import Any
 
+import httpx
 import structlog
 from pydantic import Field
 
@@ -290,5 +292,164 @@ class PostGapRevalidator:
                 "pre_major_gaps": len(pre_major),
                 "remaining_major_gaps": len(remaining_major),
                 "remaining_gap_topics": [g.expected_topic for g in remaining_major],
+            },
+        )
+
+
+class SemanticScholarBenchmarkClient:
+    """Queries Semantic Scholar to find a benchmark review and its references."""
+
+    S2_API = "https://api.semanticscholar.org/graph/v1"
+
+    def __init__(self, api_key: str | None = None) -> None:
+        self._api_key = api_key or os.environ.get("S2_API_KEY")
+        self._headers: dict[str, str] = {}
+        if self._api_key:
+            self._headers["x-api-key"] = self._api_key
+
+    async def find_review(self, topic: str) -> dict | None:
+        """Find the most highly-cited review paper on a topic."""
+        query = f"{topic} review"
+        async with httpx.AsyncClient(timeout=30.0, headers=self._headers) as client:
+            try:
+                resp = await client.get(
+                    f"{self.S2_API}/paper/search",
+                    params={
+                        "query": query,
+                        "limit": 10,
+                        "fields": "paperId,title,citationCount,externalIds,publicationTypes",
+                    },
+                )
+                resp.raise_for_status()
+                data = resp.json().get("data", [])
+            except (httpx.HTTPStatusError, httpx.RequestError) as e:
+                logger.warning("benchmark.s2_search_failed", error=str(e))
+                return None
+
+        # Filter for review papers, sort by citations
+        reviews = [
+            p for p in data
+            if p.get("citationCount", 0) >= 50
+            and any(
+                t in (p.get("publicationTypes") or [])
+                for t in ["Review", "Meta-Analysis"]
+            )
+        ]
+        if not reviews:
+            # Fall back to highest-cited paper regardless of type
+            reviews = [p for p in data if p.get("citationCount", 0) >= 100]
+
+        if not reviews:
+            return None
+
+        reviews.sort(key=lambda p: p.get("citationCount", 0), reverse=True)
+        return reviews[0]
+
+    async def get_references(self, paper_id: str) -> list[str]:
+        """Get DOIs of all references of a paper."""
+        async with httpx.AsyncClient(timeout=30.0, headers=self._headers) as client:
+            try:
+                resp = await client.get(
+                    f"{self.S2_API}/paper/{paper_id}/references",
+                    params={"fields": "externalIds", "limit": 1000},
+                )
+                resp.raise_for_status()
+                data = resp.json().get("data", [])
+            except (httpx.HTTPStatusError, httpx.RequestError) as e:
+                logger.warning("benchmark.s2_references_failed", error=str(e))
+                return []
+
+        dois = []
+        for ref in data:
+            cited = ref.get("citedPaper", {})
+            ext = cited.get("externalIds") or {}
+            doi = ext.get("DOI")
+            if doi:
+                dois.append(doi.lower().strip())
+        return dois
+
+
+class BenchmarkValidator:
+    """Validates pipeline recall against a benchmark review's references."""
+
+    def __init__(
+        self,
+        s2_client: Any | None = None,
+        recall_threshold: float = 0.5,
+    ) -> None:
+        self.s2_client = s2_client or SemanticScholarBenchmarkClient()
+        self.recall_threshold = recall_threshold
+
+    async def check(
+        self,
+        topic: str,
+        pipeline_dois: set[str],
+    ) -> ComprehensiveCheckResult:
+        review = await self.s2_client.find_review(topic)
+        if not review:
+            logger.info("benchmark.no_review_found", topic=topic)
+            return ComprehensiveCheckResult(
+                check_name="benchmark_validation",
+                status=CheckStatus.PASSED,
+                score=1.0,
+                details="No benchmark review found for this topic; skipping validation",
+                metrics={"benchmark_found": False},
+            )
+
+        paper_id = review["paperId"]
+        review_title = review.get("title", "Unknown")
+        review_citations = review.get("citationCount", 0)
+
+        reference_dois = await self.s2_client.get_references(paper_id)
+        if not reference_dois:
+            logger.info("benchmark.no_reference_dois", review_title=review_title)
+            return ComprehensiveCheckResult(
+                check_name="benchmark_validation",
+                status=CheckStatus.PASSED,
+                score=1.0,
+                details=f"Benchmark review '{review_title}' has no extractable reference DOIs",
+                metrics={"benchmark_found": True, "benchmark_title": review_title, "reference_count": 0},
+            )
+
+        normalized_pipeline = {d.lower().strip() for d in pipeline_dois}
+        matched = [d for d in reference_dois if d in normalized_pipeline]
+        recall = len(matched) / len(reference_dois)
+
+        if recall >= self.recall_threshold:
+            status = CheckStatus.PASSED
+            details = (
+                f"Recall {recall:.0%} against benchmark '{review_title}' "
+                f"({review_citations} citations): {len(matched)}/{len(reference_dois)} references found"
+            )
+        else:
+            status = CheckStatus.WARNING
+            missing = [d for d in reference_dois if d not in normalized_pipeline]
+            details = (
+                f"Low recall {recall:.0%} against benchmark '{review_title}' "
+                f"({review_citations} citations): {len(matched)}/{len(reference_dois)} found, "
+                f"{len(missing)} missing"
+            )
+
+        logger.info(
+            "comprehensiveness.benchmark_validation",
+            status=status,
+            recall=round(recall, 3),
+            benchmark_title=review_title,
+            matched=len(matched),
+            total_refs=len(reference_dois),
+        )
+
+        return ComprehensiveCheckResult(
+            check_name="benchmark_validation",
+            status=status,
+            score=recall,
+            details=details,
+            metrics={
+                "benchmark_found": True,
+                "benchmark_title": review_title,
+                "benchmark_citations": review_citations,
+                "reference_count": len(reference_dois),
+                "matched_count": len(matched),
+                "recall": recall,
             },
         )
