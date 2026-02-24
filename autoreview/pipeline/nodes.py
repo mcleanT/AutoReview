@@ -6,6 +6,13 @@ from typing import Any
 import structlog
 
 from autoreview.analysis.clustering import ThematicClusterer
+from autoreview.analysis.comprehensiveness import (
+    BenchmarkValidator,
+    BorderlineRescreener,
+    CoverageAnomalyChecker,
+    PostGapRevalidator,
+    QueryCoverageChecker,
+)
 from autoreview.analysis.evidence_map import GapSeverity
 from autoreview.analysis.gap_detector import GapDetector
 from autoreview.config.models import DomainConfig
@@ -70,6 +77,11 @@ class PipelineNodes:
             {"input_tokens": response.input_tokens, "output_tokens": response.output_tokens},
         )
 
+        # Comprehensiveness: query coverage check
+        query_checker = QueryCoverageChecker(self.llm)
+        qc_result = await query_checker.check(kb.search_queries, kb.scope_document or "")
+        kb.comprehensiveness_checks.append(qc_result)
+
     async def search(self, kb: KnowledgeBase) -> None:
         """Node: Execute multi-source search."""
         from autoreview.search.aggregator import SearchAggregator
@@ -117,6 +129,33 @@ class PipelineNodes:
         kb.current_phase = PipelinePhase.SCREENING
         kb.add_audit_entry("screening", "complete", f"Screened to {len(kb.screened_papers)} papers")
 
+        # Comprehensiveness: coverage anomaly check
+        all_dbs = (
+            self.config.databases.get("primary", [])
+            + self.config.databases.get("secondary", [])
+            + self.config.databases.get("discovery", [])
+        )
+        anomaly_checker = CoverageAnomalyChecker()
+        anomaly_result = anomaly_checker.check(
+            kb.candidate_papers, kb.screened_papers, expected_sources=all_dbs,
+        )
+        kb.comprehensiveness_checks.append(anomaly_result)
+
+        # Comprehensiveness: borderline re-screening
+        rescreener = BorderlineRescreener(self.llm)
+        rescreen_result, promoted = await rescreener.rescreen(
+            screener.borderline_papers,
+            scope_document=kb.scope_document or "",
+            threshold=self.config.search.relevance_threshold,
+        )
+        kb.comprehensiveness_checks.append(rescreen_result)
+        if promoted:
+            kb.screened_papers.extend(promoted)
+            kb.add_audit_entry(
+                "screening", "borderline_promoted",
+                f"Promoted {len(promoted)} borderline papers",
+            )
+
     async def extraction(self, kb: KnowledgeBase) -> None:
         """Node: Extract structured information from papers."""
         extractor = PaperExtractor(
@@ -153,11 +192,17 @@ class PipelineNodes:
 
     async def gap_search(self, kb: KnowledgeBase) -> None:
         """Node: Gap-aware supplementary search (conditional)."""
+        # Store pre-gap state for revalidation
+        pre_gaps = list(kb.evidence_map.gaps) if kb.evidence_map and kb.evidence_map.gaps else []
+        pre_coverage = kb.evidence_map.coverage_score if kb.evidence_map else 0.0
+
         if not kb.evidence_map or not kb.evidence_map.gaps:
+            await self._run_benchmark_validation(kb)
             return
 
         major_gaps = [g for g in kb.evidence_map.gaps if g.severity == "major"]
         if not major_gaps:
+            await self._run_benchmark_validation(kb)
             return
 
         logger.info("gap_search.triggered", major_gaps=len(major_gaps))
@@ -184,6 +229,7 @@ class PipelineNodes:
                 pass
 
         if not sources:
+            await self._run_benchmark_validation(kb)
             return
 
         agg = SearchAggregator(sources=sources)
@@ -209,6 +255,36 @@ class PipelineNodes:
             "gap_search", "complete",
             f"Added {len(new_screened)} papers, {len(new_extractions)} extractions",
         )
+
+        # Comprehensiveness: post-gap re-validation
+        revalidator = PostGapRevalidator(self.llm)
+        reval_result = await revalidator.check(
+            kb.evidence_map.themes if kb.evidence_map else [],
+            kb.scope_document or "",
+            pre_gaps=pre_gaps,
+            pre_coverage=pre_coverage,
+        )
+        kb.comprehensiveness_checks.append(reval_result)
+
+        # Update evidence map with new coverage info
+        if kb.evidence_map and reval_result.metrics.get("post_coverage"):
+            kb.evidence_map.coverage_score = reval_result.metrics["post_coverage"]
+
+        await self._run_benchmark_validation(kb)
+
+    async def _run_benchmark_validation(self, kb: KnowledgeBase) -> None:
+        """Run benchmark validation check."""
+        pipeline_dois = set()
+        for p in kb.candidate_papers:
+            if p.doi:
+                pipeline_dois.add(p.doi.lower().strip())
+        for sp in kb.screened_papers:
+            if sp.paper.doi:
+                pipeline_dois.add(sp.paper.doi.lower().strip())
+
+        validator = BenchmarkValidator()
+        bench_result = await validator.check(kb.topic, pipeline_dois)
+        kb.comprehensiveness_checks.append(bench_result)
 
     async def outline(self, kb: KnowledgeBase) -> None:
         """Node: Generate and critique the outline."""
