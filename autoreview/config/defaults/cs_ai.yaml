@@ -1,0 +1,38 @@
+domain: cs_ai
+databases:
+  primary:
+    - semantic_scholar
+  secondary:
+    - openalex
+  discovery:
+    - perplexity
+search:
+  date_range: "2018-2025"
+  max_results_per_source: 500
+  relevance_threshold: 3
+  screening_batch_size: 20
+extraction:
+  domain_fields:
+    benchmark: true
+    metrics: true
+    model_architecture: true
+    dataset: true
+critique:
+  rubric_weights:
+    coverage: 0.20
+    synthesis: 0.25
+    accuracy: 0.20
+    balance: 0.15
+    narrative: 0.10
+    gaps: 0.10
+writing:
+  style: academic_cs
+  citation_format: apa
+outline:
+  required_sections:
+    - Introduction
+    - Background
+    - Methods and Approaches
+    - Comparative Analysis
+    - Discussion
+    - Open Problems and Future Directions
