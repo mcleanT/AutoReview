@@ -11,8 +11,13 @@ Assess the section on these dimensions (score each 0.0-1.0):
 - **connection_to_neighbors**: Does it connect to adjacent sections?
 - **completeness**: Does it cover what the outline promised?
 - **balance**: Are conflicting findings fairly presented?
+- **structural_variety**: Does the section use evidence-appropriate structure rather than \
+defaulting to a generic background → findings → limitations template?
+- **paragraph_cohesion**: Does each paragraph advance exactly one distinct claim, \
+opening with that claim rather than a citation or vague introduction?
 
-Flag any critical issues (paper-by-paper summary, missing citations, logical gaps).
+Flag any critical issues (paper-by-paper summary, missing citations, logical gaps, \
+formulaic structure, or paragraphs that are lists of findings dressed as prose).
 """
 
 HOLISTIC_CRITIQUE_SYSTEM_PROMPT = """\
@@ -25,6 +30,8 @@ Assess on these dimensions (score each 0.0-1.0):
 - **intro_conclusion_alignment**: Do the introduction and conclusion match in scope?
 - **balance**: Are all topics given appropriate coverage?
 - **completeness**: Does it cover the full scope of the review?
+- **prose_flow**: Does prose flow within paragraphs, across paragraph transitions, \
+and between sections? Are there abrupt shifts, choppy sentences, or weak connective tissue?
 
 Identify redundancy pairs (sections with overlapping content) and provide specific fixes.
 """

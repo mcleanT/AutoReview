@@ -10,6 +10,7 @@ from autoreview.extraction.models import PaperExtraction
 from autoreview.llm.prompts.outline import OutlineSection, ReviewOutline
 from autoreview.llm.prompts.writing import SECTION_WRITING_SYSTEM_PROMPT, build_section_writing_prompt
 from autoreview.models.base import AutoReviewModel
+from autoreview.models.narrative import NarrativePlan, SectionNarrativeDirective
 
 logger = structlog.get_logger()
 
@@ -95,6 +96,7 @@ class SectionWriter:
         evidence_map: EvidenceMap,
         preceding_text: str = "",
         following_text: str = "",
+        directive: SectionNarrativeDirective | None = None,
     ) -> SectionDraft:
         """Write a single section with full context."""
         outline_context = _format_outline_context(outline)
@@ -103,9 +105,22 @@ class SectionWriter:
 
         adjacent = ""
         if preceding_text:
-            adjacent += f"### Preceding Section\n{preceding_text[-2000:]}\n\n"
+            adjacent += f"### Preceding Section\n{preceding_text}\n\n"
         if following_text:
-            adjacent += f"### Following Section\n{following_text[:2000:]}"
+            adjacent += f"### Following Section\n{following_text[:500]}"
+
+        narrative_guidance = ""
+        if directive:
+            key_insights_text = "\n".join(f"  - {insight}" for insight in directive.key_insights)
+            narrative_guidance = (
+                f"## Narrative Guidance (soft hints — deviate if evidence warrants)\n"
+                f"**Role in paper**: {directive.narrative_role}\n"
+                f"**Central claim for this section**: {directive.central_claim}\n"
+                f"**Structural suggestion**: {directive.structural_suggestion}\n"
+                f"**Key insights to foreground**:\n{key_insights_text}\n"
+                f"**Opening transition hint**: {directive.transition_from_prev}\n"
+                f"**Closing transition hint**: {directive.transition_to_next}\n"
+            )
 
         prompt = build_section_writing_prompt(
             section_id=section.id,
@@ -115,12 +130,13 @@ class SectionWriter:
             relevant_extractions=relevant,
             synthesis_directives=directives,
             adjacent_text=adjacent,
+            narrative_guidance=narrative_guidance,
         )
 
         response = await self.llm.generate(
             prompt=prompt,
             system=SECTION_WRITING_SYSTEM_PROMPT,
-            temperature=0.3,
+            temperature=0.55,
         )
 
         citations = _extract_citations(response.content)
@@ -206,14 +222,22 @@ class SectionWriter:
         outline: ReviewOutline,
         extractions: dict[str, PaperExtraction],
         evidence_map: EvidenceMap,
+        narrative_plan: NarrativePlan | None = None,
     ) -> dict[str, SectionDraft]:
         """Write all sections sequentially with cross-section context."""
         drafts: dict[str, SectionDraft] = {}
         top_level = outline.sections  # Write top-level sections only (subsections included)
 
+        # Build directive lookup by section_id
+        directive_map: dict[str, SectionNarrativeDirective] = {}
+        if narrative_plan:
+            for d in narrative_plan.section_directives:
+                directive_map[d.section_id] = d
+
         for i, section in enumerate(top_level):
             preceding = drafts[top_level[i - 1].id].text if i > 0 else ""
             following = ""  # Not yet written
+            directive = directive_map.get(section.id)
 
             draft = await self.write_section(
                 section=section,
@@ -222,6 +246,7 @@ class SectionWriter:
                 evidence_map=evidence_map,
                 preceding_text=preceding,
                 following_text=following,
+                directive=directive,
             )
             drafts[section.id] = draft
 

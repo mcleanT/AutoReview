@@ -25,6 +25,7 @@ from autoreview.llm.prompts.outline import ReviewOutline
 from autoreview.models.knowledge_base import KnowledgeBase, PipelinePhase
 from autoreview.models.paper import CandidatePaper
 from autoreview.writing.assembler import DraftAssembler
+from autoreview.writing.narrative_architect import NarrativeArchitect
 from autoreview.writing.outliner import OutlineGenerator
 from autoreview.writing.section_writer import SectionWriter
 
@@ -328,13 +329,34 @@ class PipelineNodes:
         kb.current_phase = PipelinePhase.OUTLINE
         kb.add_audit_entry("outline", "complete", f"Sections: {len(review_outline.sections)}")
 
+    async def narrative_planning(self, kb: KnowledgeBase) -> None:
+        """Node: Plan narrative architecture before section writing."""
+        outline = ReviewOutline.model_validate(kb.outline)
+        architect = NarrativeArchitect(self.llm)
+
+        plan = await architect.plan(
+            outline=outline,
+            evidence_map=kb.evidence_map,
+            scope_document=kb.scope_document or "",
+        )
+
+        kb.narrative_plan = plan
+        kb.current_phase = PipelinePhase.NARRATIVE_PLANNING
+        kb.add_audit_entry(
+            "narrative_planning",
+            "complete",
+            f"Sections planned: {len(plan.section_directives)}",
+        )
+
     async def section_writing(self, kb: KnowledgeBase) -> None:
         """Node: Write and critique all sections."""
         outline = ReviewOutline.model_validate(kb.outline)
         writer = SectionWriter(self.llm)
         critic = SectionCritic(self.llm)
 
-        drafts = await writer.write_all_sections(outline, kb.extractions, kb.evidence_map)
+        drafts = await writer.write_all_sections(
+            outline, kb.extractions, kb.evidence_map, narrative_plan=kb.narrative_plan,
+        )
 
         # Critique each section
         for section_id, draft in drafts.items():

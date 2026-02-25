@@ -15,6 +15,7 @@ from autoreview.analysis.evidence_map import EvidenceMap
 from autoreview.critique.models import CritiqueReport
 from autoreview.extraction.models import PaperExtraction
 from autoreview.models.base import AutoReviewModel, TimestampedModel
+from autoreview.models.narrative import NarrativePlan
 from autoreview.models.paper import CandidatePaper, ScreenedPaper
 
 
@@ -28,6 +29,7 @@ class PipelinePhase(str, Enum):
     EXTRACTION = "extraction"
     CLUSTERING = "clustering"
     OUTLINE = "outline"
+    NARRATIVE_PLANNING = "narrative_planning"
     GAP_SEARCH = "gap_search"
     SECTION_WRITING = "section_writing"
     SECTION_CRITIQUE = "section_critique"
@@ -69,6 +71,7 @@ class KnowledgeBase(TimestampedModel):
     extractions: dict[str, PaperExtraction] = Field(default_factory=dict)
     evidence_map: EvidenceMap | None = None
     outline: Any = None  # Will be ReviewOutline, use Any to avoid circular import
+    narrative_plan: NarrativePlan | None = None
     section_drafts: dict[str, str] = Field(default_factory=dict)
     full_draft: str | None = None
     critique_history: list[CritiqueReport] = Field(default_factory=list)
