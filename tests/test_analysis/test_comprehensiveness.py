@@ -2,7 +2,52 @@ from __future__ import annotations
 
 import pytest
 
-from autoreview.analysis.comprehensiveness import CheckStatus, ComprehensiveCheckResult
+from autoreview.analysis.comprehensiveness import (
+    CheckStatus,
+    ComprehensiveCheckResult,
+    RemediationAction,
+)
+
+
+class TestRemediationAction:
+    def test_create_remediation_action(self):
+        action = RemediationAction(
+            action="expand_queries",
+            params={"uncovered_topics": ["neuroinflammation"]},
+            priority=2,
+        )
+        assert action.action == "expand_queries"
+        assert action.params["uncovered_topics"] == ["neuroinflammation"]
+        assert action.priority == 2
+
+    def test_default_priority(self):
+        action = RemediationAction(action="retry_gap_search", params={})
+        assert action.priority == 1
+
+    def test_check_result_with_remediation(self):
+        result = ComprehensiveCheckResult(
+            check_name="query_coverage",
+            status=CheckStatus.WARNING,
+            score=0.6,
+            details="Missing topics",
+            metrics={},
+            remediation=RemediationAction(
+                action="expand_queries",
+                params={"uncovered_topics": ["topic_a"]},
+            ),
+        )
+        assert result.remediation is not None
+        assert result.remediation.action == "expand_queries"
+
+    def test_check_result_without_remediation(self):
+        result = ComprehensiveCheckResult(
+            check_name="query_coverage",
+            status=CheckStatus.PASSED,
+            score=1.0,
+            details="All good",
+            metrics={},
+        )
+        assert result.remediation is None
 
 
 class TestComprehensiveCheckResult:

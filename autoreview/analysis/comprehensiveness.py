@@ -29,6 +29,14 @@ class CheckStatus(str, Enum):
     FAILED = "failed"
 
 
+class RemediationAction(AutoReviewModel):
+    """A prescribed remediation action for a failed check."""
+
+    action: str
+    params: dict[str, Any] = Field(default_factory=dict)
+    priority: int = 1
+
+
 class ComprehensiveCheckResult(AutoReviewModel):
     """Result of a single comprehensiveness check."""
 
@@ -37,6 +45,7 @@ class ComprehensiveCheckResult(AutoReviewModel):
     score: float = 0.0
     details: str = ""
     metrics: dict[str, Any] = Field(default_factory=dict)
+    remediation: RemediationAction | None = None
 
 
 class CoverageAnomalyChecker:
