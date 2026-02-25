@@ -29,3 +29,38 @@ Produce structured output with:
 - perplexity_questions: list of natural language discovery questions (2-3 questions)
 - scope_document: a detailed paragraph defining what this review should cover, its boundaries, expected sub-topics (at least 5), and what is explicitly out of scope
 """
+
+
+TARGETED_EXPANSION_SYSTEM_PROMPT = """\
+You are an expert research librarian. You previously generated search queries for a \
+literature review, but some sub-topics were not adequately covered. Generate additional \
+targeted queries to fill these specific gaps. Use different terminology, synonyms, and \
+broader formulations than your initial queries.
+"""
+
+
+def build_targeted_query_expansion_prompt(
+    uncovered_topics: list[str],
+    domain: str,
+    date_range: str = "2015-2025",
+) -> str:
+    """Build a prompt to generate queries for specific uncovered sub-topics."""
+    topics_list = "\n".join(f"- {t}" for t in uncovered_topics)
+    return f"""\
+The following sub-topics were NOT adequately covered by the initial search queries \
+and need additional targeted queries:
+
+**Uncovered Sub-Topics:**
+{topics_list}
+
+**Domain:** {domain}
+**Date range:** {date_range}
+
+For EACH uncovered sub-topic, generate:
+- pubmed_queries: 1-2 Boolean/MeSH queries targeting this specific sub-topic
+- semantic_scholar_queries: 1-2 semantic search queries
+- openalex_queries: 1-2 general academic queries
+
+Use different terminology than typical queries for these topics — try synonyms, \
+related concepts, and broader formulations to maximize discovery.
+"""
