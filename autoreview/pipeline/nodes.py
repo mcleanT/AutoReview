@@ -353,6 +353,123 @@ class PipelineNodes:
         kb.current_phase = PipelinePhase.SECTION_CRITIQUE
         kb.add_audit_entry("section_writing", "complete", f"Sections: {len(drafts)}")
 
+    async def passage_search(self, kb: KnowledgeBase) -> None:
+        """Node: Mine written sections for undercited claims and retrieve more papers."""
+        if not kb.section_drafts:
+            return
+
+        from autoreview.analysis.passage_miner import PassageMiner
+        from autoreview.search.aggregator import SearchAggregator
+
+        # 1. Mine sections for undercited claims
+        miner = PassageMiner(self.llm)
+        mining_results = await miner.mine_all_sections(kb.section_drafts, kb.extractions)
+
+        # 2. Collect targeted queries from high and medium priority claims
+        queries = miner.collect_queries(mining_results, priorities={"high", "medium"})
+        if not queries:
+            kb.current_phase = PipelinePhase.PASSAGE_SEARCH
+            kb.add_audit_entry("passage_search", "skipped", "No high/medium priority claims found")
+            return
+
+        # 3. Build queries dict for all databases
+        all_dbs = (
+            self.config.databases.get("primary", [])
+            + self.config.databases.get("secondary", [])
+            + self.config.databases.get("discovery", [])
+        )
+        queries_by_source: dict[str, list[str]] = {db: queries for db in all_dbs}
+
+        # 4. Search across all databases
+        sources = []
+        for db in all_dbs:
+            try:
+                if db == "pubmed":
+                    from autoreview.search.pubmed import PubMedSearch
+                    sources.append(PubMedSearch())
+                elif db == "semantic_scholar":
+                    from autoreview.search.semantic_scholar import SemanticScholarSearch
+                    sources.append(SemanticScholarSearch())
+                elif db == "openalex":
+                    from autoreview.search.openalex import OpenAlexSearch
+                    sources.append(OpenAlexSearch())
+                elif db == "perplexity":
+                    from autoreview.search.perplexity import PerplexitySearch
+                    sources.append(PerplexitySearch())
+            except Exception as e:
+                logger.warning("passage_search.source_init_failed", source=db, error=str(e))
+
+        new_papers: list[CandidatePaper] = []
+        if sources:
+            agg = SearchAggregator(sources=sources)
+            new_papers = await agg.search(queries_by_source, max_results_per_source=50)
+
+        # 5. Citation snowballing from top-10 most-cited S2 papers in corpus
+        try:
+            from autoreview.search.semantic_scholar import SemanticScholarSearch as S2
+            s2 = S2()
+            top_s2_ids = sorted(
+                [
+                    (p.external_ids.get("s2_id", ""), p.citation_count or 0)
+                    for p in kb.candidate_papers
+                    if p.external_ids.get("s2_id")
+                ],
+                key=lambda x: x[1],
+                reverse=True,
+            )[:10]
+            s2_ids = [pid for pid, _ in top_s2_ids if pid]
+            if s2_ids:
+                snowballed = await s2.snowball_references(s2_ids, limit_per_paper=20)
+                new_papers.extend(snowballed)
+        except Exception as e:
+            logger.warning("passage_search.snowball_failed", error=str(e))
+
+        # 6. Screen and extract new papers
+        screener = PaperScreener(self.llm)
+        new_screened = await screener.screen(
+            new_papers,
+            scope_document=kb.scope_document or "",
+            threshold=self.config.search.relevance_threshold,
+        )
+
+        extractor = PaperExtractor(
+            self.llm,
+            domain_fields=self.config.extraction.domain_fields,
+        )
+        new_extractions = await extractor.extract_batch(
+            [sp.paper for sp in new_screened]
+        )
+
+        # 7. Merge into KB
+        kb.candidate_papers.extend(new_papers)
+        kb.screened_papers.extend(new_screened)
+        kb.extractions.update(new_extractions)
+
+        # 8. Revise sections that gained >= 2 new relevant papers
+        from autoreview.writing.section_writer import SectionWriter
+        writer = SectionWriter(self.llm)
+        revised_count = 0
+
+        for result in mining_results:
+            if result.undercited_claims and len(new_extractions) >= 2:
+                draft = await writer.revise_section_with_evidence(
+                    section_id=result.section_id,
+                    section_title=result.section_id,
+                    existing_text=kb.section_drafts.get(result.section_id, ""),
+                    new_paper_ids=list(new_extractions.keys())[:10],
+                    extractions=kb.extractions,
+                )
+                kb.section_drafts[result.section_id] = draft.text
+                revised_count += 1
+
+        kb.current_phase = PipelinePhase.PASSAGE_SEARCH
+        kb.add_audit_entry(
+            "passage_search",
+            "complete",
+            f"Queries: {len(queries)}, New screened: {len(new_screened)}, "
+            f"New extractions: {len(new_extractions)}, Sections revised: {revised_count}",
+        )
+
     async def assembly(self, kb: KnowledgeBase) -> None:
         """Node: Assemble draft and run holistic critique."""
         outline = ReviewOutline.model_validate(kb.outline)
