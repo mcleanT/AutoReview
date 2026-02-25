@@ -200,24 +200,42 @@ class PipelineNodes:
             await self._run_benchmark_validation(kb)
             return
 
-        major_gaps = [g for g in kb.evidence_map.gaps if g.severity == "major"]
-        if not major_gaps:
+        coverage_score = kb.evidence_map.coverage_score if kb.evidence_map else 0.0
+        coverage_threshold = getattr(self.config.search, "min_coverage_threshold", 0.75)
+        all_gaps = kb.evidence_map.gaps
+        major_gaps = [g for g in all_gaps if g.severity == "major"]
+
+        if not all_gaps and coverage_score >= coverage_threshold:
             await self._run_benchmark_validation(kb)
             return
 
-        logger.info("gap_search.triggered", major_gaps=len(major_gaps))
+        if not major_gaps and coverage_score >= coverage_threshold:
+            await self._run_benchmark_validation(kb)
+            return
+
+        gaps_to_search = all_gaps  # Include minor gaps in query generation
+        logger.info(
+            "gap_search.triggered",
+            major_gaps=len(major_gaps),
+            total_gaps=len(gaps_to_search),
+            coverage_score=coverage_score,
+        )
 
         # Generate queries from gaps
+        gap_dbs = (
+            self.config.databases.get("primary", [])
+            + self.config.databases.get("secondary", [])
+        )
         gap_queries: dict[str, list[str]] = {}
-        for db in self.config.databases.get("primary", []):
+        for db in gap_dbs:
             gap_queries[db] = []
-            for gap in major_gaps:
+            for gap in gaps_to_search:
                 gap_queries[db].extend(gap.suggested_queries)
 
         # Re-use search infrastructure
         from autoreview.search.aggregator import SearchAggregator
         sources = []
-        for db in self.config.databases.get("primary", []):
+        for db in gap_dbs:
             try:
                 if db == "semantic_scholar":
                     from autoreview.search.semantic_scholar import SemanticScholarSearch
@@ -225,6 +243,9 @@ class PipelineNodes:
                 elif db == "pubmed":
                     from autoreview.search.pubmed import PubMedSearch
                     sources.append(PubMedSearch())
+                elif db == "openalex":
+                    from autoreview.search.openalex import OpenAlexSearch
+                    sources.append(OpenAlexSearch())
             except Exception:
                 pass
 
@@ -233,7 +254,7 @@ class PipelineNodes:
             return
 
         agg = SearchAggregator(sources=sources)
-        new_papers = await agg.search(gap_queries, max_results_per_source=100)
+        new_papers = await agg.search(gap_queries, max_results_per_source=200)
 
         # Screen and extract new papers
         screener = PaperScreener(self.llm)
