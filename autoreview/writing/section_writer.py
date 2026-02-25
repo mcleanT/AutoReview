@@ -144,6 +144,63 @@ class SectionWriter:
 
         return draft
 
+
+    async def revise_section_with_evidence(
+        self,
+        section_id: str,
+        section_title: str,
+        existing_text: str,
+        new_paper_ids: list[str],
+        extractions: dict[str, PaperExtraction],
+    ) -> SectionDraft:
+        """Revise an existing section to incorporate newly found papers.
+
+        Args:
+            section_id: Section identifier.
+            section_title: Human-readable section title.
+            existing_text: The current draft text.
+            new_paper_ids: IDs of newly retrieved papers to incorporate.
+            extractions: All available extractions (including new papers).
+
+        Returns:
+            Revised SectionDraft with new evidence incorporated.
+        """
+        new_evidence = _format_extractions(new_paper_ids, extractions)
+
+        prompt = (
+            f"## Section: {section_title}\n\n"
+            f"## Existing Draft\n{existing_text}\n\n"
+            f"## Newly Available Evidence\n{new_evidence}\n\n"
+            "Revise the section to incorporate the new evidence where it strengthens "
+            "the text. Add [@paper_id] citations for new claims. Preserve the existing "
+            "structure and arguments. Do not pad with unnecessary content."
+        )
+
+        response = await self.llm.generate(
+            prompt=prompt,
+            system=SECTION_WRITING_SYSTEM_PROMPT,
+            temperature=0.3,
+        )
+
+        citations = _extract_citations(response.content)
+
+        draft = SectionDraft(
+            section_id=section_id,
+            title=section_title,
+            text=response.content,
+            citations_used=citations,
+        )
+
+        logger.info(
+            "section_writer.revised",
+            section_id=section_id,
+            new_papers=len(new_paper_ids),
+            citations=len(citations),
+            input_tokens=response.input_tokens,
+            output_tokens=response.output_tokens,
+        )
+        return draft
+
     async def write_all_sections(
         self,
         outline: ReviewOutline,
