@@ -89,9 +89,18 @@ class PassageMiner:
             self.mine_section(section_id=sid, section_text=text, extractions=extractions)
             for sid, text in sections.items()
         ]
-        results = await asyncio.gather(*tasks)
-        logger.info("passage_miner.all_complete", sections=len(results))
-        return list(results)
+        raw = await asyncio.gather(*tasks, return_exceptions=True)
+        valid: list[SectionMiningResult] = []
+        failed = 0
+        for i, r in enumerate(raw):
+            if isinstance(r, Exception):
+                section_id = list(sections.keys())[i]
+                logger.warning("passage_miner.section_failed", section_id=section_id, error=str(r))
+                failed += 1
+            else:
+                valid.append(r)
+        logger.info("passage_miner.all_complete", sections=len(valid), failed=failed)
+        return valid
 
     def collect_queries(
         self,

@@ -1,6 +1,8 @@
 """Prompt models and builders for passage-based evidence mining."""
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import Field
 
 from autoreview.models.base import AutoReviewModel
@@ -12,7 +14,7 @@ class UndercitedClaim(AutoReviewModel):
     evidence_weakness: str
     current_citations: list[str] = Field(default_factory=list)
     suggested_queries: list[str] = Field(default_factory=list)
-    priority: str  # "high", "medium", or "low"
+    priority: Literal["high", "medium", "low"]
 
 
 class SectionMiningResult(AutoReviewModel):

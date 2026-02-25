@@ -450,17 +450,35 @@ class PipelineNodes:
         writer = SectionWriter(self.llm)
         revised_count = 0
 
+        # Build title lookup from outline if available
+        section_titles: dict[str, str] = {}
+        if kb.outline:
+            from autoreview.llm.prompts.outline import ReviewOutline
+            try:
+                outline_obj = ReviewOutline.model_validate(kb.outline)
+                section_titles = {s.id: s.title for s in outline_obj.flatten()}
+            except Exception:
+                pass
+
         for result in mining_results:
             if result.undercited_claims and len(new_extractions) >= 2:
-                draft = await writer.revise_section_with_evidence(
-                    section_id=result.section_id,
-                    section_title=result.section_id,
-                    existing_text=kb.section_drafts.get(result.section_id, ""),
-                    new_paper_ids=list(new_extractions.keys())[:10],
-                    extractions=kb.extractions,
-                )
-                kb.section_drafts[result.section_id] = draft.text
-                revised_count += 1
+                section_title = section_titles.get(result.section_id, result.section_id)
+                try:
+                    draft = await writer.revise_section_with_evidence(
+                        section_id=result.section_id,
+                        section_title=section_title,
+                        existing_text=kb.section_drafts.get(result.section_id, ""),
+                        new_paper_ids=list(new_extractions.keys())[:10],
+                        extractions=kb.extractions,
+                    )
+                    kb.section_drafts[result.section_id] = draft.text
+                    revised_count += 1
+                except Exception as e:
+                    logger.warning(
+                        "passage_search.revision_failed",
+                        section_id=result.section_id,
+                        error=str(e),
+                    )
 
         kb.current_phase = PipelinePhase.PASSAGE_SEARCH
         kb.add_audit_entry(
