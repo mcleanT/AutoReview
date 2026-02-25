@@ -403,6 +403,81 @@ class TestBenchmarkValidator:
         assert result.status == "passed"
 
 
+class TestChecksPopulateRemediation:
+    async def test_query_coverage_warning_has_remediation(self):
+        llm = MockQueryCoverageLLM(uncovered=["Viral metagenomics"])
+        checker = QueryCoverageChecker(llm)
+        result = await checker.check({"pubmed": ["q1"]}, "scope")
+        assert result.remediation is not None
+        assert result.remediation.action == "expand_queries"
+        assert "Viral metagenomics" in result.remediation.params["uncovered_topics"]
+
+    async def test_query_coverage_pass_no_remediation(self):
+        llm = MockQueryCoverageLLM(uncovered=[])
+        checker = QueryCoverageChecker(llm)
+        result = await checker.check({"pubmed": ["q1"]}, "scope")
+        assert result.remediation is None
+
+    def test_anomaly_high_rejection_has_remediation(self):
+        candidates = _make_candidates(100)
+        screened = _make_screened(candidates[:10])
+        checker = CoverageAnomalyChecker()
+        result = checker.check(candidates, screened)
+        assert result.remediation is not None
+        assert result.remediation.action == "lower_screening_threshold"
+
+    def test_anomaly_zero_source_has_remediation(self):
+        candidates = _make_candidates(50, "pubmed")
+        screened = _make_screened(candidates[:30])
+        checker = CoverageAnomalyChecker()
+        result = checker.check(
+            candidates, screened,
+            expected_sources=["pubmed", "semantic_scholar"],
+        )
+        assert result.remediation is not None
+        assert result.remediation.action == "expand_queries"
+        assert "semantic_scholar" in result.remediation.params.get("failed_sources", [])
+
+    def test_anomaly_pass_no_remediation(self):
+        candidates = _make_candidates(100, "pubmed") + _make_candidates(100, "semantic_scholar")
+        screened = _make_screened(candidates[:50])
+        checker = CoverageAnomalyChecker()
+        result = checker.check(candidates, screened)
+        assert result.remediation is None
+
+    async def test_post_gap_remaining_gaps_has_remediation(self):
+        llm = MockPostGapLLM(post_score=0.65, remaining_major=2)
+        revalidator = PostGapRevalidator(llm)
+        themes = [Theme(name="T1", description="D", paper_ids=["p1"])]
+        pre_gaps = [
+            IdentifiedGap(
+                expected_topic="Topic A",
+                current_coverage="None",
+                severity=GapSeverity.MAJOR,
+                suggested_queries=["old query"],
+            )
+        ]
+        result = await revalidator.check(themes, "scope", pre_gaps, pre_coverage=0.6)
+        assert result.remediation is not None
+        assert result.remediation.action == "retry_gap_search"
+        assert len(result.remediation.params["remaining_gaps"]) == 2
+
+    async def test_post_gap_filled_no_remediation(self):
+        llm = MockPostGapLLM(post_score=0.9, remaining_major=0)
+        revalidator = PostGapRevalidator(llm)
+        themes = [Theme(name="T1", description="D", paper_ids=["p1"])]
+        pre_gaps = [
+            IdentifiedGap(
+                expected_topic="Topic A",
+                current_coverage="None",
+                severity=GapSeverity.MAJOR,
+                suggested_queries=[],
+            )
+        ]
+        result = await revalidator.check(themes, "scope", pre_gaps, pre_coverage=0.6)
+        assert result.remediation is None
+
+
 class TestComprehensiveCheckIntegration:
     def test_knowledge_base_has_field(self):
         from autoreview.models.knowledge_base import KnowledgeBase

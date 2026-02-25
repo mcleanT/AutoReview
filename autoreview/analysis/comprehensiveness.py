@@ -108,6 +108,24 @@ class CoverageAnomalyChecker:
         details = "; ".join(warnings) if warnings else "All coverage metrics within normal range"
         score = 1.0 - (len(warnings) * 0.25)  # rough penalty per warning
 
+        # Determine remediation action
+        remediation = None
+        if warnings:
+            failed_sources = [
+                src for src in (expected_sources or [])
+                if source_counts.get(src, 0) == 0
+            ]
+            if rejection_rate > self.max_rejection_rate:
+                remediation = RemediationAction(
+                    action="lower_screening_threshold",
+                    params={"current_rejection_rate": round(rejection_rate, 3)},
+                )
+            elif failed_sources:
+                remediation = RemediationAction(
+                    action="expand_queries",
+                    params={"failed_sources": failed_sources},
+                )
+
         logger.info(
             "comprehensiveness.coverage_anomaly",
             status=status,
@@ -129,6 +147,7 @@ class CoverageAnomalyChecker:
                 "no_abstract_rate": round(no_abstract_rate, 3),
                 "source_counts": source_counts,
             },
+            remediation=remediation,
         )
 
 
@@ -155,9 +174,14 @@ class QueryCoverageChecker:
         total = len(result.sub_topic_assessments)
         covered = total - len(uncovered)
 
+        remediation = None
         if uncovered:
             status = CheckStatus.WARNING
             details = f"Queries miss {len(uncovered)} sub-topic(s): {', '.join(uncovered)}"
+            remediation = RemediationAction(
+                action="expand_queries",
+                params={"uncovered_topics": uncovered},
+            )
         else:
             status = CheckStatus.PASSED
             details = f"All {total} sub-topics covered by queries"
@@ -182,6 +206,7 @@ class QueryCoverageChecker:
                 "sub_topics_total": total,
                 "uncovered_topics": uncovered,
             },
+            remediation=remediation,
         )
 
 
@@ -268,12 +293,26 @@ class PostGapRevalidator:
         remaining_major = [g for g in post_gaps if g.severity == "major"]
         pre_major = [g for g in pre_gaps if g.severity == "major"]
 
+        remediation = None
         if remaining_major:
             status = CheckStatus.WARNING
             unfilled = [g.expected_topic for g in remaining_major]
             details = (
                 f"Coverage improved {pre_coverage:.2f} -> {post_coverage:.2f}, "
                 f"but {len(remaining_major)} major gap(s) remain: {', '.join(unfilled)}"
+            )
+            remediation = RemediationAction(
+                action="retry_gap_search",
+                params={
+                    "remaining_gaps": [
+                        {
+                            "expected_topic": g.expected_topic,
+                            "current_coverage": g.current_coverage,
+                            "severity": str(g.severity),
+                        }
+                        for g in remaining_major
+                    ],
+                },
             )
         else:
             status = CheckStatus.PASSED
@@ -302,6 +341,7 @@ class PostGapRevalidator:
                 "remaining_major_gaps": len(remaining_major),
                 "remaining_gap_topics": [g.expected_topic for g in remaining_major],
             },
+            remediation=remediation,
         )
 
 
