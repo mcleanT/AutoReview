@@ -29,6 +29,7 @@ class TestBuildPipeline:
             "gap_search",
             "outline",
             "section_writing",
+            "passage_search",
             "assembly",
             "final_polish",
         ]
@@ -43,7 +44,7 @@ class TestBuildPipeline:
         assert len(order) > 0
         # All nodes should appear in the sorted order
         flat = [name for level in order for name in level]
-        assert len(flat) == 10
+        assert len(flat) == 11
 
     def test_pipeline_dependencies(self):
         """Check key dependency relationships."""
@@ -64,3 +65,10 @@ class TestBuildPipeline:
             dag, nodes = build_pipeline(llm=None, config=config)
             assert dag is not None
             assert nodes.config.domain == domain
+
+    def test_passage_search_dependencies(self):
+        """passage_search must depend on section_writing; assembly must depend on passage_search."""
+        config = load_config(domain="biomedical")
+        dag, _ = build_pipeline(llm=None, config=config)
+        assert "section_writing" in dag.nodes["passage_search"].dependencies
+        assert "passage_search" in dag.nodes["assembly"].dependencies

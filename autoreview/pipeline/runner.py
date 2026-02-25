@@ -30,7 +30,8 @@ def build_pipeline(llm: Any, config: DomainConfig) -> tuple[DAGRunner, PipelineN
     dag.add_node("gap_search", nodes.gap_search, dependencies=["clustering"])
     dag.add_node("outline", nodes.outline, dependencies=["gap_search"])
     dag.add_node("section_writing", nodes.section_writing, dependencies=["outline"])
-    dag.add_node("assembly", nodes.assembly, dependencies=["section_writing"])
+    dag.add_node("passage_search", nodes.passage_search, dependencies=["section_writing"])
+    dag.add_node("assembly", nodes.assembly, dependencies=["passage_search"])
     dag.add_node("final_polish", nodes.final_polish, dependencies=["assembly"])
 
     return dag, nodes
