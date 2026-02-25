@@ -207,3 +207,8 @@ class TestKnowledgeBase:
             assert loaded.topic == "gut microbiome in neurodegenerative diseases"
             assert len(loaded.candidate_papers) == 1
             assert loaded.current_phase == PipelinePhase.SEARCH
+
+
+def test_pipeline_phase_has_passage_search():
+    from autoreview.models.knowledge_base import PipelinePhase
+    assert PipelinePhase.PASSAGE_SEARCH == "passage_search"

@@ -31,6 +31,7 @@ class PipelinePhase(str, Enum):
     GAP_SEARCH = "gap_search"
     SECTION_WRITING = "section_writing"
     SECTION_CRITIQUE = "section_critique"
+    PASSAGE_SEARCH = "passage_search"
     HOLISTIC_CRITIQUE = "holistic_critique"
     FINAL_POLISH = "final_polish"
     COMPLETE = "complete"
