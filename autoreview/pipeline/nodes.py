@@ -1,6 +1,7 @@
 """Pipeline node definitions — wires DAG nodes to implementation modules."""
 from __future__ import annotations
 
+import os
 from typing import Any
 
 import structlog
@@ -13,6 +14,7 @@ from autoreview.analysis.comprehensiveness import (
     PostGapRevalidator,
     QueryCoverageChecker,
 )
+from autoreview.analysis.contextual_enricher import ContextualEnricher
 from autoreview.analysis.evidence_map import GapSeverity
 from autoreview.analysis.gap_detector import GapDetector
 from autoreview.config.models import DomainConfig
@@ -22,8 +24,10 @@ from autoreview.critique.revision import outline_critique_loop
 from autoreview.critique.section_critic import SectionCritic, section_critique_loop
 from autoreview.extraction.extractor import PaperExtractor, PaperScreener
 from autoreview.llm.prompts.outline import ReviewOutline
+from autoreview.models.enrichment import CorpusExpansionResult, SectionEnrichment
 from autoreview.models.knowledge_base import KnowledgeBase, PipelinePhase
 from autoreview.models.paper import CandidatePaper
+from autoreview.validation.citation_validator import CitationValidator
 from autoreview.writing.assembler import DraftAssembler
 from autoreview.writing.narrative_architect import NarrativeArchitect
 from autoreview.writing.outliner import OutlineGenerator
@@ -38,6 +42,8 @@ class PipelineNodes:
     def __init__(self, llm: Any, config: DomainConfig) -> None:
         self.llm = llm
         self.config = config
+        from autoreview.pipeline.remediation import RemediationDispatcher
+        self.dispatcher = RemediationDispatcher(llm, config)
 
     async def query_expansion(self, kb: KnowledgeBase) -> None:
         """Node: Generate search queries and scope document."""
@@ -82,6 +88,16 @@ class PipelineNodes:
         query_checker = QueryCoverageChecker(self.llm)
         qc_result = await query_checker.check(kb.search_queries, kb.scope_document or "")
         kb.comprehensiveness_checks.append(qc_result)
+
+        # Auto-remediate: expand queries for uncovered topics
+        if qc_result.remediation:
+            await self.dispatcher.execute(kb, qc_result)
+            # Re-check after expansion
+            qc_recheck = await query_checker.check(kb.search_queries, kb.scope_document or "")
+            kb.comprehensiveness_checks.append(qc_recheck)
+            # Second round if still warning
+            if qc_recheck.remediation:
+                await self.dispatcher.execute(kb, qc_recheck)
 
     async def search(self, kb: KnowledgeBase) -> None:
         """Node: Execute multi-source search."""
@@ -142,6 +158,10 @@ class PipelineNodes:
         )
         kb.comprehensiveness_checks.append(anomaly_result)
 
+        # Auto-remediate: lower threshold or expand queries
+        if anomaly_result.remediation:
+            await self.dispatcher.execute(kb, anomaly_result)
+
         # Comprehensiveness: borderline re-screening
         rescreener = BorderlineRescreener(self.llm)
         rescreen_result, promoted = await rescreener.rescreen(
@@ -157,6 +177,31 @@ class PipelineNodes:
                 f"Promoted {len(promoted)} borderline papers",
             )
 
+    async def full_text_retrieval(self, kb: KnowledgeBase) -> None:
+        """Node: Retrieve open-access full text via Unpaywall (opt-in)."""
+        email = os.environ.get("UNPAYWALL_EMAIL")
+        if not email:
+            kb.current_phase = PipelinePhase.FULL_TEXT_RETRIEVAL
+            kb.add_audit_entry(
+                "full_text_retrieval", "skipped",
+                "UNPAYWALL_EMAIL not set — full-text retrieval disabled",
+            )
+            return
+
+        from autoreview.search.unpaywall import UnpaywallClient
+
+        client = UnpaywallClient(email=email)
+        try:
+            attempted, enriched = await client.enrich_papers(kb.screened_papers)
+        finally:
+            await client.close()
+
+        kb.current_phase = PipelinePhase.FULL_TEXT_RETRIEVAL
+        kb.add_audit_entry(
+            "full_text_retrieval", "complete",
+            f"Attempted: {attempted}, Enriched: {enriched}",
+        )
+
     async def extraction(self, kb: KnowledgeBase) -> None:
         """Node: Extract structured information from papers."""
         extractor = PaperExtractor(
@@ -170,7 +215,9 @@ class PipelineNodes:
         kb.add_audit_entry("extraction", "complete", f"Extracted {len(kb.extractions)} papers")
 
     async def clustering(self, kb: KnowledgeBase) -> None:
-        """Node: Thematic clustering + contradiction detection + gap analysis."""
+        """Node: Thematic clustering + contradiction detection + gap analysis + evidence chains."""
+        from autoreview.analysis.evidence_chains import EvidenceChainBuilder
+
         clusterer = ThematicClusterer(self.llm)
         gap_detector = GapDetector(self.llm)
 
@@ -184,11 +231,34 @@ class PipelineNodes:
         evidence_map.gaps = gaps
         evidence_map.coverage_score = coverage
 
+        # Build evidence chains and enrich contradictions
+        chain_builder = EvidenceChainBuilder(self.llm)
+        paper_years: dict[str, int] = {}
+        for sp in kb.screened_papers:
+            if sp.paper.year:
+                paper_years[sp.paper.id] = sp.paper.year
+
+        chains = await chain_builder.build_chains(
+            kb.extractions, evidence_map.themes, paper_years,
+        )
+        evidence_map.evidence_chains = [c.model_dump() for c in chains]
+
+        enriched = await chain_builder.enrich_contradictions(
+            evidence_map.contradictions, kb.extractions,
+        )
+        evidence_map.enriched_contradictions = [e.model_dump() for e in enriched]
+
+        progressions = chain_builder.detect_temporal_progressions(
+            list(kb.extractions.keys()), kb.extractions, paper_years,
+        )
+        evidence_map.temporal_progressions = [t.model_dump() for t in progressions]
+
         kb.evidence_map = evidence_map
         kb.current_phase = PipelinePhase.CLUSTERING
         kb.add_audit_entry(
             "clustering", "complete",
-            f"Themes: {len(evidence_map.themes)}, Gaps: {len(gaps)}, Coverage: {coverage:.2f}",
+            f"Themes: {len(evidence_map.themes)}, Gaps: {len(gaps)}, "
+            f"Coverage: {coverage:.2f}, Chains: {len(chains)}",
         )
 
     async def gap_search(self, kb: KnowledgeBase) -> None:
@@ -288,6 +358,28 @@ class PipelineNodes:
         )
         kb.comprehensiveness_checks.append(reval_result)
 
+        # Auto-remediate: retry gap search for remaining gaps
+        if reval_result.remediation:
+            # Pass previous queries so retry uses different terms
+            prev_queries = []
+            for gap in pre_gaps:
+                prev_queries.extend(gap.suggested_queries)
+            reval_result.remediation.params["previous_queries"] = prev_queries
+
+            await self.dispatcher.execute(kb, reval_result)
+            # Re-validate after retry
+            reval_recheck = await revalidator.check(
+                kb.evidence_map.themes if kb.evidence_map else [],
+                kb.scope_document or "",
+                pre_gaps=pre_gaps,
+                pre_coverage=pre_coverage,
+            )
+            kb.comprehensiveness_checks.append(reval_recheck)
+            # Second round if still warning
+            if reval_recheck.remediation:
+                reval_recheck.remediation.params["previous_queries"] = prev_queries
+                await self.dispatcher.execute(kb, reval_recheck)
+
         # Update evidence map with new coverage info
         if kb.evidence_map and reval_result.metrics.get("post_coverage"):
             kb.evidence_map.coverage_score = reval_result.metrics["post_coverage"]
@@ -348,6 +440,330 @@ class PipelineNodes:
             f"Sections planned: {len(plan.section_directives)}",
         )
 
+    async def contextual_enrichment(self, kb: KnowledgeBase) -> None:
+        """Node: Retrieve adjacent contextual material to broaden sections."""
+        outline = ReviewOutline.model_validate(kb.outline)
+        enricher = ContextualEnricher(self.llm)
+
+        # Generate enrichment queries for each section
+        queries_map = await enricher.generate_queries(
+            outline=outline,
+            narrative_plan=kb.narrative_plan,
+            scope_document=kb.scope_document or "",
+        )
+
+        # Initialize search sources
+        from autoreview.search.aggregator import SearchAggregator
+
+        all_dbs = (
+            self.config.databases.get("primary", [])
+            + self.config.databases.get("secondary", [])
+            + self.config.databases.get("discovery", [])
+        )
+        sources = []
+        for db in all_dbs:
+            try:
+                if db == "pubmed":
+                    from autoreview.search.pubmed import PubMedSearch
+                    sources.append(PubMedSearch())
+                elif db == "semantic_scholar":
+                    from autoreview.search.semantic_scholar import SemanticScholarSearch
+                    sources.append(SemanticScholarSearch())
+                elif db == "openalex":
+                    from autoreview.search.openalex import OpenAlexSearch
+                    sources.append(OpenAlexSearch())
+                elif db == "perplexity":
+                    from autoreview.search.perplexity import PerplexitySearch
+                    sources.append(PerplexitySearch())
+            except Exception as e:
+                logger.warning("contextual_enrichment.source_init_failed", source=db, error=str(e))
+
+        if not sources:
+            kb.current_phase = PipelinePhase.CONTEXTUAL_ENRICHMENT
+            kb.add_audit_entry("contextual_enrichment", "skipped", "No search sources available")
+            return
+
+        # Collect existing DOIs for deduplication
+        existing_dois: set[str] = set()
+        for p in kb.candidate_papers:
+            if p.doi:
+                existing_dois.add(p.doi.lower().strip())
+
+        screener = PaperScreener(self.llm)
+
+        for section_id, section_queries in queries_map.items():
+            if not section_queries.queries:
+                continue
+
+            # Search using enrichment queries
+            query_strings = [q.query for q in section_queries.queries]
+            queries_by_source: dict[str, list[str]] = {db: query_strings for db in all_dbs}
+
+            agg = SearchAggregator(sources=sources)
+            new_papers = await agg.search(queries_by_source, max_results_per_source=50)
+
+            # Deduplicate against existing corpus
+            unique_papers = [
+                p for p in new_papers
+                if not p.doi or p.doi.lower().strip() not in existing_dois
+            ]
+
+            # Screen with lower threshold (2 instead of 3) — we want adjacent material
+            screened = await screener.screen(
+                unique_papers,
+                scope_document=kb.scope_document or "",
+                threshold=2,
+            )
+
+            # Take top 5 screened papers per section
+            top_papers = [sp.paper for sp in screened[:5]]
+
+            # Extract contextual information
+            section = outline.get_section(section_id)
+            section_title = section.title if section else section_queries.section_title
+            section_desc = section.description if section else ""
+
+            extractions = await enricher.extract_contextual_batch(
+                papers=top_papers,
+                section_title=section_title,
+                section_description=section_desc,
+            )
+
+            kb.contextual_enrichment[section_id] = SectionEnrichment(
+                section_id=section_id,
+                section_title=section_title,
+                queries_generated=section_queries.queries,
+                papers_found=len(new_papers),
+                papers_screened=len(screened),
+                contextual_extractions=extractions,
+            )
+
+            # Track new DOIs
+            for p in unique_papers:
+                if p.doi:
+                    existing_dois.add(p.doi.lower().strip())
+
+        kb.current_phase = PipelinePhase.CONTEXTUAL_ENRICHMENT
+        kb.add_audit_entry(
+            "contextual_enrichment",
+            "complete",
+            f"Sections enriched: {len(kb.contextual_enrichment)}, "
+            f"Total extractions: {sum(len(e.contextual_extractions) for e in kb.contextual_enrichment.values())}",
+        )
+
+    async def corpus_expansion(self, kb: KnowledgeBase) -> None:
+        """Node: Expand corpus with primary research papers informed by enrichment insights."""
+        # Guard: skip if no enrichment data
+        if not kb.contextual_enrichment:
+            kb.current_phase = PipelinePhase.CORPUS_EXPANSION
+            kb.add_audit_entry("corpus_expansion", "skipped", "No contextual enrichment data")
+            return
+
+        # Check that at least one section has contextual extractions
+        has_extractions = any(
+            e.contextual_extractions for e in kb.contextual_enrichment.values()
+        )
+        if not has_extractions:
+            kb.current_phase = PipelinePhase.CORPUS_EXPANSION
+            kb.add_audit_entry(
+                "corpus_expansion", "skipped", "Enrichment exists but no contextual extractions",
+            )
+            return
+
+        from autoreview.llm.prompts.corpus_expansion import (
+            CORPUS_EXPANSION_SYSTEM_PROMPT,
+            CorpusExpansionQueryResult,
+            build_corpus_expansion_query_prompt,
+        )
+        from autoreview.search.aggregator import SearchAggregator
+
+        outline = ReviewOutline.model_validate(kb.outline)
+
+        # 1. Collect insights and generate queries per section
+        all_queries: list[str] = []
+        query_to_sections: dict[str, list[str]] = {}
+        section_query_counts: dict[str, int] = {}
+
+        for section_id, enrichment in kb.contextual_enrichment.items():
+            if not enrichment.contextual_extractions:
+                continue
+
+            # Aggregate key_concepts and cross_field_connections (deduplicated)
+            key_concepts: list[str] = []
+            cross_field_connections: list[str] = []
+            seen_concepts: set[str] = set()
+            seen_connections: set[str] = set()
+
+            for ext in enrichment.contextual_extractions:
+                for c in ext.key_concepts:
+                    if c.lower() not in seen_concepts:
+                        seen_concepts.add(c.lower())
+                        key_concepts.append(c)
+                for c in ext.cross_field_connections:
+                    if c.lower() not in seen_connections:
+                        seen_connections.add(c.lower())
+                        cross_field_connections.append(c)
+
+            # Get existing paper_ids for this section from outline
+            section = outline.get_section(section_id)
+            existing_paper_ids = section.paper_ids if section else []
+
+            prompt = build_corpus_expansion_query_prompt(
+                section_id=section_id,
+                section_title=enrichment.section_title,
+                section_description=section.description if section else "",
+                key_concepts=key_concepts,
+                cross_field_connections=cross_field_connections,
+                existing_paper_ids=existing_paper_ids,
+                scope_document=kb.scope_document or "",
+            )
+
+            response = await self.llm.generate_structured(
+                prompt=prompt,
+                response_model=CorpusExpansionQueryResult,
+                system=CORPUS_EXPANSION_SYSTEM_PROMPT,
+            )
+            result: CorpusExpansionQueryResult = response.parsed
+
+            section_query_counts[section_id] = len(result.queries)
+            for q in result.queries:
+                query_str = q.query
+                all_queries.append(query_str)
+                query_to_sections.setdefault(query_str, []).append(section_id)
+
+            logger.info(
+                "corpus_expansion.queries_generated",
+                section_id=section_id,
+                query_count=len(result.queries),
+            )
+
+        if not all_queries:
+            kb.current_phase = PipelinePhase.CORPUS_EXPANSION
+            kb.add_audit_entry("corpus_expansion", "skipped", "No queries generated")
+            return
+
+        # 2. Consolidated search across all sources
+        all_dbs = (
+            self.config.databases.get("primary", [])
+            + self.config.databases.get("secondary", [])
+            + self.config.databases.get("discovery", [])
+        )
+        sources = []
+        for db in all_dbs:
+            try:
+                if db == "pubmed":
+                    from autoreview.search.pubmed import PubMedSearch
+                    sources.append(PubMedSearch())
+                elif db == "semantic_scholar":
+                    from autoreview.search.semantic_scholar import SemanticScholarSearch
+                    sources.append(SemanticScholarSearch())
+                elif db == "openalex":
+                    from autoreview.search.openalex import OpenAlexSearch
+                    sources.append(OpenAlexSearch())
+                elif db == "perplexity":
+                    from autoreview.search.perplexity import PerplexitySearch
+                    sources.append(PerplexitySearch())
+            except Exception as e:
+                logger.warning("corpus_expansion.source_init_failed", source=db, error=str(e))
+
+        if not sources:
+            kb.current_phase = PipelinePhase.CORPUS_EXPANSION
+            kb.add_audit_entry("corpus_expansion", "skipped", "No search sources available")
+            return
+
+        # Deduplicate queries
+        unique_queries = list(dict.fromkeys(all_queries))
+        queries_by_source: dict[str, list[str]] = {db: unique_queries for db in all_dbs}
+
+        agg = SearchAggregator(sources=sources)
+        new_papers = await agg.search(queries_by_source, max_results_per_source=30)
+
+        # 3. Deduplicate against existing corpus by DOI
+        existing_dois: set[str] = set()
+        for p in kb.candidate_papers:
+            if p.doi:
+                existing_dois.add(p.doi.lower().strip())
+
+        unique_papers = [
+            p for p in new_papers
+            if not p.doi or p.doi.lower().strip() not in existing_dois
+        ]
+
+        # 4. Screen at standard threshold — these are evidence papers
+        screener = PaperScreener(self.llm)
+        new_screened = await screener.screen(
+            unique_papers,
+            scope_document=kb.scope_document or "",
+            threshold=self.config.search.relevance_threshold,
+        )
+
+        # 5. Full extraction
+        extractor = PaperExtractor(
+            self.llm,
+            domain_fields=self.config.extraction.domain_fields,
+            max_concurrent=self.config.extraction.max_concurrent,
+        )
+        new_papers_list = [sp.paper for sp in new_screened]
+        new_extractions = await extractor.extract_batch(new_papers_list)
+
+        # 6. Merge into KB
+        kb.candidate_papers.extend(unique_papers)
+        kb.screened_papers.extend(new_screened)
+        kb.extractions.update(new_extractions)
+
+        # 7. Assign new paper IDs to outline sections
+        new_paper_ids = list(new_extractions.keys())
+        section_new_papers: dict[str, list[str]] = {}
+
+        for query_str, section_ids in query_to_sections.items():
+            for sid in section_ids:
+                section_new_papers.setdefault(sid, []).extend(new_paper_ids)
+
+        # Deduplicate per section and update outline
+        outline_dict = kb.outline
+        if outline_dict and new_paper_ids:
+            outline_obj = ReviewOutline.model_validate(outline_dict)
+            for sid, pids in section_new_papers.items():
+                section = outline_obj.get_section(sid)
+                if section:
+                    existing_set = set(section.paper_ids)
+                    for pid in pids:
+                        if pid not in existing_set:
+                            section.paper_ids.append(pid)
+                            existing_set.add(pid)
+            kb.outline = outline_obj.model_dump()
+
+        # 8. Track results per section
+        for section_id, enrichment in kb.contextual_enrichment.items():
+            section = outline.get_section(section_id)
+            section_pids = section_new_papers.get(section_id, [])
+            # Deduplicate
+            seen: set[str] = set()
+            unique_pids: list[str] = []
+            for pid in section_pids:
+                if pid not in seen:
+                    seen.add(pid)
+                    unique_pids.append(pid)
+
+            kb.corpus_expansion_results[section_id] = CorpusExpansionResult(
+                section_id=section_id,
+                section_title=enrichment.section_title,
+                queries_generated=section_query_counts.get(section_id, 0),
+                papers_found=len(new_papers),
+                papers_screened=len(new_screened),
+                papers_extracted=len(new_extractions),
+                new_paper_ids=unique_pids,
+            )
+
+        # 9. Update phase and audit
+        kb.current_phase = PipelinePhase.CORPUS_EXPANSION
+        kb.add_audit_entry(
+            "corpus_expansion",
+            "complete",
+            f"Queries: {len(unique_queries)}, Found: {len(new_papers)}, "
+            f"Screened: {len(new_screened)}, Extracted: {len(new_extractions)}",
+        )
+
     async def section_writing(self, kb: KnowledgeBase) -> None:
         """Node: Write and critique all sections."""
         outline = ReviewOutline.model_validate(kb.outline)
@@ -355,11 +771,22 @@ class PipelineNodes:
         critic = SectionCritic(self.llm)
 
         drafts = await writer.write_all_sections(
-            outline, kb.extractions, kb.evidence_map, narrative_plan=kb.narrative_plan,
+            outline, kb.extractions, kb.evidence_map,
+            narrative_plan=kb.narrative_plan,
+            contextual_enrichment=kb.contextual_enrichment or None,
         )
 
-        # Critique each section
+        # Validate citations and critique each section
+        citation_validator = CitationValidator()
         for section_id, draft in drafts.items():
+            # Run citation validation before critique
+            section_obj = outline.get_section(section_id)
+            section_paper_ids = section_obj.paper_ids if section_obj else []
+            cv_report = citation_validator.validate_section(
+                draft.text, section_paper_ids, kb.extractions,
+            )
+            cv_issues = CitationValidator.to_critique_issues(cv_report)
+
             final_draft, critiques = await section_critique_loop(
                 llm=self.llm,
                 critic=critic,
@@ -367,6 +794,7 @@ class PipelineNodes:
                 outline=outline,
                 max_cycles=self.config.critique.max_revision_cycles,
                 threshold=self.config.critique.score_threshold,
+                extra_issues=cv_issues,
             )
             drafts[section_id] = final_draft
             kb.critique_history.extend(critiques)
@@ -523,6 +951,11 @@ class PipelineNodes:
         assembler = DraftAssembler()
         full_draft = assembler.assemble(outline, section_drafts)
 
+        # Citation validation on full draft
+        citation_validator = CitationValidator()
+        cv_report = citation_validator.validate_full_draft(full_draft, kb.extractions)
+        cv_issues = CitationValidator.to_critique_issues(cv_report)
+
         # Holistic critique loop
         critic = HolisticCritic(self.llm)
         final_draft, critiques = await holistic_critique_loop(
@@ -533,6 +966,7 @@ class PipelineNodes:
             max_cycles=self.config.critique.max_revision_cycles,
             threshold=self.config.critique.score_threshold,
             convergence_delta=self.config.critique.convergence_delta,
+            extra_issues=cv_issues,
         )
 
         kb.full_draft = final_draft

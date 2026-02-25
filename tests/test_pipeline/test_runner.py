@@ -92,6 +92,16 @@ class TestBuildPipeline:
         assert "passage_search" in dag.nodes["assembly"].dependencies
 
 
+class TestPipelineNodesHaveDispatcher:
+    def test_nodes_have_dispatcher(self):
+        from autoreview.pipeline.nodes import PipelineNodes
+
+        config = load_config(domain="biomedical")
+        nodes = PipelineNodes(llm=None, config=config)
+        assert hasattr(nodes, "dispatcher")
+        assert nodes.dispatcher is not None
+
+
 class TestSearchConfig:
     def test_remediation_config_defaults(self):
         from autoreview.config.models import SearchConfig
