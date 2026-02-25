@@ -153,5 +153,41 @@ def inspect(
         typer.echo(f"Total tokens: {tokens['input_tokens']:,} input, {tokens['output_tokens']:,} output")
 
 
+@app.command()
+def evaluate(
+    generated: str = typer.Argument(..., help="Path to generated review Markdown file"),
+    reference: str = typer.Argument(..., help="Path to reference PDF file"),
+    output_dir: str = typer.Option("output/evaluations", "--output-dir", "-o", help="Directory for evaluation outputs"),
+    model: Optional[str] = typer.Option(None, "--model", "-m", help="Override LLM model"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
+) -> None:
+    """Evaluate a generated review against a published reference PDF."""
+    _setup_logging(verbose)
+
+    from autoreview.config import load_config
+    from autoreview.llm.claude import ClaudeLLMProvider
+    from autoreview.evaluation.evaluator import run_evaluation
+
+    config = load_config(overrides={"llm": {"model": model}} if model else None)
+    llm = ClaudeLLMProvider(model=config.llm.model)
+
+    typer.echo(f"Evaluating: {generated}")
+    typer.echo(f"Against: {reference}")
+
+    result = asyncio.run(run_evaluation(
+        generated_path=Path(generated),
+        reference_path=Path(reference),
+        output_dir=Path(output_dir),
+        llm=llm,
+    ))
+
+    typer.echo(f"\nOverall score: {result.overall_score:.2f}")
+    typer.echo(f"  Citation recall:   {result.citation_score.recall:.1%}")
+    typer.echo(f"  Synthesis depth:   {result.synthesis_score.generated_score:.1f}/5 (ref: {result.synthesis_score.reference_score:.1f})")
+    typer.echo(f"  Topical coverage:  {result.topic_coverage.generated_coverage:.1%}")
+    typer.echo(f"  Writing quality:   {result.writing_quality.generated_score:.1f}/5 (ref: {result.writing_quality.reference_score:.1f})")
+    typer.echo(f"\nReport saved to: {output_dir}/")
+
+
 if __name__ == "__main__":
     app()
