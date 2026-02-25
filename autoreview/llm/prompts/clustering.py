@@ -138,3 +138,41 @@ sub-topics have insufficient evidence. Rate each gap as "major" (critical to the
 or "minor" (nice to have). Suggest targeted search queries to fill each gap. \
 Provide a coverage_score from 0.0 (no coverage) to 1.0 (complete coverage).
 """
+
+
+RETRY_GAP_SEARCH_SYSTEM_PROMPT = """\
+You are an expert research librarian. A literature review pipeline identified gaps in \
+evidence coverage and searched for papers to fill them, but some gaps remain unfilled. \
+The previous queries did not return sufficient results. Generate NEW queries using \
+alternative terminology, synonyms, broader formulations, and related concepts.
+"""
+
+
+def build_retry_gap_queries_prompt(
+    remaining_gaps: list[dict],
+    previous_queries: list[str],
+) -> str:
+    """Build a prompt to generate retry queries for unfilled gaps."""
+    gaps_text = []
+    for gap in remaining_gaps:
+        topic = gap.get("expected_topic", "Unknown")
+        coverage = gap.get("current_coverage", "None")
+        gaps_text.append(f"- **{topic}**: {coverage}")
+    gaps_block = "\n".join(gaps_text)
+
+    prev_block = "\n".join(f"- {q}" for q in previous_queries)
+
+    return f"""\
+The following gaps in evidence coverage remain unfilled after an initial search attempt:
+
+**Remaining Gaps:**
+{gaps_block}
+
+**Previous Queries That Were Insufficient:**
+{prev_block}
+
+Generate NEW search queries for each remaining gap. You MUST use different and alternative \
+terminology from the previous queries listed above — try synonyms, related concepts, \
+broader or narrower formulations, and cross-disciplinary terms. For each gap, produce \
+3-5 queries suitable for academic search engines.
+"""
