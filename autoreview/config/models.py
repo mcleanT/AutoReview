@@ -12,6 +12,9 @@ class SearchConfig(BaseModel):
     max_results_per_source: int = 500
     relevance_threshold: int = 3
     screening_batch_size: int = 20
+    max_query_expansion_rounds: int = 2
+    max_gap_search_rounds: int = 2
+    min_coverage_threshold: float = 0.75
 
 
 class ExtractionConfig(BaseModel):

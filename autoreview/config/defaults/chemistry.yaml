@@ -12,6 +12,9 @@ search:
   max_results_per_source: 400
   relevance_threshold: 3
   screening_batch_size: 20
+  max_query_expansion_rounds: 2
+  max_gap_search_rounds: 2
+  min_coverage_threshold: 0.75
 extraction:
   domain_fields:
     reaction_type: true

@@ -24,10 +24,14 @@ class TestBuildPipeline:
             "query_expansion",
             "search",
             "screening",
+            "full_text_retrieval",
             "extraction",
             "clustering",
             "gap_search",
             "outline",
+            "narrative_planning",
+            "contextual_enrichment",
+            "corpus_expansion",
             "section_writing",
             "passage_search",
             "assembly",
@@ -44,7 +48,7 @@ class TestBuildPipeline:
         assert len(order) > 0
         # All nodes should appear in the sorted order
         flat = [name for level in order for name in level]
-        assert len(flat) == 11
+        assert len(flat) == 15
 
     def test_pipeline_dependencies(self):
         """Check key dependency relationships."""
@@ -66,9 +70,32 @@ class TestBuildPipeline:
             assert dag is not None
             assert nodes.config.domain == domain
 
+    def test_corpus_expansion_dependencies(self):
+        """corpus_expansion depends on contextual_enrichment; section_writing depends on corpus_expansion."""
+        config = load_config(domain="biomedical")
+        dag, _ = build_pipeline(llm=None, config=config)
+        assert "contextual_enrichment" in dag.nodes["corpus_expansion"].dependencies
+        assert "corpus_expansion" in dag.nodes["section_writing"].dependencies
+
+    def test_full_text_retrieval_dependencies(self):
+        """full_text_retrieval depends on screening; extraction depends on full_text_retrieval."""
+        config = load_config(domain="biomedical")
+        dag, _ = build_pipeline(llm=None, config=config)
+        assert "screening" in dag.nodes["full_text_retrieval"].dependencies
+        assert "full_text_retrieval" in dag.nodes["extraction"].dependencies
+
     def test_passage_search_dependencies(self):
         """passage_search must depend on section_writing; assembly must depend on passage_search."""
         config = load_config(domain="biomedical")
         dag, _ = build_pipeline(llm=None, config=config)
         assert "section_writing" in dag.nodes["passage_search"].dependencies
         assert "passage_search" in dag.nodes["assembly"].dependencies
+
+
+class TestSearchConfig:
+    def test_remediation_config_defaults(self):
+        from autoreview.config.models import SearchConfig
+        config = SearchConfig()
+        assert config.max_query_expansion_rounds == 2
+        assert config.max_gap_search_rounds == 2
+        assert config.min_coverage_threshold == 0.75
