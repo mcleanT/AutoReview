@@ -126,3 +126,76 @@ class SemanticScholarSearch:
             except (httpx.HTTPStatusError, httpx.RequestError) as e:
                 logger.warning("s2.details_error", paper_id=paper_id, error=str(e))
                 return None
+
+    async def get_references(
+        self,
+        paper_id: str,
+        limit: int = 50,
+    ) -> list[CandidatePaper]:
+        """Retrieve papers cited by a given paper (backward snowballing).
+
+        Args:
+            paper_id: Semantic Scholar paper ID.
+            limit: Maximum references to return.
+
+        Returns:
+            List of CandidatePapers found in the reference list.
+        """
+        await self._limiter.acquire()
+        async with httpx.AsyncClient(timeout=30.0, headers=self._headers) as client:
+            try:
+                resp = await client.get(
+                    f"{S2_API_BASE}/paper/{paper_id}/references",
+                    params={"fields": f"citedPaper.{S2_FIELDS}", "limit": limit},
+                )
+                resp.raise_for_status()
+                data = resp.json()
+            except (httpx.HTTPStatusError, httpx.RequestError) as e:
+                logger.warning("s2.references_error", paper_id=paper_id, error=str(e))
+                return []
+
+        papers: list[CandidatePaper] = []
+        for item in data.get("data", []):
+            cited = item.get("citedPaper")
+            if not cited:
+                continue
+            paper = self._parse_paper(cited)
+            if paper:
+                papers.append(paper)
+        return papers
+
+    async def snowball_references(
+        self,
+        paper_ids: list[str],
+        limit_per_paper: int = 30,
+    ) -> list[CandidatePaper]:
+        """Collect references from multiple papers concurrently (backward snowballing).
+
+        Args:
+            paper_ids: Semantic Scholar paper IDs of source papers.
+            limit_per_paper: Max references to retrieve per source paper.
+
+        Returns:
+            Deduplicated list of CandidatePapers from all reference lists.
+        """
+        tasks = [self.get_references(pid, limit=limit_per_paper) for pid in paper_ids]
+        results = await asyncio.gather(*tasks)
+
+        seen_dois: set[str] = set()
+        seen_titles: set[str] = set()
+        unique: list[CandidatePaper] = []
+        for batch in results:
+            for paper in batch:
+                key = (paper.doi or "").lower().strip()
+                title_key = paper.title.lower().strip()[:60]
+                if key and key in seen_dois:
+                    continue
+                if title_key in seen_titles:
+                    continue
+                if key:
+                    seen_dois.add(key)
+                seen_titles.add(title_key)
+                unique.append(paper)
+
+        logger.info("s2.snowball_complete", source_papers=len(paper_ids), new_papers=len(unique))
+        return unique
