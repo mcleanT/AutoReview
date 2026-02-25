@@ -35,11 +35,8 @@ def extract_text_from_pdf(pdf_path: Path) -> str:
     return full_text
 
 
-def extract_bibliography_lines(text: str) -> list[str]:
-    match = _REF_HEADER.search(text)
-    if not match:
-        return []
-    ref_text = text[match.end():]
+def _parse_ref_lines(ref_text: str) -> list[str]:
+    """Parse numbered reference lines from text that begins right after a reference header."""
     lines: list[str] = []
     for raw in ref_text.splitlines():
         line = raw.strip()
@@ -52,6 +49,13 @@ def extract_bibliography_lines(text: str) -> list[str]:
         ):
             lines[-1] += " " + line  # continuation of previous ref
     return lines
+
+
+def extract_bibliography_lines(text: str) -> list[str]:
+    match = _REF_HEADER.search(text)
+    if not match:
+        return []
+    return _parse_ref_lines(text[match.end():])
 
 
 def normalize_title_for_matching(title: str) -> str:
