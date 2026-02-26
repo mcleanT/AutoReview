@@ -28,26 +28,26 @@ from autoreview.search.rate_limiter import RateLimiter
 logger = structlog.get_logger()
 
 # Reuse the PDF / HTML text extraction helpers from the unpaywall module.
-from autoreview.search.unpaywall import _extract_text_from_html, _extract_text_from_pdf
+from autoreview.search.unpaywall import _extract_text_from_pdf
 
 _MAX_TEXT_CHARS = 200_000
 
 # Elsevier DOI prefixes (covers ScienceDirect, Cell Press, Lancet, etc.)
 _ELSEVIER_DOI_PREFIXES = (
-    "10.1016/",   # ScienceDirect, Cell, Lancet, etc.
-    "10.1006/",   # Academic Press (legacy Elsevier)
-    "10.1053/",   # Elsevier subsidiary
+    "10.1016/",  # ScienceDirect, Cell, Lancet, etc.
+    "10.1006/",  # Academic Press (legacy Elsevier)
+    "10.1053/",  # Elsevier subsidiary
 )
 
 # Springer Nature DOI prefixes (covers Nature, Springer, BMC, Palgrave, etc.)
 _SPRINGER_NATURE_DOI_PREFIXES = (
-    "10.1038/",   # Nature Publishing Group
-    "10.1007/",   # Springer journals & books
-    "10.1186/",   # BioMed Central
-    "10.1057/",   # Palgrave Macmillan
-    "10.1140/",   # European Physical Journal
-    "10.1365/",   # Springer Fachmedien
-    "10.1251/",   # Springer Japan
+    "10.1038/",  # Nature Publishing Group
+    "10.1007/",  # Springer journals & books
+    "10.1186/",  # BioMed Central
+    "10.1057/",  # Palgrave Macmillan
+    "10.1140/",  # European Physical Journal
+    "10.1365/",  # Springer Fachmedien
+    "10.1251/",  # Springer Japan
 )
 
 # ---------------------------------------------------------------------------
@@ -70,11 +70,7 @@ def _extract_text_from_elsevier_xml(xml_text: str) -> str | None:
             return None
 
         # Elsevier XML uses <ce:sections> for the article body
-        body = (
-            soup.find("ce:sections")
-            or soup.find("body")
-            or soup.find("rawtext")
-        )
+        body = soup.find("ce:sections") or soup.find("body") or soup.find("rawtext")
         if body:
             text = body.get_text(separator="\n", strip=True)
             if text and len(text) > 100:
@@ -99,6 +95,7 @@ def _extract_text_from_elsevier_xml(xml_text: str) -> str | None:
 # ---------------------------------------------------------------------------
 # JATS XML text extraction (for PubMed Central)
 # ---------------------------------------------------------------------------
+
 
 def _extract_text_from_jats_xml(xml_bytes: bytes) -> str | None:
     """Extract body text from JATS/NLM XML returned by PMC efetch."""
@@ -146,6 +143,7 @@ def _extract_text_from_jats_xml(xml_bytes: bytes) -> str | None:
 # FullTextResolver
 # ---------------------------------------------------------------------------
 
+
 class FullTextResolver:
     """Resolve full text for screened papers using multiple sources.
 
@@ -171,12 +169,8 @@ class FullTextResolver:
         self._entrez_email = entrez_email or os.environ.get(
             "ENTREZ_EMAIL", "autoreview@example.com"
         )
-        self._elsevier_api_key = elsevier_api_key or os.environ.get(
-            "ELSEVIER_API_KEY"
-        )
-        self._springer_api_key = springer_api_key or os.environ.get(
-            "SPRINGER_API_KEY"
-        )
+        self._elsevier_api_key = elsevier_api_key or os.environ.get("ELSEVIER_API_KEY")
+        self._springer_api_key = springer_api_key or os.environ.get("SPRINGER_API_KEY")
         self._client = httpx.AsyncClient(
             timeout=30.0,
             follow_redirects=True,
@@ -558,7 +552,7 @@ class FullTextResolver:
             return None
 
     # ------------------------------------------------------------------
-    # Strategy 7: Unpaywall (existing, as fallback)
+    # Strategy 7: Unpaywall (DOI lookup, tries all available URLs)
     # ------------------------------------------------------------------
 
     async def _try_unpaywall(self, paper: CandidatePaper) -> str | None:
@@ -572,6 +566,6 @@ class FullTextResolver:
             self._unpaywall = UnpaywallClient(email=self._unpaywall_email)
 
         result = await self._unpaywall.lookup_doi(paper.doi)
-        if not result or not result.is_oa:
+        if not result or (not result.pdf_url and not result.html_url):
             return None
         return await self._unpaywall.fetch_full_text(result)

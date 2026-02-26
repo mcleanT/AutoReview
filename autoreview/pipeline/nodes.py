@@ -295,13 +295,15 @@ class PipelineNodes:
         )
 
     async def full_text_retrieval(self, kb: KnowledgeBase) -> None:
-        """Node: Retrieve open-access full text from multiple sources.
+        """Node: Retrieve full text from multiple sources.
 
         Chains strategies in priority order:
-          1. Semantic Scholar openAccessPdf
-          2. PubMed Central (JATS XML via PMCID)
-          3. arXiv / bioRxiv / medRxiv PDFs
-          4. Unpaywall (DOI-based OA lookup, requires UNPAYWALL_EMAIL)
+          1. Elsevier ScienceDirect API (requires ELSEVIER_API_KEY)
+          2. Semantic Scholar openAccessPdf
+          3. PubMed Central (JATS XML via PMCID)
+          4. arXiv / bioRxiv / medRxiv PDFs
+          5. Unpaywall (DOI-based lookup, tries all available URLs)
+          6. Springer Nature API (requires SPRINGER_API_KEY)
         """
         from autoreview.search.full_text import FullTextResolver
 
@@ -317,13 +319,30 @@ class PipelineNodes:
             await resolver.close()
 
         total_enriched = sum(source_counts.values())
+        total_papers = len(kb.screened_papers)
+        abstract_only = sum(
+            1 for sp in kb.screened_papers if not sp.paper.full_text and sp.paper.abstract
+        )
+        title_only = sum(
+            1 for sp in kb.screened_papers if not sp.paper.full_text and not sp.paper.abstract
+        )
         details = ", ".join(f"{k}: {v}" for k, v in sorted(source_counts.items()))
+
+        logger.info(
+            "full_text.coverage",
+            total=total_papers,
+            full_text=total_enriched,
+            abstract_only=abstract_only,
+            title_only=title_only,
+            pct_full_text=round(total_enriched / total_papers * 100, 1) if total_papers else 0,
+        )
 
         kb.current_phase = PipelinePhase.FULL_TEXT_RETRIEVAL
         kb.add_audit_entry(
             "full_text_retrieval",
             "complete",
-            f"Enriched {total_enriched}/{len(kb.screened_papers)} papers ({details})",
+            f"Enriched {total_enriched}/{total_papers} papers with full text "
+            f"({details}); {abstract_only} abstract-only, {title_only} title-only",
         )
 
     async def extraction(self, kb: KnowledgeBase) -> None:

@@ -1,19 +1,17 @@
 """Full-text retrieval via the Unpaywall API.
 
-Looks up open-access availability by DOI and fetches full text from
-available PDF or HTML sources. Gracefully degrades when papers are
-not open access or when text extraction fails.
+Looks up DOIs on Unpaywall and fetches full text from any available
+PDF or HTML location. Tries all available URLs regardless of the
+is_oa flag, since Unpaywall can return usable locations (bronze,
+author manuscripts, institutional copies) even for non-OA papers.
 """
 
 from __future__ import annotations
 
 import asyncio
-import os
-from typing import Any
 
 import httpx
 import structlog
-from pydantic import Field
 
 from autoreview.models.base import AutoReviewModel
 from autoreview.models.paper import ScreenedPaper
@@ -36,7 +34,7 @@ class UnpaywallResult(AutoReviewModel):
 
 
 class UnpaywallClient:
-    """Client for retrieving open-access full text via Unpaywall."""
+    """Client for retrieving full text via Unpaywall."""
 
     def __init__(
         self,
@@ -77,9 +75,12 @@ class UnpaywallClient:
     async def fetch_full_text(self, result: UnpaywallResult) -> str | None:
         """Fetch and extract full text from an Unpaywall result.
 
-        Tries PDF first, then HTML. Returns None if extraction fails.
+        Tries PDF first, then HTML. Attempts all available URLs regardless
+        of is_oa status — Unpaywall can surface bronze, green, or
+        institutional copies that are accessible even for non-OA papers.
+        Returns None if no URLs are available or extraction fails.
         """
-        if not result.is_oa:
+        if not result.pdf_url and not result.html_url:
             return None
 
         # Try PDF first
@@ -133,7 +134,7 @@ class UnpaywallClient:
                 return False  # Already has full text
 
             result = await self.lookup_doi(sp.paper.doi)
-            if not result or not result.is_oa:
+            if not result or (not result.pdf_url and not result.html_url):
                 return False
 
             text = await self.fetch_full_text(result)
