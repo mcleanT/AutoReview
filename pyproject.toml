@@ -39,6 +39,7 @@ dev = [
     "ruff>=0.8",
     "mypy>=1.13",
     "respx>=0.21",
+    "mcp[cli]",
 ]
 all = [
     "autoreview[output,dev]",

@@ -1,4 +1,5 @@
 """Pipeline node definitions — wires DAG nodes to implementation modules."""
+
 from __future__ import annotations
 
 import os
@@ -15,7 +16,6 @@ from autoreview.analysis.comprehensiveness import (
     QueryCoverageChecker,
 )
 from autoreview.analysis.contextual_enricher import ContextualEnricher
-
 from autoreview.analysis.gap_detector import GapDetector
 from autoreview.config.models import DomainConfig
 from autoreview.critique.holistic_critic import HolisticCritic, holistic_critique_loop
@@ -110,7 +110,8 @@ class _GlobalTokenAccumulator:
         self.total_output += output_tokens
         if self.budget and (self.total_input + self.total_output) > self.budget:
             raise TokenBudgetExceeded(
-                self.total_input + self.total_output, self.budget,
+                self.total_input + self.total_output,
+                self.budget,
             )
 
     @property
@@ -128,6 +129,7 @@ class PipelineNodes:
             budget=config.llm.token_budget,
         )
         from autoreview.pipeline.remediation import RemediationDispatcher
+
         self.dispatcher = RemediationDispatcher(llm, config)
 
     async def query_expansion(self, kb: KnowledgeBase) -> None:
@@ -135,11 +137,14 @@ class PipelineNodes:
         from autoreview.llm.prompts.query_expansion import build_query_expansion_prompt
 
         prompt = build_query_expansion_prompt(
-            kb.topic, kb.domain, self.config.search.date_range,
+            kb.topic,
+            kb.domain,
+            self.config.search.date_range,
         )
 
-        from autoreview.models.base import AutoReviewModel
         from pydantic import Field
+
+        from autoreview.models.base import AutoReviewModel
 
         class QueryExpansionResult(AutoReviewModel):
             pubmed_queries: list[str] = Field(default_factory=list)
@@ -164,7 +169,8 @@ class PipelineNodes:
         kb.scope_document = result.scope_document
         kb.current_phase = PipelinePhase.QUERY_EXPANSION
         kb.add_audit_entry(
-            "query_expansion", "generated",
+            "query_expansion",
+            "generated",
             f"Queries: {sum(len(v) for v in kb.search_queries.values())}",
             {"input_tokens": response.input_tokens, "output_tokens": response.output_tokens},
         )
@@ -199,15 +205,19 @@ class PipelineNodes:
             try:
                 if db == "pubmed":
                     from autoreview.search.pubmed import PubMedSearch
+
                     sources.append(PubMedSearch())
                 elif db == "semantic_scholar":
                     from autoreview.search.semantic_scholar import SemanticScholarSearch
+
                     sources.append(SemanticScholarSearch())
                 elif db == "openalex":
                     from autoreview.search.openalex import OpenAlexSearch
+
                     sources.append(OpenAlexSearch())
                 elif db == "perplexity":
                     from autoreview.search.perplexity import PerplexitySearch
+
                     sources.append(PerplexitySearch())
             except Exception as e:
                 logger.warning("search.source_init_failed", source=db, error=str(e))
@@ -229,6 +239,18 @@ class PipelineNodes:
             scope_document=kb.scope_document or "",
             threshold=self.config.search.relevance_threshold,
         )
+
+        # Log threshold and score distribution
+        from collections import Counter
+
+        score_dist = Counter(sp.relevance_score for sp in kb.screened_papers)
+        logger.info(
+            "screening.score_distribution",
+            threshold=self.config.search.relevance_threshold,
+            total_passed=len(kb.screened_papers),
+            distribution=dict(sorted(score_dist.items())),
+        )
+
         kb.current_phase = PipelinePhase.SCREENING
 
         # Comprehensiveness: coverage anomaly check
@@ -239,7 +261,9 @@ class PipelineNodes:
         )
         anomaly_checker = CoverageAnomalyChecker()
         anomaly_result = anomaly_checker.check(
-            kb.candidate_papers, kb.screened_papers, expected_sources=all_dbs,
+            kb.candidate_papers,
+            kb.screened_papers,
+            expected_sources=all_dbs,
         )
         kb.comprehensiveness_checks.append(anomaly_result)
 
@@ -258,12 +282,14 @@ class PipelineNodes:
         if promoted:
             kb.screened_papers.extend(promoted)
             kb.add_audit_entry(
-                "screening", "borderline_promoted",
+                "screening",
+                "borderline_promoted",
                 f"Promoted {len(promoted)} borderline papers",
             )
 
         kb.add_audit_entry(
-            "screening", "complete",
+            "screening",
+            "complete",
             f"Screened to {len(kb.screened_papers)} papers",
             tracker.usage,
         )
@@ -301,7 +327,7 @@ class PipelineNodes:
         )
 
     async def extraction(self, kb: KnowledgeBase) -> None:
-        """Node: Extract structured information from papers."""
+        """Node: Extract structured information from papers in batches."""
         tracker = _TokenAccumulator(self.llm, self._global_tokens)
         extractor = PaperExtractor(
             tracker,
@@ -309,12 +335,28 @@ class PipelineNodes:
             max_concurrent=self.config.extraction.max_concurrent,
             full_text_max_chars=self.config.extraction.full_text_max_chars,
         )
+        batch_size = self.config.extraction.extraction_batch_size
         papers = [sp.paper for sp in kb.screened_papers]
-        kb.extractions = await extractor.extract_batch(papers)
+        total_batches = (len(papers) + batch_size - 1) // batch_size
+
+        for i in range(0, len(papers), batch_size):
+            batch = papers[i : i + batch_size]
+            batch_num = i // batch_size + 1
+            logger.info(
+                "extraction.batch_start",
+                batch=batch_num,
+                total=total_batches,
+                papers=len(batch),
+            )
+            results = await extractor.extract_batch(batch)
+            kb.extractions.update(results)
+            kb.save_snapshot(f"extraction_batch_{batch_num}")
+
         kb.current_phase = PipelinePhase.EXTRACTION
         kb.add_audit_entry(
-            "extraction", "complete",
-            f"Extracted {len(kb.extractions)} papers",
+            "extraction",
+            "complete",
+            f"Extracted {len(kb.extractions)} papers in {total_batches} batches",
             tracker.usage,
         )
 
@@ -327,11 +369,13 @@ class PipelineNodes:
         gap_detector = GapDetector(tracker)
 
         evidence_map = await clusterer.build_evidence_map(
-            kb.extractions, kb.scope_document or "",
+            kb.extractions,
+            kb.scope_document or "",
         )
 
         gaps, coverage = await gap_detector.detect_gaps(
-            evidence_map.themes, kb.scope_document or "",
+            evidence_map.themes,
+            kb.scope_document or "",
         )
         evidence_map.gaps = gaps
         evidence_map.coverage_score = coverage
@@ -344,24 +388,30 @@ class PipelineNodes:
                 paper_years[sp.paper.id] = sp.paper.year
 
         chains = await chain_builder.build_chains(
-            kb.extractions, evidence_map.themes, paper_years,
+            kb.extractions,
+            evidence_map.themes,
+            paper_years,
         )
         evidence_map.evidence_chains = [c.model_dump() for c in chains]
 
         enriched = await chain_builder.enrich_contradictions(
-            evidence_map.contradictions, kb.extractions,
+            evidence_map.contradictions,
+            kb.extractions,
         )
         evidence_map.enriched_contradictions = [e.model_dump() for e in enriched]
 
         progressions = chain_builder.detect_temporal_progressions(
-            list(kb.extractions.keys()), kb.extractions, paper_years,
+            list(kb.extractions.keys()),
+            kb.extractions,
+            paper_years,
         )
         evidence_map.temporal_progressions = [t.model_dump() for t in progressions]
 
         kb.evidence_map = evidence_map
         kb.current_phase = PipelinePhase.CLUSTERING
         kb.add_audit_entry(
-            "clustering", "complete",
+            "clustering",
+            "complete",
             f"Themes: {len(evidence_map.themes)}, Gaps: {len(gaps)}, "
             f"Coverage: {coverage:.2f}, Chains: {len(chains)}",
             tracker.usage,
@@ -400,9 +450,8 @@ class PipelineNodes:
         )
 
         # Generate queries from gaps
-        gap_dbs = (
-            self.config.databases.get("primary", [])
-            + self.config.databases.get("secondary", [])
+        gap_dbs = self.config.databases.get("primary", []) + self.config.databases.get(
+            "secondary", []
         )
         gap_queries: dict[str, list[str]] = {}
         for db in gap_dbs:
@@ -412,17 +461,21 @@ class PipelineNodes:
 
         # Re-use search infrastructure
         from autoreview.search.aggregator import SearchAggregator
+
         sources = []
         for db in gap_dbs:
             try:
                 if db == "semantic_scholar":
                     from autoreview.search.semantic_scholar import SemanticScholarSearch
+
                     sources.append(SemanticScholarSearch())
                 elif db == "pubmed":
                     from autoreview.search.pubmed import PubMedSearch
+
                     sources.append(PubMedSearch())
                 elif db == "openalex":
                     from autoreview.search.openalex import OpenAlexSearch
+
                     sources.append(OpenAlexSearch())
             except Exception:
                 pass
@@ -440,14 +493,14 @@ class PipelineNodes:
             if p.doi:
                 existing_dois.add(p.doi.lower().strip())
         new_papers = [
-            p for p in new_papers
-            if not p.doi or p.doi.lower().strip() not in existing_dois
+            p for p in new_papers if not p.doi or p.doi.lower().strip() not in existing_dois
         ]
 
         # Screen and extract new papers
         screener = PaperScreener(tracker)
         new_screened = await screener.screen(
-            new_papers, scope_document=kb.scope_document or "",
+            new_papers,
+            scope_document=kb.scope_document or "",
         )
 
         extractor = PaperExtractor(
@@ -455,9 +508,7 @@ class PipelineNodes:
             domain_fields=self.config.extraction.domain_fields,
             full_text_max_chars=self.config.extraction.full_text_max_chars,
         )
-        new_papers_list = [
-            sp.paper for sp in new_screened if sp.paper.id not in kb.extractions
-        ]
+        new_papers_list = [sp.paper for sp in new_screened if sp.paper.id not in kb.extractions]
         new_extractions = await extractor.extract_batch(new_papers_list)
 
         # Merge into existing state
@@ -467,7 +518,8 @@ class PipelineNodes:
 
         kb.current_phase = PipelinePhase.GAP_SEARCH
         kb.add_audit_entry(
-            "gap_search", "complete",
+            "gap_search",
+            "complete",
             f"Added {len(new_screened)} papers, {len(new_extractions)} extractions",
             tracker.usage,
         )
@@ -545,7 +597,8 @@ class PipelineNodes:
         kb.critique_history.extend(critiques)
         kb.current_phase = PipelinePhase.OUTLINE
         kb.add_audit_entry(
-            "outline", "complete",
+            "outline",
+            "complete",
             f"Sections: {len(review_outline.sections)}",
             tracker.usage,
         )
@@ -597,15 +650,19 @@ class PipelineNodes:
             try:
                 if db == "pubmed":
                     from autoreview.search.pubmed import PubMedSearch
+
                     sources.append(PubMedSearch())
                 elif db == "semantic_scholar":
                     from autoreview.search.semantic_scholar import SemanticScholarSearch
+
                     sources.append(SemanticScholarSearch())
                 elif db == "openalex":
                     from autoreview.search.openalex import OpenAlexSearch
+
                     sources.append(OpenAlexSearch())
                 elif db == "perplexity":
                     from autoreview.search.perplexity import PerplexitySearch
+
                     sources.append(PerplexitySearch())
             except Exception as e:
                 logger.warning("contextual_enrichment.source_init_failed", source=db, error=str(e))
@@ -646,8 +703,7 @@ class PipelineNodes:
 
             # Deduplicate against existing corpus
             unique_papers = [
-                p for p in new_papers
-                if not p.doi or p.doi.lower().strip() not in existing_dois
+                p for p in new_papers if not p.doi or p.doi.lower().strip() not in existing_dois
             ]
 
             # Screen with lower threshold (2 instead of 3) — we want adjacent material
@@ -703,13 +759,13 @@ class PipelineNodes:
             return
 
         # Check that at least one section has contextual extractions
-        has_extractions = any(
-            e.contextual_extractions for e in kb.contextual_enrichment.values()
-        )
+        has_extractions = any(e.contextual_extractions for e in kb.contextual_enrichment.values())
         if not has_extractions:
             kb.current_phase = PipelinePhase.CORPUS_EXPANSION
             kb.add_audit_entry(
-                "corpus_expansion", "skipped", "Enrichment exists but no contextual extractions",
+                "corpus_expansion",
+                "skipped",
+                "Enrichment exists but no contextual extractions",
             )
             return
 
@@ -797,15 +853,19 @@ class PipelineNodes:
             try:
                 if db == "pubmed":
                     from autoreview.search.pubmed import PubMedSearch
+
                     sources.append(PubMedSearch())
                 elif db == "semantic_scholar":
                     from autoreview.search.semantic_scholar import SemanticScholarSearch
+
                     sources.append(SemanticScholarSearch())
                 elif db == "openalex":
                     from autoreview.search.openalex import OpenAlexSearch
+
                     sources.append(OpenAlexSearch())
                 elif db == "perplexity":
                     from autoreview.search.perplexity import PerplexitySearch
+
                     sources.append(PerplexitySearch())
             except Exception as e:
                 logger.warning("corpus_expansion.source_init_failed", source=db, error=str(e))
@@ -829,8 +889,7 @@ class PipelineNodes:
                 existing_dois.add(p.doi.lower().strip())
 
         unique_papers = [
-            p for p in new_papers
-            if not p.doi or p.doi.lower().strip() not in existing_dois
+            p for p in new_papers if not p.doi or p.doi.lower().strip() not in existing_dois
         ]
 
         # 4. Screen at standard threshold — these are evidence papers
@@ -848,9 +907,7 @@ class PipelineNodes:
             max_concurrent=self.config.extraction.max_concurrent,
             full_text_max_chars=self.config.extraction.full_text_max_chars,
         )
-        new_papers_list = [
-            sp.paper for sp in new_screened if sp.paper.id not in kb.extractions
-        ]
+        new_papers_list = [sp.paper for sp in new_screened if sp.paper.id not in kb.extractions]
         new_extractions = await extractor.extract_batch(new_papers_list)
 
         # 6. Merge into KB
@@ -920,7 +977,9 @@ class PipelineNodes:
         critic = SectionCritic(tracker)
 
         drafts = await writer.write_all_sections(
-            outline, kb.extractions, kb.evidence_map,
+            outline,
+            kb.extractions,
+            kb.evidence_map,
             narrative_plan=kb.narrative_plan,
             contextual_enrichment=kb.contextual_enrichment or None,
         )
@@ -932,7 +991,9 @@ class PipelineNodes:
             section_obj = outline.get_section(section_id)
             section_paper_ids = section_obj.paper_ids if section_obj else []
             cv_report = citation_validator.validate_section(
-                draft.text, section_paper_ids, kb.extractions,
+                draft.text,
+                section_paper_ids,
+                kb.extractions,
             )
             cv_issues = CitationValidator.to_critique_issues(cv_report)
 
@@ -951,7 +1012,8 @@ class PipelineNodes:
         kb.section_drafts = {sid: d.text for sid, d in drafts.items()}
         kb.current_phase = PipelinePhase.SECTION_CRITIQUE
         kb.add_audit_entry(
-            "section_writing", "complete",
+            "section_writing",
+            "complete",
             f"Sections: {len(drafts)}",
             tracker.usage,
         )
@@ -991,15 +1053,19 @@ class PipelineNodes:
             try:
                 if db == "pubmed":
                     from autoreview.search.pubmed import PubMedSearch
+
                     sources.append(PubMedSearch())
                 elif db == "semantic_scholar":
                     from autoreview.search.semantic_scholar import SemanticScholarSearch
+
                     sources.append(SemanticScholarSearch())
                 elif db == "openalex":
                     from autoreview.search.openalex import OpenAlexSearch
+
                     sources.append(OpenAlexSearch())
                 elif db == "perplexity":
                     from autoreview.search.perplexity import PerplexitySearch
+
                     sources.append(PerplexitySearch())
             except Exception as e:
                 logger.warning("passage_search.source_init_failed", source=db, error=str(e))
@@ -1012,6 +1078,7 @@ class PipelineNodes:
         # 5. Citation snowballing from top-10 most-cited S2 papers in corpus
         try:
             from autoreview.search.semantic_scholar import SemanticScholarSearch as S2
+
             s2 = S2()
             top_s2_ids = sorted(
                 [
@@ -1035,8 +1102,7 @@ class PipelineNodes:
             if p.doi:
                 existing_dois.add(p.doi.lower().strip())
         new_papers = [
-            p for p in new_papers
-            if not p.doi or p.doi.lower().strip() not in existing_dois
+            p for p in new_papers if not p.doi or p.doi.lower().strip() not in existing_dois
         ]
 
         screener = PaperScreener(tracker)
@@ -1062,6 +1128,7 @@ class PipelineNodes:
 
         # 8. Revise sections that gained >= 2 new relevant papers
         from autoreview.writing.section_writer import SectionWriter
+
         writer = SectionWriter(tracker)
         revised_count = 0
 
@@ -1069,6 +1136,7 @@ class PipelineNodes:
         section_titles: dict[str, str] = {}
         if kb.outline:
             from autoreview.llm.prompts.outline import ReviewOutline
+
             try:
                 outline_obj = ReviewOutline.model_validate(kb.outline)
                 section_titles = {s.id: s.title for s in outline_obj.flatten()}
@@ -1141,7 +1209,8 @@ class PipelineNodes:
         kb.critique_history.extend(critiques)
         kb.current_phase = PipelinePhase.HOLISTIC_CRITIQUE
         kb.add_audit_entry(
-            "assembly", "complete",
+            "assembly",
+            "complete",
             f"Words: {len(final_draft.split())}",
             tracker.usage,
         )
@@ -1162,6 +1231,10 @@ class PipelineNodes:
         kb.full_draft = response.content
         kb.current_phase = PipelinePhase.FINAL_POLISH
         kb.add_audit_entry(
-            "final_polish", "complete",
-            token_usage={"input_tokens": response.input_tokens, "output_tokens": response.output_tokens},
+            "final_polish",
+            "complete",
+            token_usage={
+                "input_tokens": response.input_tokens,
+                "output_tokens": response.output_tokens,
+            },
         )

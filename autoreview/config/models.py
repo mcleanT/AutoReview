@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from pathlib import Path
 from pydantic import BaseModel, ConfigDict, Field
 
 
 class SearchConfig(BaseModel):
     """Configuration for literature search."""
+
     model_config = ConfigDict(extra="forbid")
 
     date_range: str = "2015-2025"
@@ -19,25 +19,30 @@ class SearchConfig(BaseModel):
 
 class ExtractionConfig(BaseModel):
     """Configuration for paper extraction."""
+
     model_config = ConfigDict(extra="forbid")
 
     domain_fields: dict[str, bool] = {}
     max_concurrent: int = 10
     full_text_max_chars: int = 80_000
+    extraction_batch_size: int = 20
 
 
 class CritiqueConfig(BaseModel):
     """Configuration for the critique system."""
+
     model_config = ConfigDict(extra="forbid")
 
-    rubric_weights: dict[str, float] = Field(default_factory=lambda: {
-        "coverage": 0.20,
-        "synthesis": 0.25,
-        "accuracy": 0.20,
-        "balance": 0.15,
-        "narrative": 0.10,
-        "gaps": 0.10,
-    })
+    rubric_weights: dict[str, float] = Field(
+        default_factory=lambda: {
+            "coverage": 0.20,
+            "synthesis": 0.25,
+            "accuracy": 0.20,
+            "balance": 0.15,
+            "narrative": 0.10,
+            "gaps": 0.10,
+        }
+    )
     score_threshold: float = 0.80
     max_revision_cycles: int = 3
     convergence_delta: float = 0.05
@@ -45,6 +50,7 @@ class CritiqueConfig(BaseModel):
 
 class WritingConfig(BaseModel):
     """Configuration for the writing system."""
+
     model_config = ConfigDict(extra="forbid")
 
     style: str = "academic"
@@ -55,20 +61,24 @@ class WritingConfig(BaseModel):
 
 class OutlineConfig(BaseModel):
     """Configuration for outline generation."""
+
     model_config = ConfigDict(extra="forbid")
 
-    required_sections: list[str] = Field(default_factory=lambda: [
-        "Introduction",
-        "Methods of Review",
-        "Results",
-        "Discussion",
-        "Future Directions",
-    ])
+    required_sections: list[str] = Field(
+        default_factory=lambda: [
+            "Introduction",
+            "Methods of Review",
+            "Results",
+            "Discussion",
+            "Future Directions",
+        ]
+    )
     max_critique_cycles: int = 2
 
 
 class LLMConfig(BaseModel):
     """Configuration for the LLM provider."""
+
     model_config = ConfigDict(extra="forbid")
 
     model: str = "claude-sonnet-4-20250514"
@@ -80,14 +90,17 @@ class LLMConfig(BaseModel):
 
 class DomainConfig(BaseModel):
     """Top-level domain configuration."""
+
     model_config = ConfigDict(extra="forbid")
 
     domain: str = "general"
-    databases: dict[str, list[str]] = Field(default_factory=lambda: {
-        "primary": ["semantic_scholar"],
-        "secondary": ["openalex"],
-        "discovery": ["perplexity"],
-    })
+    databases: dict[str, list[str]] = Field(
+        default_factory=lambda: {
+            "primary": ["semantic_scholar"],
+            "secondary": ["openalex"],
+            "discovery": ["perplexity"],
+        }
+    )
     search: SearchConfig = Field(default_factory=SearchConfig)
     extraction: ExtractionConfig = Field(default_factory=ExtractionConfig)
     critique: CritiqueConfig = Field(default_factory=CritiqueConfig)

@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "autoreview-search": {
+      "type": "stdio",
+      "command": "python",
+      "args": ["mcp_server.py"],
+      "env": {
+        "PYTHONUNBUFFERED": "1",
+        "PYTHONPATH": "/Users/mst36/Desktop/Projects/AutoReview"
+      }
+    }
+  }
+}

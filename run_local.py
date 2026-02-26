@@ -4,9 +4,11 @@
 Uses PubMed, Semantic Scholar, and OpenAlex for paper discovery.
 Uses ClaudeLLMProvider for all LLM stages (requires ANTHROPIC_API_KEY).
 """
+
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime
 
 from autoreview.config import load_config
 from autoreview.llm.claude import ClaudeLLMProvider
@@ -18,13 +20,19 @@ from autoreview.pipeline.runner import run_pipeline
 async def main() -> None:
     topic = "Genetic Features of Cellular Senescence Across Different Organs"
 
+    # Each run gets its own timestamped directory
+    run_id = datetime.now().strftime("run_%Y%m%d_%H%M%S")
+    output_dir = f"output/{run_id}"
+
     print(f"{'=' * 70}")
-    print(f"AutoReview LOCAL RUN (real Claude LLM, live search)")
+    print("AutoReview LOCAL RUN (real Claude LLM, live search)")
     print(f"Topic: {topic}")
+    print(f"Output: {output_dir}")
     print(f"{'=' * 70}\n")
 
     # Setup structured logging
     import structlog
+
     structlog.configure(
         processors=[
             structlog.contextvars.merge_contextvars,
@@ -50,6 +58,7 @@ async def main() -> None:
             },
             "search": {
                 "max_results_per_source": 50,
+                "relevance_threshold": 3,
             },
         },
     )
@@ -57,7 +66,7 @@ async def main() -> None:
     kb = KnowledgeBase(
         topic=topic,
         domain="general",
-        output_dir="output",
+        output_dir=output_dir,
     )
     kb.save_snapshot("initialized")
 
@@ -71,7 +80,7 @@ async def main() -> None:
 
     # Format output
     formatter = OutputFormatter(style=config.writing.citation_format)
-    created = formatter.save(kb, "output", fmt="markdown")
+    created = formatter.save(kb, output_dir, fmt="markdown")
 
     print(f"\n{'=' * 70}")
     print("Pipeline complete!")
@@ -82,7 +91,7 @@ async def main() -> None:
     print(f"Critique reports: {len(kb.critique_history)}")
     tokens = kb.total_tokens()
     print(f"Total tokens: {tokens['input_tokens']:,} input, {tokens['output_tokens']:,} output")
-    print(f"\nOutput files:")
+    print("\nOutput files:")
     for path in created:
         print(f"  -> {path}")
     print(f"{'=' * 70}")

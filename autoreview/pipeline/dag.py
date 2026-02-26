@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
-from typing import Any, Callable, Coroutine
+from typing import Any
 
 import structlog
 
@@ -13,6 +14,7 @@ logger = structlog.get_logger()
 @dataclass
 class DAGNode:
     """A single node in the pipeline DAG."""
+
     name: str
     func: Callable[..., Coroutine[Any, Any, Any]]
     dependencies: list[str] = field(default_factory=list)
@@ -20,6 +22,7 @@ class DAGNode:
 
 class DAGExecutionError(Exception):
     """Raised when a DAG node fails."""
+
     def __init__(self, node_name: str, original_error: Exception) -> None:
         self.node_name = node_name
         self.original_error = original_error
@@ -66,9 +69,7 @@ class DAGRunner:
         for node in self.nodes.values():
             for dep in node.dependencies:
                 if dep not in self.nodes:
-                    raise ValueError(
-                        f"Node '{node.name}' depends on unknown node '{dep}'"
-                    )
+                    raise ValueError(f"Node '{node.name}' depends on unknown node '{dep}'")
 
         # Determine which nodes to execute
         if start_from:
@@ -84,9 +85,7 @@ class DAGRunner:
         for name in to_execute:
             node = self.nodes[name]
             # Only count deps that are also in to_execute
-            in_degree[name] = sum(
-                1 for dep in node.dependencies if dep in to_execute
-            )
+            in_degree[name] = sum(1 for dep in node.dependencies if dep in to_execute)
 
         # Kahn's algorithm grouped by levels
         levels: list[list[str]] = []
@@ -138,6 +137,7 @@ class DAGRunner:
         start_from: str | None = None,
         on_node_complete: Callable[[str, Any], Coroutine[Any, Any, None]] | None = None,
         on_node_error: Callable[[str, Exception], Coroutine[Any, Any, None]] | None = None,
+        on_node_start: Callable[[str], Coroutine[Any, Any, None]] | None = None,
     ) -> dict[str, Any]:
         """Execute the DAG.
 
@@ -148,6 +148,7 @@ class DAGRunner:
                        Nodes before this point are skipped (assumed already done).
             on_node_complete: Optional async callback after each node completes.
             on_node_error: Optional async callback when a node fails.
+            on_node_start: Optional async callback before each node starts.
 
         Returns:
             Dict mapping node names to their return values.
@@ -172,6 +173,8 @@ class DAGRunner:
                 node = self.nodes[name]
                 start_time = time.monotonic()
 
+                if on_node_start:
+                    await on_node_start(name)
                 logger.info("dag.node.start", node=name)
                 try:
                     result = await node.func(context)
