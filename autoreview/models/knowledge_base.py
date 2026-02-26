@@ -15,6 +15,7 @@ from autoreview.analysis.evidence_map import EvidenceMap
 from autoreview.critique.models import CritiqueReport
 from autoreview.extraction.models import PaperExtraction
 from autoreview.models.base import AutoReviewModel, TimestampedModel
+from autoreview.models.enrichment import CorpusExpansionResult, SectionEnrichment
 from autoreview.models.narrative import NarrativePlan
 from autoreview.models.paper import CandidatePaper, ScreenedPaper
 
@@ -26,10 +27,13 @@ class PipelinePhase(str, Enum):
     QUERY_EXPANSION = "query_expansion"
     SEARCH = "search"
     SCREENING = "screening"
+    FULL_TEXT_RETRIEVAL = "full_text_retrieval"
     EXTRACTION = "extraction"
     CLUSTERING = "clustering"
     OUTLINE = "outline"
     NARRATIVE_PLANNING = "narrative_planning"
+    CONTEXTUAL_ENRICHMENT = "contextual_enrichment"
+    CORPUS_EXPANSION = "corpus_expansion"
     GAP_SEARCH = "gap_search"
     SECTION_WRITING = "section_writing"
     SECTION_CRITIQUE = "section_critique"
@@ -72,6 +76,8 @@ class KnowledgeBase(TimestampedModel):
     evidence_map: EvidenceMap | None = None
     outline: Any = None  # Will be ReviewOutline, use Any to avoid circular import
     narrative_plan: NarrativePlan | None = None
+    contextual_enrichment: dict[str, SectionEnrichment] = Field(default_factory=dict)
+    corpus_expansion_results: dict[str, CorpusExpansionResult] = Field(default_factory=dict)
     section_drafts: dict[str, str] = Field(default_factory=dict)
     full_draft: str | None = None
     critique_history: list[CritiqueReport] = Field(default_factory=list)
@@ -124,7 +130,13 @@ class KnowledgeBase(TimestampedModel):
         snapshot_path = snapshots_dir / f"{timestamp}_{node_name}.json"
         latest_path = snapshots_dir / "latest.json"
 
-        json_data = self.model_dump_json(indent=2)
+        json_data = self.model_dump_json(
+            indent=2,
+            exclude={
+                "candidate_papers": {"__all__": {"full_text"}},
+                "screened_papers": {"__all__": {"paper": {"full_text"}}},
+            },
+        )
         snapshot_path.write_text(json_data)
         latest_path.write_text(json_data)
 

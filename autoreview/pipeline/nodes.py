@@ -15,7 +15,7 @@ from autoreview.analysis.comprehensiveness import (
     QueryCoverageChecker,
 )
 from autoreview.analysis.contextual_enricher import ContextualEnricher
-from autoreview.analysis.evidence_map import GapSeverity
+
 from autoreview.analysis.gap_detector import GapDetector
 from autoreview.config.models import DomainConfig
 from autoreview.critique.holistic_critic import HolisticCritic, holistic_critique_loop
@@ -36,12 +36,97 @@ from autoreview.writing.section_writer import SectionWriter
 logger = structlog.get_logger()
 
 
+class TokenBudgetExceeded(Exception):
+    """Raised when cumulative token usage exceeds the configured budget."""
+
+    def __init__(self, used: int, budget: int) -> None:
+        self.used = used
+        self.budget = budget
+        super().__init__(f"Token budget exceeded: {used:,} used vs {budget:,} budget")
+
+
+class _TokenAccumulator:
+    """Wraps an LLM provider to accumulate token counts across multiple calls.
+
+    Create a local instance per node invocation. Pass it in place of
+    ``self.llm`` to helper classes so that every ``generate`` /
+    ``generate_structured`` call is transparently counted.  After the
+    node finishes, read ``usage`` to get the aggregate totals.
+
+    When ``global_accumulator`` is set, token counts are also added to it
+    so that a pipeline-wide budget can be enforced.
+    """
+
+    def __init__(
+        self,
+        llm: Any,
+        global_accumulator: _GlobalTokenAccumulator | None = None,
+    ) -> None:
+        self._llm = llm
+        self.input_tokens: int = 0
+        self.output_tokens: int = 0
+        self.cache_creation_input_tokens: int = 0
+        self.cache_read_input_tokens: int = 0
+        self._global = global_accumulator
+
+    def _track(self, response: Any) -> None:
+        self.input_tokens += response.input_tokens
+        self.output_tokens += response.output_tokens
+        self.cache_creation_input_tokens += getattr(response, "cache_creation_input_tokens", 0)
+        self.cache_read_input_tokens += getattr(response, "cache_read_input_tokens", 0)
+        if self._global:
+            self._global.add(response.input_tokens, response.output_tokens)
+
+    async def generate(self, *args: Any, **kwargs: Any) -> Any:
+        response = await self._llm.generate(*args, **kwargs)
+        self._track(response)
+        return response
+
+    async def generate_structured(self, *args: Any, **kwargs: Any) -> Any:
+        response = await self._llm.generate_structured(*args, **kwargs)
+        self._track(response)
+        return response
+
+    @property
+    def usage(self) -> dict[str, int]:
+        return {
+            "input_tokens": self.input_tokens,
+            "output_tokens": self.output_tokens,
+            "cache_creation_input_tokens": self.cache_creation_input_tokens,
+            "cache_read_input_tokens": self.cache_read_input_tokens,
+        }
+
+
+class _GlobalTokenAccumulator:
+    """Pipeline-wide token counter for budget enforcement."""
+
+    def __init__(self, budget: int | None = None) -> None:
+        self.total_input: int = 0
+        self.total_output: int = 0
+        self.budget = budget
+
+    def add(self, input_tokens: int, output_tokens: int) -> None:
+        self.total_input += input_tokens
+        self.total_output += output_tokens
+        if self.budget and (self.total_input + self.total_output) > self.budget:
+            raise TokenBudgetExceeded(
+                self.total_input + self.total_output, self.budget,
+            )
+
+    @property
+    def total(self) -> int:
+        return self.total_input + self.total_output
+
+
 class PipelineNodes:
     """Collection of pipeline node functions."""
 
     def __init__(self, llm: Any, config: DomainConfig) -> None:
         self.llm = llm
         self.config = config
+        self._global_tokens = _GlobalTokenAccumulator(
+            budget=config.llm.token_budget,
+        )
         from autoreview.pipeline.remediation import RemediationDispatcher
         self.dispatcher = RemediationDispatcher(llm, config)
 
@@ -137,14 +222,14 @@ class PipelineNodes:
 
     async def screening(self, kb: KnowledgeBase) -> None:
         """Node: Screen papers for relevance."""
-        screener = PaperScreener(self.llm, batch_size=self.config.search.screening_batch_size)
+        tracker = _TokenAccumulator(self.llm, self._global_tokens)
+        screener = PaperScreener(tracker, batch_size=self.config.search.screening_batch_size)
         kb.screened_papers = await screener.screen(
             kb.candidate_papers,
             scope_document=kb.scope_document or "",
             threshold=self.config.search.relevance_threshold,
         )
         kb.current_phase = PipelinePhase.SCREENING
-        kb.add_audit_entry("screening", "complete", f"Screened to {len(kb.screened_papers)} papers")
 
         # Comprehensiveness: coverage anomaly check
         all_dbs = (
@@ -163,7 +248,7 @@ class PipelineNodes:
             await self.dispatcher.execute(kb, anomaly_result)
 
         # Comprehensiveness: borderline re-screening
-        rescreener = BorderlineRescreener(self.llm)
+        rescreener = BorderlineRescreener(tracker)
         rescreen_result, promoted = await rescreener.rescreen(
             screener.borderline_papers,
             scope_document=kb.scope_document or "",
@@ -177,49 +262,69 @@ class PipelineNodes:
                 f"Promoted {len(promoted)} borderline papers",
             )
 
+        kb.add_audit_entry(
+            "screening", "complete",
+            f"Screened to {len(kb.screened_papers)} papers",
+            tracker.usage,
+        )
+
     async def full_text_retrieval(self, kb: KnowledgeBase) -> None:
-        """Node: Retrieve open-access full text via Unpaywall (opt-in)."""
-        email = os.environ.get("UNPAYWALL_EMAIL")
-        if not email:
-            kb.current_phase = PipelinePhase.FULL_TEXT_RETRIEVAL
-            kb.add_audit_entry(
-                "full_text_retrieval", "skipped",
-                "UNPAYWALL_EMAIL not set — full-text retrieval disabled",
-            )
-            return
+        """Node: Retrieve open-access full text from multiple sources.
 
-        from autoreview.search.unpaywall import UnpaywallClient
+        Chains strategies in priority order:
+          1. Semantic Scholar openAccessPdf
+          2. PubMed Central (JATS XML via PMCID)
+          3. arXiv / bioRxiv / medRxiv PDFs
+          4. Unpaywall (DOI-based OA lookup, requires UNPAYWALL_EMAIL)
+        """
+        from autoreview.search.full_text import FullTextResolver
 
-        client = UnpaywallClient(email=email)
+        resolver = FullTextResolver(
+            unpaywall_email=os.environ.get("UNPAYWALL_EMAIL"),
+            entrez_email=os.environ.get("ENTREZ_EMAIL"),
+            elsevier_api_key=os.environ.get("ELSEVIER_API_KEY"),
+            springer_api_key=os.environ.get("SPRINGER_API_KEY"),
+        )
         try:
-            attempted, enriched = await client.enrich_papers(kb.screened_papers)
+            source_counts = await resolver.resolve(kb.screened_papers)
         finally:
-            await client.close()
+            await resolver.close()
+
+        total_enriched = sum(source_counts.values())
+        details = ", ".join(f"{k}: {v}" for k, v in sorted(source_counts.items()))
 
         kb.current_phase = PipelinePhase.FULL_TEXT_RETRIEVAL
         kb.add_audit_entry(
-            "full_text_retrieval", "complete",
-            f"Attempted: {attempted}, Enriched: {enriched}",
+            "full_text_retrieval",
+            "complete",
+            f"Enriched {total_enriched}/{len(kb.screened_papers)} papers ({details})",
         )
 
     async def extraction(self, kb: KnowledgeBase) -> None:
         """Node: Extract structured information from papers."""
+        tracker = _TokenAccumulator(self.llm, self._global_tokens)
         extractor = PaperExtractor(
-            self.llm,
+            tracker,
             domain_fields=self.config.extraction.domain_fields,
             max_concurrent=self.config.extraction.max_concurrent,
+            full_text_max_chars=self.config.extraction.full_text_max_chars,
         )
         papers = [sp.paper for sp in kb.screened_papers]
         kb.extractions = await extractor.extract_batch(papers)
         kb.current_phase = PipelinePhase.EXTRACTION
-        kb.add_audit_entry("extraction", "complete", f"Extracted {len(kb.extractions)} papers")
+        kb.add_audit_entry(
+            "extraction", "complete",
+            f"Extracted {len(kb.extractions)} papers",
+            tracker.usage,
+        )
 
     async def clustering(self, kb: KnowledgeBase) -> None:
         """Node: Thematic clustering + contradiction detection + gap analysis + evidence chains."""
         from autoreview.analysis.evidence_chains import EvidenceChainBuilder
 
-        clusterer = ThematicClusterer(self.llm)
-        gap_detector = GapDetector(self.llm)
+        tracker = _TokenAccumulator(self.llm, self._global_tokens)
+        clusterer = ThematicClusterer(tracker)
+        gap_detector = GapDetector(tracker)
 
         evidence_map = await clusterer.build_evidence_map(
             kb.extractions, kb.scope_document or "",
@@ -232,7 +337,7 @@ class PipelineNodes:
         evidence_map.coverage_score = coverage
 
         # Build evidence chains and enrich contradictions
-        chain_builder = EvidenceChainBuilder(self.llm)
+        chain_builder = EvidenceChainBuilder(tracker)
         paper_years: dict[str, int] = {}
         for sp in kb.screened_papers:
             if sp.paper.year:
@@ -259,10 +364,12 @@ class PipelineNodes:
             "clustering", "complete",
             f"Themes: {len(evidence_map.themes)}, Gaps: {len(gaps)}, "
             f"Coverage: {coverage:.2f}, Chains: {len(chains)}",
+            tracker.usage,
         )
 
     async def gap_search(self, kb: KnowledgeBase) -> None:
         """Node: Gap-aware supplementary search (conditional)."""
+        tracker = _TokenAccumulator(self.llm, self._global_tokens)
         # Store pre-gap state for revalidation
         pre_gaps = list(kb.evidence_map.gaps) if kb.evidence_map and kb.evidence_map.gaps else []
         pre_coverage = kb.evidence_map.coverage_score if kb.evidence_map else 0.0
@@ -327,14 +434,30 @@ class PipelineNodes:
         agg = SearchAggregator(sources=sources)
         new_papers = await agg.search(gap_queries, max_results_per_source=200)
 
+        # Deduplicate by DOI against existing corpus
+        existing_dois: set[str] = set()
+        for p in kb.candidate_papers:
+            if p.doi:
+                existing_dois.add(p.doi.lower().strip())
+        new_papers = [
+            p for p in new_papers
+            if not p.doi or p.doi.lower().strip() not in existing_dois
+        ]
+
         # Screen and extract new papers
-        screener = PaperScreener(self.llm)
+        screener = PaperScreener(tracker)
         new_screened = await screener.screen(
             new_papers, scope_document=kb.scope_document or "",
         )
 
-        extractor = PaperExtractor(self.llm, domain_fields=self.config.extraction.domain_fields)
-        new_papers_list = [sp.paper for sp in new_screened]
+        extractor = PaperExtractor(
+            tracker,
+            domain_fields=self.config.extraction.domain_fields,
+            full_text_max_chars=self.config.extraction.full_text_max_chars,
+        )
+        new_papers_list = [
+            sp.paper for sp in new_screened if sp.paper.id not in kb.extractions
+        ]
         new_extractions = await extractor.extract_batch(new_papers_list)
 
         # Merge into existing state
@@ -346,6 +469,7 @@ class PipelineNodes:
         kb.add_audit_entry(
             "gap_search", "complete",
             f"Added {len(new_screened)} papers, {len(new_extractions)} extractions",
+            tracker.usage,
         )
 
         # Comprehensiveness: post-gap re-validation
@@ -402,11 +526,12 @@ class PipelineNodes:
 
     async def outline(self, kb: KnowledgeBase) -> None:
         """Node: Generate and critique the outline."""
-        generator = OutlineGenerator(self.llm)
-        critic = OutlineCritic(self.llm)
+        tracker = _TokenAccumulator(self.llm, self._global_tokens)
+        generator = OutlineGenerator(tracker)
+        critic = OutlineCritic(tracker)
 
         review_outline, critiques = await outline_critique_loop(
-            llm=self.llm,
+            llm=tracker,
             outline_generator=generator,
             outline_critic=critic,
             evidence_map=kb.evidence_map,
@@ -419,12 +544,17 @@ class PipelineNodes:
         kb.outline = review_outline.model_dump()
         kb.critique_history.extend(critiques)
         kb.current_phase = PipelinePhase.OUTLINE
-        kb.add_audit_entry("outline", "complete", f"Sections: {len(review_outline.sections)}")
+        kb.add_audit_entry(
+            "outline", "complete",
+            f"Sections: {len(review_outline.sections)}",
+            tracker.usage,
+        )
 
     async def narrative_planning(self, kb: KnowledgeBase) -> None:
         """Node: Plan narrative architecture before section writing."""
+        tracker = _TokenAccumulator(self.llm, self._global_tokens)
         outline = ReviewOutline.model_validate(kb.outline)
-        architect = NarrativeArchitect(self.llm)
+        architect = NarrativeArchitect(tracker)
 
         plan = await architect.plan(
             outline=outline,
@@ -438,12 +568,14 @@ class PipelineNodes:
             "narrative_planning",
             "complete",
             f"Sections planned: {len(plan.section_directives)}",
+            tracker.usage,
         )
 
     async def contextual_enrichment(self, kb: KnowledgeBase) -> None:
         """Node: Retrieve adjacent contextual material to broaden sections."""
+        tracker = _TokenAccumulator(self.llm, self._global_tokens)
         outline = ReviewOutline.model_validate(kb.outline)
-        enricher = ContextualEnricher(self.llm)
+        enricher = ContextualEnricher(tracker)
 
         # Generate enrichment queries for each section
         queries_map = await enricher.generate_queries(
@@ -489,10 +621,20 @@ class PipelineNodes:
             if p.doi:
                 existing_dois.add(p.doi.lower().strip())
 
-        screener = PaperScreener(self.llm)
+        screener = PaperScreener(tracker)
 
         for section_id, section_queries in queries_map.items():
             if not section_queries.queries:
+                continue
+
+            # Skip enrichment for well-covered sections (15+ papers already assigned)
+            section = outline.get_section(section_id)
+            if section and len(section.paper_ids) >= 15:
+                logger.info(
+                    "contextual_enrichment.skipped_well_covered",
+                    section_id=section_id,
+                    paper_count=len(section.paper_ids),
+                )
                 continue
 
             # Search using enrichment queries
@@ -549,6 +691,7 @@ class PipelineNodes:
             "complete",
             f"Sections enriched: {len(kb.contextual_enrichment)}, "
             f"Total extractions: {sum(len(e.contextual_extractions) for e in kb.contextual_enrichment.values())}",
+            tracker.usage,
         )
 
     async def corpus_expansion(self, kb: KnowledgeBase) -> None:
@@ -577,6 +720,7 @@ class PipelineNodes:
         )
         from autoreview.search.aggregator import SearchAggregator
 
+        tracker = _TokenAccumulator(self.llm, self._global_tokens)
         outline = ReviewOutline.model_validate(kb.outline)
 
         # 1. Collect insights and generate queries per section
@@ -618,7 +762,7 @@ class PipelineNodes:
                 scope_document=kb.scope_document or "",
             )
 
-            response = await self.llm.generate_structured(
+            response = await tracker.generate_structured(
                 prompt=prompt,
                 response_model=CorpusExpansionQueryResult,
                 system=CORPUS_EXPANSION_SYSTEM_PROMPT,
@@ -690,20 +834,23 @@ class PipelineNodes:
         ]
 
         # 4. Screen at standard threshold — these are evidence papers
-        screener = PaperScreener(self.llm)
+        screener = PaperScreener(tracker)
         new_screened = await screener.screen(
             unique_papers,
             scope_document=kb.scope_document or "",
             threshold=self.config.search.relevance_threshold,
         )
 
-        # 5. Full extraction
+        # 5. Full extraction (skip already-extracted papers)
         extractor = PaperExtractor(
-            self.llm,
+            tracker,
             domain_fields=self.config.extraction.domain_fields,
             max_concurrent=self.config.extraction.max_concurrent,
+            full_text_max_chars=self.config.extraction.full_text_max_chars,
         )
-        new_papers_list = [sp.paper for sp in new_screened]
+        new_papers_list = [
+            sp.paper for sp in new_screened if sp.paper.id not in kb.extractions
+        ]
         new_extractions = await extractor.extract_batch(new_papers_list)
 
         # 6. Merge into KB
@@ -762,13 +909,15 @@ class PipelineNodes:
             "complete",
             f"Queries: {len(unique_queries)}, Found: {len(new_papers)}, "
             f"Screened: {len(new_screened)}, Extracted: {len(new_extractions)}",
+            tracker.usage,
         )
 
     async def section_writing(self, kb: KnowledgeBase) -> None:
         """Node: Write and critique all sections."""
+        tracker = _TokenAccumulator(self.llm, self._global_tokens)
         outline = ReviewOutline.model_validate(kb.outline)
-        writer = SectionWriter(self.llm)
-        critic = SectionCritic(self.llm)
+        writer = SectionWriter(tracker)
+        critic = SectionCritic(tracker)
 
         drafts = await writer.write_all_sections(
             outline, kb.extractions, kb.evidence_map,
@@ -788,7 +937,7 @@ class PipelineNodes:
             cv_issues = CitationValidator.to_critique_issues(cv_report)
 
             final_draft, critiques = await section_critique_loop(
-                llm=self.llm,
+                llm=tracker,
                 critic=critic,
                 draft=draft,
                 outline=outline,
@@ -801,7 +950,11 @@ class PipelineNodes:
 
         kb.section_drafts = {sid: d.text for sid, d in drafts.items()}
         kb.current_phase = PipelinePhase.SECTION_CRITIQUE
-        kb.add_audit_entry("section_writing", "complete", f"Sections: {len(drafts)}")
+        kb.add_audit_entry(
+            "section_writing", "complete",
+            f"Sections: {len(drafts)}",
+            tracker.usage,
+        )
 
     async def passage_search(self, kb: KnowledgeBase) -> None:
         """Node: Mine written sections for undercited claims and retrieve more papers."""
@@ -811,8 +964,10 @@ class PipelineNodes:
         from autoreview.analysis.passage_miner import PassageMiner
         from autoreview.search.aggregator import SearchAggregator
 
+        tracker = _TokenAccumulator(self.llm, self._global_tokens)
+
         # 1. Mine sections for undercited claims
-        miner = PassageMiner(self.llm)
+        miner = PassageMiner(tracker)
         mining_results = await miner.mine_all_sections(kb.section_drafts, kb.extractions)
 
         # 2. Collect targeted queries from high and medium priority claims
@@ -874,8 +1029,17 @@ class PipelineNodes:
         except Exception as e:
             logger.warning("passage_search.snowball_failed", error=str(e))
 
-        # 6. Screen and extract new papers
-        screener = PaperScreener(self.llm)
+        # 6. Deduplicate by DOI, then screen and extract new papers
+        existing_dois: set[str] = set()
+        for p in kb.candidate_papers:
+            if p.doi:
+                existing_dois.add(p.doi.lower().strip())
+        new_papers = [
+            p for p in new_papers
+            if not p.doi or p.doi.lower().strip() not in existing_dois
+        ]
+
+        screener = PaperScreener(tracker)
         new_screened = await screener.screen(
             new_papers,
             scope_document=kb.scope_document or "",
@@ -883,11 +1047,12 @@ class PipelineNodes:
         )
 
         extractor = PaperExtractor(
-            self.llm,
+            tracker,
             domain_fields=self.config.extraction.domain_fields,
+            full_text_max_chars=self.config.extraction.full_text_max_chars,
         )
         new_extractions = await extractor.extract_batch(
-            [sp.paper for sp in new_screened]
+            [sp.paper for sp in new_screened if sp.paper.id not in kb.extractions]
         )
 
         # 7. Merge into KB
@@ -897,7 +1062,7 @@ class PipelineNodes:
 
         # 8. Revise sections that gained >= 2 new relevant papers
         from autoreview.writing.section_writer import SectionWriter
-        writer = SectionWriter(self.llm)
+        writer = SectionWriter(tracker)
         revised_count = 0
 
         # Build title lookup from outline if available
@@ -936,15 +1101,18 @@ class PipelineNodes:
             "complete",
             f"Queries: {len(queries)}, New screened: {len(new_screened)}, "
             f"New extractions: {len(new_extractions)}, Sections revised: {revised_count}",
+            tracker.usage,
         )
 
     async def assembly(self, kb: KnowledgeBase) -> None:
         """Node: Assemble draft and run holistic critique."""
+        tracker = _TokenAccumulator(self.llm, self._global_tokens)
         outline = ReviewOutline.model_validate(kb.outline)
         from autoreview.writing.section_writer import SectionDraft
 
+        title_map = {s.id: s.title for s in outline.flatten()}
         section_drafts = {
-            sid: SectionDraft(section_id=sid, title=sid, text=text)
+            sid: SectionDraft(section_id=sid, title=title_map.get(sid, sid), text=text)
             for sid, text in kb.section_drafts.items()
         }
 
@@ -957,9 +1125,9 @@ class PipelineNodes:
         cv_issues = CitationValidator.to_critique_issues(cv_report)
 
         # Holistic critique loop
-        critic = HolisticCritic(self.llm)
+        critic = HolisticCritic(tracker)
         final_draft, critiques = await holistic_critique_loop(
-            llm=self.llm,
+            llm=tracker,
             critic=critic,
             full_draft=full_draft,
             scope_document=kb.scope_document or "",
@@ -972,7 +1140,11 @@ class PipelineNodes:
         kb.full_draft = final_draft
         kb.critique_history.extend(critiques)
         kb.current_phase = PipelinePhase.HOLISTIC_CRITIQUE
-        kb.add_audit_entry("assembly", "complete", f"Words: {len(final_draft.split())}")
+        kb.add_audit_entry(
+            "assembly", "complete",
+            f"Words: {len(final_draft.split())}",
+            tracker.usage,
+        )
 
     async def final_polish(self, kb: KnowledgeBase) -> None:
         """Node: Language polish and consistency pass."""

@@ -36,84 +36,7 @@ AutoReview is a fully autonomous, domain-agnostic pipeline that generates public
 
 Each DAG node is an async Python callable with typed Pydantic inputs/outputs. The pipeline state is serialized to JSON after every node for crash recovery and debugging.
 
-### Directory Structure
-
-```
-autoreview/
-    __init__.py
-    cli.py                          # typer CLI entry point
-    config/
-        __init__.py
-        models.py                   # configuration Pydantic models
-        defaults/
-            biomedical.yaml         # domain preset
-            cs_ai.yaml
-            chemistry.yaml
-    llm/
-        __init__.py
-        provider.py                 # abstract LLMProvider protocol
-        claude.py                   # Claude implementation (anthropic async SDK)
-        prompts/                    # prompt construction per stage
-            query_expansion.py
-            screening.py
-            extraction.py
-            outline.py
-            writing.py
-            critique.py
-    search/
-        __init__.py
-        base.py                     # abstract SearchSource protocol
-        pubmed.py                   # Bio.Entrez
-        semantic_scholar.py         # semanticscholar package
-        openalex.py                 # pyalex
-        perplexity.py               # Sonar API via httpx
-        aggregator.py               # combines, deduplicates, unifies results
-    extraction/
-        __init__.py
-        models.py                   # PaperExtraction, Finding, RelationshipClaim
-        extractor.py                # orchestrates extraction per paper
-    analysis/
-        __init__.py
-        clustering.py               # thematic clustering of findings
-        evidence_map.py             # builds EvidenceMap (themes, contradictions, gaps)
-        gap_detector.py             # identifies missing coverage vs scope
-    writing/
-        __init__.py
-        outliner.py                 # generates hierarchical review outline
-        section_writer.py           # writes sections with cross-section context
-        assembler.py                # assembles sections into full draft
-    critique/
-        __init__.py
-        models.py                   # CritiqueReport, CritiqueIssue
-        outline_critic.py           # evaluates outline completeness/structure
-        section_critic.py           # evaluates per-section quality
-        holistic_critic.py          # evaluates assembled draft
-        revision.py                 # revision logic and termination criteria
-    pipeline/
-        __init__.py
-        dag.py                      # lightweight async DAG runner
-        nodes.py                    # pipeline node definitions (wiring)
-        runner.py                   # end-to-end pipeline execution
-    output/
-        __init__.py
-        formatter.py                # Markdown/LaTeX/DOCX output
-        bibliography.py             # citation formatting
-        templates/
-            review_paper.md.jinja2
-            review_paper.tex.jinja2
-    models/
-        __init__.py
-        paper.py                    # CandidatePaper, ScreenedPaper
-        knowledge_base.py           # central pipeline state
-tests/
-    conftest.py
-    test_search/
-    test_extraction/
-    test_analysis/
-    test_writing/
-    test_critique/
-    test_pipeline/
-```
+*See MEMORY.md for the full module map with line counts and key classes.*
 
 ---
 
@@ -332,23 +255,6 @@ Default domain configs ship for: `biomedical`, `cs_ai`, `chemistry`. Additional 
 | Testing | `pytest` + `pytest-asyncio` | Standard, async-aware |
 | Logging | `structlog` | Structured logging with token usage tracking |
 
-### Explicit Non-Choices
-- **No LangChain / LangGraph / CrewAI** — Custom DAG runner (~200 LOC) keeps the system debuggable and free of framework churn
-- **No PostgreSQL** — SQLite is simpler and sufficient for a single-user research tool
-- **No vector database** — Embedding-based retrieval during writing is optional and can be added later (ChromaDB)
-
----
-
-## DAG Runner
-
-The custom DAG runner (`pipeline/dag.py`) is lightweight (~200 lines of asyncio code):
-- Nodes are async functions decorated with input/output type annotations
-- Dependencies declared explicitly between nodes
-- Executes with maximum parallelism respecting dependency order
-- Serializes `KnowledgeBase` to JSON after every node completion
-- Can re-run from any node (load snapshot, execute from that point forward)
-- No external orchestration dependency
-
 ---
 
 ## Development Conventions
@@ -371,32 +277,3 @@ The custom DAG runner (`pipeline/dag.py`) is lightweight (~200 lines of asyncio 
 - Graceful degradation: if a search source fails, continue with remaining sources
 - Pipeline state snapshots enable restart from last successful node
 
----
-
-## Evolution Path: DAG → Multi-Agent
-
-When the DAG pipeline hits quality ceilings (sections that read as summaries, critique loops that plateau), evolve toward a multi-agent architecture:
-
-1. **DAG nodes become agents**: The extraction node becomes an Analyst agent, the writing node becomes a Writer agent, the critique node becomes a Critic agent
-2. **KnowledgeBase becomes shared state**: The Pydantic models already serve this role
-3. **Add an Orchestrator**: A state machine (with LLM fallback for ambiguous states) that decides which agent to invoke next, enabling dynamic re-planning
-4. **Separate Analyst from Writer**: The highest-impact change — Analyst generates synthesis directives from the evidence map, Writer turns directives into prose. This separation mirrors how research teams work and produces deeper synthesis
-5. **Add Editor agent**: Handles cross-cutting concerns (terminology consistency, narrative flow, redundancy) as a dedicated pass
-
-This evolution is natural because the Pydantic models and module boundaries are already designed for it.
-
----
-
-## Build Order
-
-Build and test incrementally, end-to-end at each step:
-
-1. **Core models + LLM abstraction + CLI skeleton + config system**
-2. **Literature search** (PubMed + Semantic Scholar first, others later)
-3. **Screening + structured extraction**
-4. **Thematic clustering + evidence map construction**
-5. **Outline generation + outline critique**
-6. **Section writing (linear, no parallelism) + per-section critique**
-7. **Draft assembly + holistic critique + revision loops**
-8. **Gap-aware search, async parallelism, remaining search sources**
-9. **Output formatting, domain configs, polish**

@@ -5,10 +5,13 @@ from typing import Any
 import structlog
 
 from autoreview.analysis.evidence_map import EvidenceMap, Theme
+from autoreview.critique.models import CritiqueReport
 from autoreview.llm.prompts.outline import (
+    OUTLINE_REVISION_SYSTEM_PROMPT,
     OUTLINE_SYSTEM_PROMPT,
     ReviewOutline,
     build_outline_prompt,
+    build_outline_revision_prompt,
 )
 
 logger = structlog.get_logger()
@@ -58,8 +61,15 @@ class OutlineGenerator:
         evidence_map: EvidenceMap,
         scope_document: str,
         required_sections: list[str] | None = None,
+        previous_outline: ReviewOutline | None = None,
+        critique_report: CritiqueReport | None = None,
     ) -> ReviewOutline:
-        """Generate a review outline from the evidence map."""
+        """Generate or revise a review outline from the evidence map.
+
+        When ``previous_outline`` and ``critique_report`` are provided, the
+        prompt instructs the LLM to revise the existing outline based on the
+        specific critique issues rather than generating from scratch.
+        """
         if required_sections is None:
             required_sections = [
                 "Introduction", "Methods of Review", "Results",
@@ -67,12 +77,39 @@ class OutlineGenerator:
             ]
 
         evidence_summary = _format_evidence_summary(evidence_map)
-        prompt = build_outline_prompt(scope_document, evidence_summary, required_sections)
+
+        if previous_outline is not None and critique_report is not None:
+            # Revision mode: incorporate critique feedback
+            from autoreview.critique.outline_critic import _outline_to_text
+            from autoreview.critique.revision import _format_issues
+
+            previous_outline_text = _outline_to_text(previous_outline)
+            critique_issues_text = _format_issues(critique_report.issues)
+
+            prompt = build_outline_revision_prompt(
+                scope_document=scope_document,
+                evidence_summary=evidence_summary,
+                required_sections=required_sections,
+                previous_outline_text=previous_outline_text,
+                critique_issues_text=critique_issues_text,
+                critique_score=critique_report.overall_score,
+            )
+            system_prompt = OUTLINE_REVISION_SYSTEM_PROMPT
+
+            logger.info(
+                "outline.revising",
+                previous_score=critique_report.overall_score,
+                issues_count=len(critique_report.issues),
+            )
+        else:
+            # Fresh generation mode
+            prompt = build_outline_prompt(scope_document, evidence_summary, required_sections)
+            system_prompt = OUTLINE_SYSTEM_PROMPT
 
         response = await self.llm.generate_structured(
             prompt=prompt,
             response_model=ReviewOutline,
-            system=OUTLINE_SYSTEM_PROMPT,
+            system=system_prompt,
         )
         outline: ReviewOutline = response.parsed
 

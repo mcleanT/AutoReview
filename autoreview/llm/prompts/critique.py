@@ -1,40 +1,85 @@
 from __future__ import annotations
 
+from autoreview.critique.rubrics import (
+    HOLISTIC_RUBRICS,
+    SECTION_RUBRICS,
+    format_compact_rubrics,
+    format_rubrics_for_prompt,
+)
 
-SECTION_CRITIQUE_SYSTEM_PROMPT = """\
+_SECTION_RUBRIC_BLOCK = format_rubrics_for_prompt(SECTION_RUBRICS)
+_HOLISTIC_RUBRIC_BLOCK = format_rubrics_for_prompt(HOLISTIC_RUBRICS)
+
+SECTION_CRITIQUE_SYSTEM_PROMPT = f"""\
 You are an expert scientific editor evaluating a section of a review paper. \
-Assess the section on these dimensions (score each 0.0-1.0):
+Score each dimension using the rubric anchors below. Use the anchor descriptions \
+to calibrate your scores — a score should reflect the level whose description best \
+matches the text, not a vague impression.
 
-- **synthesis_quality**: Does it synthesize across papers or just summarize one-by-one?
-- **citation_accuracy**: Are claims properly attributed to cited papers?
-- **coherence**: Does the section flow logically within itself?
-- **connection_to_neighbors**: Does it connect to adjacent sections?
-- **completeness**: Does it cover what the outline promised?
-- **balance**: Are conflicting findings fairly presented?
-- **structural_variety**: Does the section use evidence-appropriate structure rather than \
-defaulting to a generic background → findings → limitations template?
-- **paragraph_cohesion**: Does each paragraph advance exactly one distinct claim, \
-opening with that claim rather than a citation or vague introduction?
+## Scoring Rubric
+
+{_SECTION_RUBRIC_BLOCK}
 
 Flag any critical issues (paper-by-paper summary, missing citations, logical gaps, \
 formulaic structure, or paragraphs that are lists of findings dressed as prose).
 """
 
-HOLISTIC_CRITIQUE_SYSTEM_PROMPT = """\
+HOLISTIC_CRITIQUE_SYSTEM_PROMPT = f"""\
 You are an expert scientific editor evaluating a complete review paper draft. \
-Assess on these dimensions (score each 0.0-1.0):
+Score each dimension using the rubric anchors below. Use the anchor descriptions \
+to calibrate your scores — a score should reflect the level whose description best \
+matches the text, not a vague impression.
 
-- **narrative_arc**: Does the paper tell a coherent story from introduction to conclusion?
-- **redundancy**: Is there unnecessary repetition across sections?
-- **transitions**: Do sections flow smoothly into each other?
-- **intro_conclusion_alignment**: Do the introduction and conclusion match in scope?
-- **balance**: Are all topics given appropriate coverage?
-- **completeness**: Does it cover the full scope of the review?
-- **prose_flow**: Does prose flow within paragraphs, across paragraph transitions, \
-and between sections? Are there abrupt shifts, choppy sentences, or weak connective tissue?
+## Scoring Rubric
+
+{_HOLISTIC_RUBRIC_BLOCK}
 
 Identify redundancy pairs (sections with overlapping content) and provide specific fixes.
 """
+
+
+_SECTION_CRITIQUE_COMPACT_TEMPLATE = """\
+You are an expert scientific editor evaluating a section of a review paper. \
+Score each dimension. Focus on the weakest areas from the previous cycle.
+
+## Scoring Rubric (compact — focus on weak dimensions)
+
+{rubric_block}
+
+Flag any critical issues (paper-by-paper summary, missing citations, logical gaps, \
+formulaic structure, or paragraphs that are lists of findings dressed as prose).
+"""
+
+_HOLISTIC_CRITIQUE_COMPACT_TEMPLATE = """\
+You are an expert scientific editor evaluating a complete review paper draft. \
+Score each dimension. Focus on the weakest areas from the previous cycle.
+
+## Scoring Rubric (compact — focus on weak dimensions)
+
+{rubric_block}
+
+Identify redundancy pairs (sections with overlapping content) and provide specific fixes.
+"""
+
+
+def get_section_critique_system_prompt(
+    previous_scores: dict[str, float] | None = None,
+) -> str:
+    """Return full rubrics on first call, compact rubrics on subsequent calls."""
+    if not previous_scores:
+        return SECTION_CRITIQUE_SYSTEM_PROMPT
+    compact = format_compact_rubrics(previous_scores, SECTION_RUBRICS)
+    return _SECTION_CRITIQUE_COMPACT_TEMPLATE.format(rubric_block=compact)
+
+
+def get_holistic_critique_system_prompt(
+    previous_scores: dict[str, float] | None = None,
+) -> str:
+    """Return full rubrics on first call, compact rubrics on subsequent calls."""
+    if not previous_scores:
+        return HOLISTIC_CRITIQUE_SYSTEM_PROMPT
+    compact = format_compact_rubrics(previous_scores, HOLISTIC_RUBRICS)
+    return _HOLISTIC_CRITIQUE_COMPACT_TEMPLATE.format(rubric_block=compact)
 
 
 def build_section_critique_prompt(
@@ -79,14 +124,21 @@ def build_revision_prompt(
     text: str,
     issues_text: str,
     context: str = "",
+    dimension_feedback: str = "",
 ) -> str:
+    dimension_block = ""
+    if dimension_feedback:
+        dimension_block = (
+            f"\n## Dimension Scores & Focus Areas\n{dimension_feedback}\n\n"
+            "Focus especially on the weakest dimensions identified above.\n"
+        )
     return f"""\
 ## Current Text
 {text}
 
 ## Issues to Address
 {issues_text}
-
+{dimension_block}
 ## Context
 {context}
 

@@ -4,7 +4,12 @@ from typing import Any
 
 import structlog
 
-from autoreview.critique.models import CritiqueIssue, CritiqueReport
+from autoreview.critique.models import CritiqueIssue, CritiqueReport, CritiqueSeverity
+from autoreview.critique.rubrics import (
+    HOLISTIC_RUBRICS,
+    SECTION_RUBRICS,
+    format_dimension_feedback,
+)
 from autoreview.llm.prompts.critique import build_revision_prompt
 from autoreview.llm.prompts.outline import ReviewOutline
 
@@ -48,13 +53,33 @@ def should_continue_revision(
     return True
 
 
+_SEVERITY_ORDER = {
+    CritiqueSeverity.CRITICAL: 0,
+    "critical": 0,
+    CritiqueSeverity.MAJOR: 1,
+    "major": 1,
+    CritiqueSeverity.MINOR: 2,
+    "minor": 2,
+}
+
+
 def _format_issues(issues: list[CritiqueIssue]) -> str:
-    """Format critique issues into text for revision prompts."""
+    """Format critique issues into text for revision prompts, sorted by severity."""
+    sorted_issues = sorted(issues, key=lambda i: _SEVERITY_ORDER.get(i.severity, 99))
     lines = []
-    for issue in issues:
+    for issue in sorted_issues:
         fix = f" Suggested fix: {issue.suggested_fix}" if issue.suggested_fix else ""
         lines.append(f"- [{issue.severity}] {issue.location}: {issue.description}{fix}")
     return "\n".join(lines) if lines else "No specific issues identified."
+
+
+def _select_rubrics(critique: CritiqueReport) -> list:
+    """Select the appropriate rubric set based on critique target."""
+    from autoreview.critique.models import CritiqueTarget
+
+    if critique.target == CritiqueTarget.FULL_DRAFT or critique.target == "full_draft":
+        return HOLISTIC_RUBRICS
+    return SECTION_RUBRICS
 
 
 async def revise_text(
@@ -65,7 +90,11 @@ async def revise_text(
 ) -> str:
     """Revise text based on critique feedback."""
     issues_text = _format_issues(critique.issues)
-    prompt = build_revision_prompt(text, issues_text, context)
+
+    rubrics = _select_rubrics(critique)
+    dim_feedback = format_dimension_feedback(critique.dimension_scores, rubrics)
+
+    prompt = build_revision_prompt(text, issues_text, context, dimension_feedback=dim_feedback)
 
     response = await llm.generate(
         prompt=prompt,
@@ -122,9 +151,13 @@ async def outline_critique_loop(
         ):
             break
 
-        # Revise: regenerate outline with critique feedback
+        # Revise: regenerate outline incorporating critique feedback
         outline = await outline_generator.generate(
-            evidence_map, scope_document, required_sections
+            evidence_map,
+            scope_document,
+            required_sections,
+            previous_outline=outline,
+            critique_report=report,
         )
 
     return outline, critiques

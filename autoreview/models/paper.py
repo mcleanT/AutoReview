@@ -25,7 +25,8 @@ class CandidatePaper(TimestampedModel):
     source_database: str
     external_ids: dict[str, str] = Field(default_factory=dict)
     citation_count: int | None = None
-    full_text: str | None = Field(None, exclude=True)
+    full_text: str | None = None
+    full_text_source: str | None = None
 
     @field_validator("doi", mode="before")
     @classmethod

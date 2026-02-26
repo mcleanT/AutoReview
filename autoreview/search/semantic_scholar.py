@@ -13,7 +13,7 @@ from autoreview.search.rate_limiter import RateLimiter
 logger = structlog.get_logger()
 
 S2_API_BASE = "https://api.semanticscholar.org/graph/v1"
-S2_FIELDS = "paperId,title,abstract,year,authors,journal,externalIds,citationCount"
+S2_FIELDS = "paperId,title,abstract,year,authors,journal,externalIds,citationCount,openAccessPdf"
 
 
 class SemanticScholarSearch:
@@ -48,6 +48,10 @@ class SemanticScholarSearch:
                 external_ids["arxiv"] = str(ext_raw["ArXiv"])
             if data.get("paperId"):
                 external_ids["s2_id"] = data["paperId"]
+
+            oa_pdf = data.get("openAccessPdf") or {}
+            if oa_pdf.get("url"):
+                external_ids["s2_pdf_url"] = oa_pdf["url"]
 
             journal = (data.get("journal") or {}).get("name")
 

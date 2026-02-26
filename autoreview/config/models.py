@@ -23,6 +23,7 @@ class ExtractionConfig(BaseModel):
 
     domain_fields: dict[str, bool] = {}
     max_concurrent: int = 10
+    full_text_max_chars: int = 80_000
 
 
 class CritiqueConfig(BaseModel):
@@ -39,7 +40,7 @@ class CritiqueConfig(BaseModel):
     })
     score_threshold: float = 0.80
     max_revision_cycles: int = 3
-    convergence_delta: float = 0.02
+    convergence_delta: float = 0.05
 
 
 class WritingConfig(BaseModel):
@@ -74,6 +75,7 @@ class LLMConfig(BaseModel):
     api_key: str | None = None
     max_tokens_generate: int = 4096
     max_tokens_structured: int = 4096
+    token_budget: int | None = None
 
 
 class DomainConfig(BaseModel):

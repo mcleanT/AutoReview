@@ -2,16 +2,17 @@
 \usepackage[utf8]{inputenc}
 \usepackage{hyperref}
 \usepackage[margin=1in]{geometry}
+\usepackage{natbib}
 
-\title{ {{ title }} }
-\date{ {{ date }} }
+\title{ {{- title -}} }
+\date{ {{- date -}} }
 
 \begin{document}
 \maketitle
 
 {{ body }}
 
-\bibliographystyle{plain}
+\bibliographystyle{plainnat}
 \bibliography{references}
 
 \end{document}

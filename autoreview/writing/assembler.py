@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 import structlog
 
 from autoreview.llm.prompts.outline import ReviewOutline
@@ -35,7 +37,7 @@ class DraftAssembler:
 
     def _assemble_section(
         self,
-        section: any,
+        section: Any,
         drafts: dict[str, SectionDraft],
         parts: list[str],
         level: int,
@@ -47,7 +49,10 @@ class DraftAssembler:
         if draft:
             parts.append(f"{heading} {section.title}\n\n{draft.text}")
         else:
-            parts.append(f"{heading} {section.title}")
+            # Only emit heading if this section has its own subsection drafts
+            has_sub_drafts = any(drafts.get(sub.id) for sub in section.subsections)
+            if has_sub_drafts:
+                parts.append(f"{heading} {section.title}")
 
         for sub in section.subsections:
             self._assemble_section(sub, drafts, parts, level + 1)

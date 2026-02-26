@@ -39,9 +39,9 @@ class TestBaseModels:
         assert len(model.id) == 32  # uuid4 hex
         assert model.created_at is not None
 
-    def test_extra_fields_forbidden(self):
-        with pytest.raises(Exception):
-            TimestampedModel(unknown_field="bad")
+    def test_extra_fields_ignored(self):
+        model = TimestampedModel(unknown_field="bad")
+        assert not hasattr(model, "unknown_field")
 
 
 class TestPaperModels:
@@ -72,7 +72,7 @@ class TestPaperModels:
         )
         assert paper.doi is None
 
-    def test_full_text_excluded_from_serialization(self):
+    def test_full_text_included_in_serialization(self):
         paper = CandidatePaper(
             title="Test",
             authors=["A"],
@@ -80,7 +80,8 @@ class TestPaperModels:
             full_text="Very long full text content...",
         )
         dumped = paper.model_dump()
-        assert "full_text" not in dumped
+        assert "full_text" in dumped
+        assert dumped["full_text"] == "Very long full text content..."
 
     def test_screened_paper_score_range(self):
         paper = CandidatePaper(title="T", authors=["A"], source_database="s2")

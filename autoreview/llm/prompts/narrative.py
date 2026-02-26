@@ -53,7 +53,7 @@ def build_narrative_planning_prompt(
     ) or "(none identified)"
 
     gaps_text = "\n".join(
-        f"- {g.topic} (severity: {g.severity})"
+        f"- {g.expected_topic} (severity: {g.severity})"
         for g in evidence_map.gaps[:10]
     ) or "(none identified)"
 

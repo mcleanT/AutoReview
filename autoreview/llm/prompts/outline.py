@@ -58,6 +58,13 @@ the scope, logical ordering, granularity balance, and whether all major themes a
 Identify missing topics, redundant sections, and structural issues.
 """
 
+OUTLINE_REVISION_SYSTEM_PROMPT = """\
+You are an expert scientific writer revising the outline for a comprehensive review paper. \
+You have received specific critique feedback on the previous outline. Your task is to \
+address each issue while preserving the strengths of the existing structure. Do not \
+regenerate from scratch — make targeted improvements based on the feedback.
+"""
+
 
 def build_outline_prompt(
     scope_document: str,
@@ -102,4 +109,51 @@ Evaluate this outline for:
 4. **Coverage**: Are all themes represented?
 
 Provide specific issues and suggestions for improvement.
+"""
+
+
+def build_outline_revision_prompt(
+    scope_document: str,
+    evidence_summary: str,
+    required_sections: list[str],
+    previous_outline_text: str,
+    critique_issues_text: str,
+    critique_score: float,
+) -> str:
+    """Build a prompt that revises an existing outline based on critique feedback.
+
+    Unlike ``build_outline_prompt`` which generates from scratch, this prompt
+    includes the previous outline and the specific critique issues so the LLM
+    can make targeted improvements.
+    """
+    req = "\n".join(f"- {s}" for s in required_sections)
+    return f"""\
+## Review Scope
+{scope_document}
+
+## Evidence Summary
+{evidence_summary}
+
+## Required Sections
+{req}
+
+## Previous Outline
+{previous_outline_text}
+
+## Critique Feedback (score: {critique_score:.2f})
+The following issues were identified in the previous outline:
+{critique_issues_text}
+
+Revise the outline to address each critique issue listed above. Preserve the strengths \
+of the existing structure and make targeted changes rather than starting from scratch. \
+Each section needs:
+- A unique ID (e.g., "1", "1.1", "1.1.1")
+- A descriptive title
+- A brief description of what the section covers
+- Theme references from the evidence map
+- Paper IDs that should be cited in this section
+- Estimated word count
+
+Focus your revisions on the specific issues raised. Maintain what works well and fix \
+what was flagged.
 """

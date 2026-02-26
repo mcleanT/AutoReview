@@ -4,11 +4,12 @@ from typing import Any
 
 import structlog
 
-from autoreview.critique.models import CritiqueReport, CritiqueTarget
+from autoreview.critique.models import CritiqueIssue, CritiqueReport, CritiqueTarget
 from autoreview.critique.revision import revise_text, should_continue_revision
 from autoreview.llm.prompts.critique import (
     HOLISTIC_CRITIQUE_SYSTEM_PROMPT,
     build_holistic_critique_prompt,
+    get_holistic_critique_system_prompt,
 )
 
 logger = structlog.get_logger()
@@ -24,14 +25,16 @@ class HolisticCritic:
         self,
         full_draft: str,
         scope_document: str,
+        previous_scores: dict[str, float] | None = None,
     ) -> CritiqueReport:
         """Critique the full assembled draft."""
         prompt = build_holistic_critique_prompt(full_draft, scope_document)
 
+        system_prompt = get_holistic_critique_system_prompt(previous_scores)
         response = await self.llm.generate_structured(
             prompt=prompt,
             response_model=CritiqueReport,
-            system=HOLISTIC_CRITIQUE_SYSTEM_PROMPT,
+            system=system_prompt,
         )
         report: CritiqueReport = response.parsed
         report.target = CritiqueTarget.FULL_DRAFT
@@ -56,14 +59,24 @@ async def holistic_critique_loop(
     max_cycles: int = 3,
     threshold: float = 0.80,
     convergence_delta: float = 0.02,
+    extra_issues: list[CritiqueIssue] | None = None,
 ) -> tuple[str, list[CritiqueReport]]:
     """Run holistic critique → cross-section revision loop."""
     critiques: list[CritiqueReport] = []
     scores: list[float] = []
     current_draft = full_draft
+    previous_scores: dict[str, float] | None = None
 
     for cycle in range(max_cycles):
-        report = await critic.critique(current_draft, scope_document)
+        report = await critic.critique(
+            current_draft, scope_document,
+            previous_scores=previous_scores,
+        )
+
+        # Inject extra issues (e.g. from citation validation) into the first cycle
+        if cycle == 0 and extra_issues:
+            report.issues = list(extra_issues) + list(report.issues)
+
         critiques.append(report)
         scores.append(report.overall_score)
 
@@ -82,6 +95,9 @@ async def holistic_critique_loop(
             max_iterations=max_cycles,
         ):
             break
+
+        # Track scores for compact rubrics on next cycle
+        previous_scores = report.dimension_scores
 
         # Cross-section revision with full draft context
         current_draft = await revise_text(

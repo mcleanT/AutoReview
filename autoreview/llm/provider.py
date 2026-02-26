@@ -11,6 +11,8 @@ class LLMResponse(BaseModel):
     content: str
     input_tokens: int = 0
     output_tokens: int = 0
+    cache_creation_input_tokens: int = 0
+    cache_read_input_tokens: int = 0
     model: str = ""
 
 
@@ -21,6 +23,8 @@ class LLMStructuredResponse(BaseModel):
     parsed: object  # The parsed Pydantic model instance
     input_tokens: int = 0
     output_tokens: int = 0
+    cache_creation_input_tokens: int = 0
+    cache_read_input_tokens: int = 0
     model: str = ""
 
 
@@ -32,7 +36,7 @@ class LLMProvider(Protocol):
         self,
         prompt: str,
         system: str = "",
-        max_tokens: int = 4096,
+        max_tokens: int | None = None,
         temperature: float = 0.3,
     ) -> LLMResponse: ...
 
@@ -41,6 +45,6 @@ class LLMProvider(Protocol):
         prompt: str,
         response_model: type[T],
         system: str = "",
-        max_tokens: int = 4096,
+        max_tokens: int | None = None,
         temperature: float = 0.0,
     ) -> LLMStructuredResponse: ...

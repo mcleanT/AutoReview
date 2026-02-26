@@ -16,7 +16,7 @@ class AutoReviewModel(BaseModel):
     """
 
     model_config = ConfigDict(
-        extra="forbid",
+        extra="ignore",
         use_enum_values=True,
         validate_default=True,
     )

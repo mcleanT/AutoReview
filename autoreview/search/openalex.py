@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import time
 from functools import partial
 from typing import Any
 
@@ -11,6 +12,9 @@ from autoreview.models.paper import CandidatePaper
 from autoreview.search.rate_limiter import RateLimiter
 
 logger = structlog.get_logger()
+
+_MAX_RETRIES = 3
+_RETRY_BACKOFF = [2.0, 5.0, 10.0]
 
 
 class OpenAlexSearch:
@@ -29,15 +33,27 @@ class OpenAlexSearch:
         if self._email:
             pyalex.config.email = self._email
 
-    def _sync_search(self, query: str, max_results: int) -> list[dict[str, Any]]:
-        self._setup_pyalex()
-        from pyalex import Works
-        results = []
-        for page in Works().search(query).paginate(per_page=min(200, max_results)):
-            results.extend(page)
-            if len(results) >= max_results:
-                break
-        return results[:max_results]
+    def _sync_search_with_retry(self, query: str, max_results: int) -> list[dict[str, Any]]:
+        for attempt in range(_MAX_RETRIES):
+            try:
+                self._setup_pyalex()
+                from pyalex import Works
+                results = []
+                for page in Works().search(query).paginate(per_page=min(200, max_results)):
+                    results.extend(page)
+                    if len(results) >= max_results:
+                        break
+                return results[:max_results]
+            except Exception as e:
+                if attempt < _MAX_RETRIES - 1:
+                    logger.warning(
+                        "openalex.search_retry",
+                        query=query[:80], attempt=attempt + 1, error=str(e),
+                    )
+                    time.sleep(_RETRY_BACKOFF[attempt])
+                else:
+                    logger.error("openalex.search_failed", query=query[:80], error=str(e))
+                    return []
 
     def _parse_work(self, work: dict[str, Any]) -> CandidatePaper | None:
         try:
@@ -94,25 +110,28 @@ class OpenAlexSearch:
             return None
 
     async def search(self, queries: list[str], max_results: int = 100) -> list[CandidatePaper]:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         all_papers: list[CandidatePaper] = []
         per_query = max(max_results // len(queries), 20) if queries else max_results
 
         for query in queries:
             await self._limiter.acquire()
             try:
-                works = await loop.run_in_executor(None, partial(self._sync_search, query, per_query))
-                papers = [p for w in works if (p := self._parse_work(w)) is not None]
-                all_papers.extend(papers)
-                logger.info("openalex.search", query=query[:80], results=len(papers))
+                works = await loop.run_in_executor(
+                    None, partial(self._sync_search_with_retry, query, per_query),
+                )
             except Exception as e:
                 logger.warning("openalex.search_error", query=query[:80], error=str(e))
+                continue
+            papers = [p for w in works if (p := self._parse_work(w)) is not None]
+            all_papers.extend(papers)
+            logger.info("openalex.search", query=query[:80], results=len(papers))
 
         logger.info("openalex.search.complete", total_papers=len(all_papers))
         return all_papers[:max_results]
 
     async def get_paper_details(self, paper_id: str) -> CandidatePaper | None:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         try:
             self._setup_pyalex()
             from pyalex import Works

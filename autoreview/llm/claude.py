@@ -22,6 +22,8 @@ class ClaudeLLMProvider:
         model: str = "claude-sonnet-4-20250514",
         api_key: str | None = None,
         max_retries: int = 3,
+        max_tokens_generate: int = 4096,
+        max_tokens_structured: int = 4096,
     ) -> None:
         self.model = model
         self.client = anthropic.AsyncAnthropic(
@@ -29,6 +31,8 @@ class ClaudeLLMProvider:
             max_retries=0,  # We handle retries ourselves via tenacity
         )
         self.max_retries = max_retries
+        self.max_tokens_generate = max_tokens_generate
+        self.max_tokens_structured = max_tokens_structured
 
     @retry(
         retry=retry_if_exception_type((anthropic.RateLimitError, anthropic.InternalServerError)),
@@ -39,26 +43,33 @@ class ClaudeLLMProvider:
         self,
         prompt: str,
         system: str = "",
-        max_tokens: int = 4096,
+        max_tokens: int | None = None,
         temperature: float = 0.3,
     ) -> LLMResponse:
         """Generate free-form text response."""
         messages = [{"role": "user", "content": prompt}]
         kwargs: dict = {
             "model": self.model,
-            "max_tokens": max_tokens,
+            "max_tokens": max_tokens if max_tokens is not None else self.max_tokens_generate,
             "messages": messages,
             "temperature": temperature,
         }
         if system:
-            kwargs["system"] = system
+            kwargs["system"] = [
+                {"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}
+            ]
 
         response = await self.client.messages.create(**kwargs)
+
+        cache_creation = getattr(response.usage, "cache_creation_input_tokens", 0) or 0
+        cache_read = getattr(response.usage, "cache_read_input_tokens", 0) or 0
 
         result = LLMResponse(
             content=response.content[0].text if response.content else "",
             input_tokens=response.usage.input_tokens,
             output_tokens=response.usage.output_tokens,
+            cache_creation_input_tokens=cache_creation,
+            cache_read_input_tokens=cache_read,
             model=response.model,
         )
 
@@ -67,6 +78,8 @@ class ClaudeLLMProvider:
             model=response.model,
             input_tokens=response.usage.input_tokens,
             output_tokens=response.usage.output_tokens,
+            cache_creation_input_tokens=cache_creation,
+            cache_read_input_tokens=cache_read,
         )
 
         return result
@@ -81,19 +94,21 @@ class ClaudeLLMProvider:
         prompt: str,
         response_model: type[T],
         system: str = "",
-        max_tokens: int = 4096,
+        max_tokens: int | None = None,
         temperature: float = 0.0,
     ) -> LLMStructuredResponse:
         """Generate structured output constrained to a Pydantic model schema."""
         messages = [{"role": "user", "content": prompt}]
         kwargs: dict = {
             "model": self.model,
-            "max_tokens": max_tokens,
+            "max_tokens": max_tokens if max_tokens is not None else self.max_tokens_structured,
             "messages": messages,
             "temperature": temperature,
         }
         if system:
-            kwargs["system"] = system
+            kwargs["system"] = [
+                {"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}
+            ]
 
         # Use Anthropic's native JSON schema output
         schema = response_model.model_json_schema()
@@ -120,10 +135,15 @@ class ClaudeLLMProvider:
 
         parsed = response_model.model_validate(tool_block.input)
 
+        cache_creation = getattr(response.usage, "cache_creation_input_tokens", 0) or 0
+        cache_read = getattr(response.usage, "cache_read_input_tokens", 0) or 0
+
         result = LLMStructuredResponse(
             parsed=parsed,
             input_tokens=response.usage.input_tokens,
             output_tokens=response.usage.output_tokens,
+            cache_creation_input_tokens=cache_creation,
+            cache_read_input_tokens=cache_read,
             model=response.model,
         )
 
@@ -133,6 +153,8 @@ class ClaudeLLMProvider:
             response_model=response_model.__name__,
             input_tokens=response.usage.input_tokens,
             output_tokens=response.usage.output_tokens,
+            cache_creation_input_tokens=cache_creation,
+            cache_read_input_tokens=cache_read,
         )
 
         return result

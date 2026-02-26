@@ -36,7 +36,7 @@ class PaperScreener:
         for batch_start in range(0, len(papers), self.batch_size):
             batch = papers[batch_start:batch_start + self.batch_size]
             batch_papers = [
-                {"index": str(batch_start + i), "title": p.title, "abstract": p.abstract or ""}
+                {"index": str(i), "title": p.title, "abstract": p.abstract or ""}
                 for i, p in enumerate(batch)
             ]
 
@@ -45,6 +45,7 @@ class PaperScreener:
                 prompt=prompt,
                 response_model=ScreeningBatchResult,
                 system=SCREENING_SYSTEM_PROMPT,
+                max_tokens=1024,
             )
             result: ScreeningBatchResult = response.parsed
 
@@ -57,7 +58,7 @@ class PaperScreener:
             )
 
             for decision in result.decisions:
-                paper_idx = decision.paper_index - batch_start
+                paper_idx = decision.paper_index
                 if 0 <= paper_idx < len(batch):
                     paper = batch[paper_idx]
                     score = max(1, min(5, decision.relevance_score))
@@ -81,6 +82,15 @@ class PaperScreener:
         return all_screened
 
 
+def _smart_truncate(full_text: str, max_chars: int) -> str:
+    """Truncate full text preserving abstract/intro (head) and results/discussion (tail)."""
+    if len(full_text) <= max_chars:
+        return full_text
+    head = max_chars // 3  # abstract + intro
+    tail = max_chars - head  # results + discussion
+    return full_text[:head] + "\n\n[...truncated middle section...]\n\n" + full_text[-tail:]
+
+
 class PaperExtractor:
     """Extracts structured information from papers using LLM."""
 
@@ -89,14 +99,16 @@ class PaperExtractor:
         llm: Any,
         domain_fields: dict[str, bool] | None = None,
         max_concurrent: int = 10,
+        full_text_max_chars: int = 80_000,
     ) -> None:
         self.llm = llm
         self.domain_fields = domain_fields
         self._semaphore = asyncio.Semaphore(max_concurrent)
+        self.full_text_max_chars = full_text_max_chars
 
     def _get_text_and_source(self, paper: CandidatePaper) -> tuple[str, str]:
         if paper.full_text:
-            return paper.full_text[:200_000], "full_text"
+            return _smart_truncate(paper.full_text, self.full_text_max_chars), "full_text"
         elif paper.abstract:
             return paper.abstract, "abstract"
         else:

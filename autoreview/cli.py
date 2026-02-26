@@ -1,17 +1,39 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from pathlib import Path
 from typing import Optional
 
 import structlog
 import typer
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = typer.Typer(
     name="autoreview",
     help="Fully autonomous pipeline for generating publication-ready scientific review papers.",
     no_args_is_help=True,
 )
+
+
+def _clear_output_dir(output_dir: str) -> None:
+    """Remove snapshots and generated outputs from a previous run."""
+    import shutil
+
+    out = Path(output_dir)
+    if not out.exists():
+        return
+
+    snapshots = out / "snapshots"
+    if snapshots.exists():
+        shutil.rmtree(snapshots)
+
+    # Remove generated review files but keep the directory itself
+    for ext in ("*.md", "*.tex", "*.docx", "*.json"):
+        for f in out.glob(ext):
+            f.unlink()
 
 
 def _setup_logging(verbose: bool = False) -> None:
@@ -24,7 +46,7 @@ def _setup_logging(verbose: bool = False) -> None:
             structlog.dev.ConsoleRenderer() if verbose else structlog.processors.JSONRenderer(),
         ],
         wrapper_class=structlog.make_filtering_bound_logger(
-            structlog.processors._NAME_TO_LEVEL["debug" if verbose else "info"]
+            structlog.processors.NAME_TO_LEVEL["debug" if verbose else "info"]
         ),
         context_class=dict,
         logger_factory=structlog.PrintLoggerFactory(),
@@ -39,11 +61,16 @@ def run(
     output_dir: str = typer.Option("output", "--output-dir", "-o", help="Output directory"),
     output_format: str = typer.Option("markdown", "--format", "-f", help="Output format (markdown, latex, docx)"),
     model: Optional[str] = typer.Option(None, "--model", "-m", help="Override LLM model"),
+    fresh: bool = typer.Option(False, "--fresh", help="Clear all previous snapshots and outputs before running"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
 ) -> None:
     """Run the full AutoReview pipeline to generate a review paper."""
     _setup_logging(verbose)
     logger = structlog.get_logger()
+
+    if fresh:
+        _clear_output_dir(output_dir)
+        typer.echo("Cleared previous outputs (--fresh)")
 
     logger.info(
         "pipeline.start",
@@ -51,6 +78,7 @@ def run(
         domain=domain,
         output_dir=output_dir,
         output_format=output_format,
+        fresh=fresh,
     )
 
     from autoreview.config import load_config
@@ -73,7 +101,18 @@ def run(
     from autoreview.pipeline.runner import run_pipeline
     from autoreview.output.formatter import OutputFormatter
 
-    llm = ClaudeLLMProvider(model=config.llm.model)
+    # Validate API key early before starting the pipeline
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        typer.echo("Error: ANTHROPIC_API_KEY not set. Set it in your environment or .env file.", err=True)
+        raise typer.Exit(code=1)
+
+    llm = ClaudeLLMProvider(
+        model=config.llm.model,
+        api_key=api_key,
+        max_tokens_generate=config.llm.max_tokens_generate,
+        max_tokens_structured=config.llm.max_tokens_structured,
+    )
 
     try:
         kb = asyncio.run(run_pipeline(llm=llm, config=config, kb=kb))
@@ -94,6 +133,7 @@ def run(
 def resume(
     snapshot: str = typer.Argument(..., help="Path to a snapshot JSON file"),
     start_from: Optional[str] = typer.Option(None, "--start-from", "-s", help="DAG node to start from"),
+    output_format: str = typer.Option("markdown", "--format", "-f", help="Output format (markdown, latex, docx)"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
 ) -> None:
     """Resume pipeline from a saved snapshot."""
@@ -106,13 +146,23 @@ def resume(
     typer.echo(f"Topic: {kb.topic} | Phase: {kb.current_phase}")
     typer.echo(f"Papers: {len(kb.candidate_papers)} candidates, {len(kb.screened_papers)} screened")
 
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        typer.echo("Error: ANTHROPIC_API_KEY not set. Set it in your environment or .env file.", err=True)
+        raise typer.Exit(code=1)
+
     from autoreview.config import load_config
     from autoreview.llm.claude import ClaudeLLMProvider
     from autoreview.pipeline.runner import run_pipeline
     from autoreview.output.formatter import OutputFormatter
 
     config = load_config(domain=kb.domain)
-    llm = ClaudeLLMProvider(model=config.llm.model)
+    llm = ClaudeLLMProvider(
+        model=config.llm.model,
+        api_key=api_key,
+        max_tokens_generate=config.llm.max_tokens_generate,
+        max_tokens_structured=config.llm.max_tokens_structured,
+    )
 
     try:
         kb = asyncio.run(run_pipeline(llm=llm, config=config, kb=kb, start_from=start_from))
@@ -121,7 +171,7 @@ def resume(
         raise typer.Exit(code=1)
 
     formatter = OutputFormatter(style=config.writing.citation_format)
-    created = formatter.save(kb, kb.output_dir, fmt="markdown")
+    created = formatter.save(kb, kb.output_dir, fmt=output_format)
 
     typer.echo(f"Review paper generated successfully!")
     for path in created:
@@ -168,8 +218,18 @@ def evaluate(
     from autoreview.llm.claude import ClaudeLLMProvider
     from autoreview.evaluation.evaluator import run_evaluation
 
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        typer.echo("Error: ANTHROPIC_API_KEY not set. Set it in your environment or .env file.", err=True)
+        raise typer.Exit(code=1)
+
     config = load_config(overrides={"llm": {"model": model}} if model else None)
-    llm = ClaudeLLMProvider(model=config.llm.model)
+    llm = ClaudeLLMProvider(
+        model=config.llm.model,
+        api_key=api_key,
+        max_tokens_generate=config.llm.max_tokens_generate,
+        max_tokens_structured=config.llm.max_tokens_structured,
+    )
 
     typer.echo(f"Evaluating: {generated}")
     typer.echo(f"Against: {reference}")
