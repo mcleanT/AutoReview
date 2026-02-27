@@ -69,7 +69,7 @@ class ContextualEnricher:
                     prompt=prompt,
                     response_model=EnrichmentQueryResult,
                     system=ENRICHMENT_QUERY_SYSTEM_PROMPT,
-                    max_tokens=1024,
+                    max_tokens=2048,
                 )
                 result: EnrichmentQueryResult = response.parsed
 
@@ -122,16 +122,18 @@ class ContextualEnricher:
             prompt=prompt,
             response_model=ContextualExtractionResult,
             system=CONTEXTUAL_EXTRACTION_SYSTEM_PROMPT,
-            max_tokens=1024,
+            max_tokens=2048,
         )
         result: ContextualExtractionResult = response.parsed
 
         extraction = result.to_contextual_extraction()
         # Ensure paper_id matches the actual paper
-        extraction = extraction.model_copy(update={
-            "paper_id": paper.id if hasattr(paper, "id") else paper.doi or paper.title,
-            "paper_title": paper.title,
-        })
+        extraction = extraction.model_copy(
+            update={
+                "paper_id": paper.id if hasattr(paper, "id") else paper.doi or paper.title,
+                "paper_title": paper.title,
+            }
+        )
 
         logger.info(
             "contextual_enricher.extraction_complete",
@@ -200,7 +202,7 @@ class ContextualEnricher:
                 return extractions
 
         # Split papers into batches
-        batches = [papers[i:i + batch_size] for i in range(0, len(papers), batch_size)]
+        batches = [papers[i : i + batch_size] for i in range(0, len(papers), batch_size)]
         tasks = [_extract_batch(batch) for batch in batches]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 

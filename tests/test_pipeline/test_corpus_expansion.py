@@ -55,7 +55,7 @@ class MockCorpusExpansionLLM:
         self.calls: list[str] = []
 
     async def generate_structured(
-        self, prompt, response_model, system="", max_tokens=4096, temperature=0.0,
+        self, prompt, response_model, system="", max_tokens=4096, temperature=0.0, model_override=None,
     ):
         self.calls.append(response_model.__name__)
 

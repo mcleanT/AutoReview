@@ -14,7 +14,7 @@ from autoreview.pipeline.nodes import PipelineNodes
 class MockPassageSearchLLM:
     """Mock LLM for passage_search node tests."""
 
-    async def generate_structured(self, prompt, response_model, system="", max_tokens=4096, temperature=0.0):
+    async def generate_structured(self, prompt, response_model, system="", max_tokens=4096, temperature=0.0, model_override=None):
         from autoreview.llm.prompts.passage_mining import SectionMiningResult, UndercitedClaim
 
         if response_model == SectionMiningResult:
@@ -55,7 +55,7 @@ class MockPassageSearchLLM:
             )
         raise ValueError(f"Unexpected: {response_model}")
 
-    async def generate(self, prompt, system="", max_tokens=4096, temperature=0.3):
+    async def generate(self, prompt, system="", max_tokens=4096, temperature=0.3, model_override=None):
         return LLMResponse(
             content="Revised section text with [@p1] and [@new_p1].",
             input_tokens=400, output_tokens=100,

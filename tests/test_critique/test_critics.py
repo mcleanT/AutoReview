@@ -120,7 +120,7 @@ class MockStructuredLLM:
         self.report = report
         self.calls: list[dict] = []
 
-    async def generate_structured(self, prompt, response_model, system="", max_tokens=4096, temperature=0.0):
+    async def generate_structured(self, prompt, response_model, system="", max_tokens=4096, temperature=0.0, model_override=None):
         self.calls.append({
             "method": "generate_structured",
             "prompt": prompt,
@@ -133,7 +133,7 @@ class MockStructuredLLM:
             output_tokens=300,
         )
 
-    async def generate(self, prompt, system="", max_tokens=4096, temperature=0.3):
+    async def generate(self, prompt, system="", max_tokens=4096, temperature=0.3, model_override=None):
         self.calls.append({
             "method": "generate",
             "prompt": prompt,
@@ -159,7 +159,7 @@ class MockSequenceLLM:
         self.structured_calls: list[dict] = []
         self.generate_calls: list[dict] = []
 
-    async def generate_structured(self, prompt, response_model, system="", max_tokens=4096, temperature=0.0):
+    async def generate_structured(self, prompt, response_model, system="", max_tokens=4096, temperature=0.0, model_override=None):
         self.structured_calls.append({
             "prompt": prompt,
             "response_model": response_model,
@@ -172,7 +172,7 @@ class MockSequenceLLM:
             output_tokens=300,
         )
 
-    async def generate(self, prompt, system="", max_tokens=4096, temperature=0.3):
+    async def generate(self, prompt, system="", max_tokens=4096, temperature=0.3, model_override=None):
         self.generate_calls.append({"prompt": prompt})
         return LLMResponse(
             content="Revised text after addressing critique feedback.",

@@ -15,8 +15,8 @@ class MockLLM:
     def __init__(self) -> None:
         self.calls: list[dict] = []
 
-    async def generate_structured(self, prompt, response_model, system="", max_tokens=4096, temperature=0.0):
-        self.calls.append({"prompt": prompt, "response_model": response_model})
+    async def generate_structured(self, prompt, response_model, system="", max_tokens=4096, temperature=0.0, model_override=None):
+        self.calls.append({"prompt": prompt, "response_model": response_model, "model_override": model_override})
 
         if response_model == ScreeningBatchResult:
             return LLMStructuredResponse(

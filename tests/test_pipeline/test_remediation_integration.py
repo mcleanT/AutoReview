@@ -16,7 +16,7 @@ class MockRemediationLLM:
     def __init__(self):
         self.call_count = 0
 
-    async def generate_structured(self, prompt, response_model, system="", max_tokens=4096, temperature=0.0):
+    async def generate_structured(self, prompt, response_model, system="", max_tokens=4096, temperature=0.0, model_override=None):
         self.call_count += 1
         name = response_model.__name__
 

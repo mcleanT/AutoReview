@@ -345,17 +345,28 @@ class PipelineNodes:
             f"({details}); {abstract_only} abstract-only, {title_only} title-only",
         )
 
+    def _effective_max_concurrent(self) -> int:
+        """Return extraction concurrency, capped for Ollama providers."""
+        from autoreview.llm.ollama import OllamaLLMProvider
+
+        llm = self.llm
+        if isinstance(llm, OllamaLLMProvider):
+            return self.config.extraction.ollama_max_concurrent
+        return self.config.extraction.max_concurrent
+
     async def extraction(self, kb: KnowledgeBase) -> None:
         """Node: Extract structured information from papers in batches."""
         tracker = _TokenAccumulator(self.llm, self._global_tokens)
         extractor = PaperExtractor(
             tracker,
             domain_fields=self.config.extraction.domain_fields,
-            max_concurrent=self.config.extraction.max_concurrent,
+            max_concurrent=self._effective_max_concurrent(),
             full_text_max_chars=self.config.extraction.full_text_max_chars,
+            tiered_models=self.config.extraction.tiered_models,
+            section_truncation=self.config.extraction.section_truncation,
         )
         batch_size = self.config.extraction.extraction_batch_size
-        papers = [sp.paper for sp in kb.screened_papers]
+        papers = kb.screened_papers
         total_batches = (len(papers) + batch_size - 1) // batch_size
 
         for i in range(0, len(papers), batch_size):
@@ -526,9 +537,11 @@ class PipelineNodes:
             tracker,
             domain_fields=self.config.extraction.domain_fields,
             full_text_max_chars=self.config.extraction.full_text_max_chars,
+            tiered_models=self.config.extraction.tiered_models,
+            section_truncation=self.config.extraction.section_truncation,
         )
-        new_papers_list = [sp.paper for sp in new_screened if sp.paper.id not in kb.extractions]
-        new_extractions = await extractor.extract_batch(new_papers_list)
+        new_to_extract = [sp for sp in new_screened if sp.paper.id not in kb.extractions]
+        new_extractions = await extractor.extract_batch(new_to_extract)
 
         # Merge into existing state
         kb.candidate_papers.extend(new_papers)
@@ -925,9 +938,11 @@ class PipelineNodes:
             domain_fields=self.config.extraction.domain_fields,
             max_concurrent=self.config.extraction.max_concurrent,
             full_text_max_chars=self.config.extraction.full_text_max_chars,
+            tiered_models=self.config.extraction.tiered_models,
+            section_truncation=self.config.extraction.section_truncation,
         )
-        new_papers_list = [sp.paper for sp in new_screened if sp.paper.id not in kb.extractions]
-        new_extractions = await extractor.extract_batch(new_papers_list)
+        new_to_extract = [sp for sp in new_screened if sp.paper.id not in kb.extractions]
+        new_extractions = await extractor.extract_batch(new_to_extract)
 
         # 6. Merge into KB
         kb.candidate_papers.extend(unique_papers)
@@ -1135,10 +1150,11 @@ class PipelineNodes:
             tracker,
             domain_fields=self.config.extraction.domain_fields,
             full_text_max_chars=self.config.extraction.full_text_max_chars,
+            tiered_models=self.config.extraction.tiered_models,
+            section_truncation=self.config.extraction.section_truncation,
         )
-        new_extractions = await extractor.extract_batch(
-            [sp.paper for sp in new_screened if sp.paper.id not in kb.extractions]
-        )
+        new_to_extract = [sp for sp in new_screened if sp.paper.id not in kb.extractions]
+        new_extractions = await extractor.extract_batch(new_to_extract)
 
         # 7. Merge into KB
         kb.candidate_papers.extend(new_papers)

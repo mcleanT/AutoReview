@@ -82,14 +82,14 @@ class MockWritingLLM:
         self.critique_score = critique_score
         self.calls: list[str] = []
 
-    async def generate(self, prompt, system="", max_tokens=4096, temperature=0.3):
+    async def generate(self, prompt, system="", max_tokens=4096, temperature=0.3, model_override=None):
         self.calls.append("generate")
         return LLMResponse(
             content="This section synthesizes findings from multiple studies [@p1] [@p2].",
             input_tokens=500, output_tokens=300,
         )
 
-    async def generate_structured(self, prompt, response_model, system="", max_tokens=4096, temperature=0.0):
+    async def generate_structured(self, prompt, response_model, system="", max_tokens=4096, temperature=0.0, model_override=None):
         self.calls.append("generate_structured")
         if response_model == ReviewOutline:
             return LLMStructuredResponse(

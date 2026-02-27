@@ -45,11 +45,13 @@ class ClaudeLLMProvider:
         system: str = "",
         max_tokens: int | None = None,
         temperature: float = 0.3,
+        model_override: str | None = None,
     ) -> LLMResponse:
         """Generate free-form text response."""
+        effective_model = model_override or self.model
         messages = [{"role": "user", "content": prompt}]
         kwargs: dict = {
-            "model": self.model,
+            "model": effective_model,
             "max_tokens": max_tokens if max_tokens is not None else self.max_tokens_generate,
             "messages": messages,
             "temperature": temperature,
@@ -76,6 +78,7 @@ class ClaudeLLMProvider:
         logger.info(
             "llm.generate",
             model=response.model,
+            requested_model=model_override,
             input_tokens=response.usage.input_tokens,
             output_tokens=response.usage.output_tokens,
             cache_creation_input_tokens=cache_creation,
@@ -96,11 +99,13 @@ class ClaudeLLMProvider:
         system: str = "",
         max_tokens: int | None = None,
         temperature: float = 0.0,
+        model_override: str | None = None,
     ) -> LLMStructuredResponse:
         """Generate structured output constrained to a Pydantic model schema."""
+        effective_model = model_override or self.model
         messages = [{"role": "user", "content": prompt}]
         kwargs: dict = {
-            "model": self.model,
+            "model": effective_model,
             "max_tokens": max_tokens if max_tokens is not None else self.max_tokens_structured,
             "messages": messages,
             "temperature": temperature,
@@ -150,6 +155,7 @@ class ClaudeLLMProvider:
         logger.info(
             "llm.generate_structured",
             model=response.model,
+            requested_model=model_override,
             response_model=response_model.__name__,
             input_tokens=response.usage.input_tokens,
             output_tokens=response.usage.output_tokens,

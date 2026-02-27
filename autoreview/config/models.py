@@ -17,6 +17,51 @@ class SearchConfig(BaseModel):
     min_coverage_threshold: float = 0.75
 
 
+class TieredModelConfig(BaseModel):
+    """Configuration for tiered model selection during extraction."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = False  # Opt-in, existing behavior unchanged
+    high_relevance_model: str = "claude-sonnet-4-20250514"
+    moderate_relevance_model: str = "claude-haiku-4-20250514"
+    high_relevance_scores: list[int] = [4, 5]
+    moderate_relevance_scores: list[int] = [3]
+
+
+class SectionTruncationConfig(BaseModel):
+    """Configuration for section-aware text truncation."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = True  # On by default — falls back to head/tail if parsing fails
+    keep_sections: list[str] = Field(
+        default_factory=lambda: [
+            "abstract",
+            "introduction",
+            "results",
+            "discussion",
+            "conclusion",
+        ]
+    )
+    drop_sections: list[str] = Field(
+        default_factory=lambda: [
+            "references",
+            "acknowledgment",
+            "acknowledgement",
+            "supplementary",
+            "supporting information",
+            "funding",
+            "author contributions",
+            "competing interests",
+            "conflict of interest",
+            "data availability",
+        ]
+    )
+    intro_max_chars: int = 3000
+    methods_max_chars: int = 2000  # 0 = drop entirely
+
+
 class ExtractionConfig(BaseModel):
     """Configuration for paper extraction."""
 
@@ -24,8 +69,11 @@ class ExtractionConfig(BaseModel):
 
     domain_fields: dict[str, bool] = {}
     max_concurrent: int = 10
+    ollama_max_concurrent: int = 2
     full_text_max_chars: int = 80_000
     extraction_batch_size: int = 20
+    tiered_models: TieredModelConfig = Field(default_factory=TieredModelConfig)
+    section_truncation: SectionTruncationConfig = Field(default_factory=SectionTruncationConfig)
 
 
 class CritiqueConfig(BaseModel):
@@ -86,6 +134,10 @@ class LLMConfig(BaseModel):
     max_tokens_generate: int = 4096
     max_tokens_structured: int = 4096
     token_budget: int | None = None
+    provider: str | None = None  # "claude", "ollama", or None (auto-detect)
+    ollama_base_url: str = "http://localhost:11434"
+    ollama_keep_alive: str = "1h"
+    ollama_num_ctx: int | None = None
 
 
 class DomainConfig(BaseModel):

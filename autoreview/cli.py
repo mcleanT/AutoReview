@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-import os
 from pathlib import Path
-from typing import Optional
 
 import structlog
 import typer
@@ -57,11 +55,20 @@ def _setup_logging(verbose: bool = False) -> None:
 @app.command()
 def run(
     topic: str = typer.Argument(..., help="Research topic or question for the review"),
-    domain: str = typer.Option("general", "--domain", "-d", help="Domain preset (biomedical, cs_ai, chemistry, general)"),
+    domain: str = typer.Option(
+        "general", "--domain", "-d", help="Domain preset (biomedical, cs_ai, chemistry, general)"
+    ),
     output_dir: str = typer.Option("output", "--output-dir", "-o", help="Output directory"),
-    output_format: str = typer.Option("markdown", "--format", "-f", help="Output format (markdown, latex, docx)"),
-    model: Optional[str] = typer.Option(None, "--model", "-m", help="Override LLM model"),
-    fresh: bool = typer.Option(False, "--fresh", help="Clear all previous snapshots and outputs before running"),
+    output_format: str = typer.Option(
+        "markdown", "--format", "-f", help="Output format (markdown, latex, docx)"
+    ),
+    model: str | None = typer.Option(None, "--model", "-m", help="Override LLM model"),
+    provider: str | None = typer.Option(
+        None, "--provider", "-p", help="LLM provider (claude, ollama). Auto-detected if omitted."
+    ),
+    fresh: bool = typer.Option(
+        False, "--fresh", help="Clear all previous snapshots and outputs before running"
+    ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
 ) -> None:
     """Run the full AutoReview pipeline to generate a review paper."""
@@ -82,9 +89,16 @@ def run(
     )
 
     from autoreview.config import load_config
+    from autoreview.llm.factory import create_llm_provider
     from autoreview.models.knowledge_base import KnowledgeBase
 
-    config = load_config(domain=domain, overrides={"llm": {"model": model}} if model else None)
+    overrides: dict = {}
+    if model:
+        overrides["llm"] = {"model": model}
+    if provider:
+        overrides.setdefault("llm", {})["provider"] = provider
+
+    config = load_config(domain=domain, overrides=overrides or None)
 
     kb = KnowledgeBase(
         topic=topic,
@@ -97,22 +111,14 @@ def run(
 
     kb.save_snapshot("initialized")
 
-    from autoreview.llm.claude import ClaudeLLMProvider
-    from autoreview.pipeline.runner import run_pipeline
     from autoreview.output.formatter import OutputFormatter
+    from autoreview.pipeline.runner import run_pipeline
 
-    # Validate API key early before starting the pipeline
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        typer.echo("Error: ANTHROPIC_API_KEY not set. Set it in your environment or .env file.", err=True)
+    try:
+        llm = create_llm_provider(config.llm, provider=provider)
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
-
-    llm = ClaudeLLMProvider(
-        model=config.llm.model,
-        api_key=api_key,
-        max_tokens_generate=config.llm.max_tokens_generate,
-        max_tokens_structured=config.llm.max_tokens_structured,
-    )
 
     try:
         kb = asyncio.run(run_pipeline(llm=llm, config=config, kb=kb))
@@ -124,7 +130,7 @@ def run(
     formatter = OutputFormatter(style=config.writing.citation_format)
     created = formatter.save(kb, output_dir, fmt=output_format)
 
-    typer.echo(f"Review paper generated successfully!")
+    typer.echo("Review paper generated successfully!")
     for path in created:
         typer.echo(f"  -> {path}")
 
@@ -132,8 +138,18 @@ def run(
 @app.command()
 def resume(
     snapshot: str = typer.Argument(..., help="Path to a snapshot JSON file"),
-    start_from: Optional[str] = typer.Option(None, "--start-from", "-s", help="DAG node to start from"),
-    output_format: str = typer.Option("markdown", "--format", "-f", help="Output format (markdown, latex, docx)"),
+    start_from: str | None = typer.Option(
+        None, "--start-from", "-s", help="DAG node to start from"
+    ),
+    output_format: str = typer.Option(
+        "markdown", "--format", "-f", help="Output format (markdown, latex, docx)"
+    ),
+    model: str | None = typer.Option(
+        None, "--model", "-m", help="LLM model to use (e.g. qwen3.5:35b)"
+    ),
+    provider: str | None = typer.Option(
+        None, "--provider", "-p", help="LLM provider (claude, ollama). Auto-detected if omitted."
+    ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
 ) -> None:
     """Resume pipeline from a saved snapshot."""
@@ -146,23 +162,20 @@ def resume(
     typer.echo(f"Topic: {kb.topic} | Phase: {kb.current_phase}")
     typer.echo(f"Papers: {len(kb.candidate_papers)} candidates, {len(kb.screened_papers)} screened")
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        typer.echo("Error: ANTHROPIC_API_KEY not set. Set it in your environment or .env file.", err=True)
-        raise typer.Exit(code=1)
-
     from autoreview.config import load_config
-    from autoreview.llm.claude import ClaudeLLMProvider
-    from autoreview.pipeline.runner import run_pipeline
+    from autoreview.llm.factory import create_llm_provider
     from autoreview.output.formatter import OutputFormatter
+    from autoreview.pipeline.runner import run_pipeline
 
     config = load_config(domain=kb.domain)
-    llm = ClaudeLLMProvider(
-        model=config.llm.model,
-        api_key=api_key,
-        max_tokens_generate=config.llm.max_tokens_generate,
-        max_tokens_structured=config.llm.max_tokens_structured,
-    )
+    if model:
+        config.llm.model = model
+
+    try:
+        llm = create_llm_provider(config.llm, provider=provider)
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
 
     try:
         kb = asyncio.run(run_pipeline(llm=llm, config=config, kb=kb, start_from=start_from))
@@ -173,7 +186,7 @@ def resume(
     formatter = OutputFormatter(style=config.writing.citation_format)
     created = formatter.save(kb, kb.output_dir, fmt=output_format)
 
-    typer.echo(f"Review paper generated successfully!")
+    typer.echo("Review paper generated successfully!")
     for path in created:
         typer.echo(f"  -> {path}")
 
@@ -200,53 +213,96 @@ def inspect(
 
     tokens = kb.total_tokens()
     if tokens["input_tokens"] > 0 or tokens["output_tokens"] > 0:
-        typer.echo(f"Total tokens: {tokens['input_tokens']:,} input, {tokens['output_tokens']:,} output")
+        typer.echo(
+            f"Total tokens: {tokens['input_tokens']:,} input, {tokens['output_tokens']:,} output"
+        )
 
 
 @app.command()
 def evaluate(
     generated: str = typer.Argument(..., help="Path to generated review Markdown file"),
     reference: str = typer.Argument(..., help="Path to reference PDF file"),
-    output_dir: str = typer.Option("output/evaluations", "--output-dir", "-o", help="Directory for evaluation outputs"),
-    model: Optional[str] = typer.Option(None, "--model", "-m", help="Override LLM model"),
+    output_dir: str = typer.Option(
+        "output/evaluations", "--output-dir", "-o", help="Directory for evaluation outputs"
+    ),
+    model: str | None = typer.Option(None, "--model", "-m", help="Override LLM model"),
+    provider: str | None = typer.Option(
+        None, "--provider", "-p", help="LLM provider (claude, ollama). Auto-detected if omitted."
+    ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
 ) -> None:
     """Evaluate a generated review against a published reference PDF."""
     _setup_logging(verbose)
 
     from autoreview.config import load_config
-    from autoreview.llm.claude import ClaudeLLMProvider
     from autoreview.evaluation.evaluator import run_evaluation
+    from autoreview.llm.factory import create_llm_provider
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        typer.echo("Error: ANTHROPIC_API_KEY not set. Set it in your environment or .env file.", err=True)
+    overrides: dict = {}
+    if model:
+        overrides["llm"] = {"model": model}
+    if provider:
+        overrides.setdefault("llm", {})["provider"] = provider
+
+    config = load_config(overrides=overrides or None)
+
+    try:
+        llm = create_llm_provider(config.llm, provider=provider)
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
-
-    config = load_config(overrides={"llm": {"model": model}} if model else None)
-    llm = ClaudeLLMProvider(
-        model=config.llm.model,
-        api_key=api_key,
-        max_tokens_generate=config.llm.max_tokens_generate,
-        max_tokens_structured=config.llm.max_tokens_structured,
-    )
 
     typer.echo(f"Evaluating: {generated}")
     typer.echo(f"Against: {reference}")
 
-    result = asyncio.run(run_evaluation(
-        generated_path=Path(generated),
-        reference_path=Path(reference),
-        output_dir=Path(output_dir),
-        llm=llm,
-    ))
+    result = asyncio.run(
+        run_evaluation(
+            generated_path=Path(generated),
+            reference_path=Path(reference),
+            output_dir=Path(output_dir),
+            llm=llm,
+        )
+    )
 
     typer.echo(f"\nOverall score: {result.overall_score:.2f}")
     typer.echo(f"  Citation recall:   {result.citation_score.recall:.1%}")
-    typer.echo(f"  Synthesis depth:   {result.synthesis_score.generated_score:.1f}/5 (ref: {result.synthesis_score.reference_score:.1f})")
+    typer.echo(
+        f"  Synthesis depth:   {result.synthesis_score.generated_score:.1f}/5 (ref: {result.synthesis_score.reference_score:.1f})"
+    )
     typer.echo(f"  Topical coverage:  {result.topic_coverage.generated_coverage:.1%}")
-    typer.echo(f"  Writing quality:   {result.writing_quality.generated_score:.1f}/5 (ref: {result.writing_quality.reference_score:.1f})")
+    typer.echo(
+        f"  Writing quality:   {result.writing_quality.generated_score:.1f}/5 (ref: {result.writing_quality.reference_score:.1f})"
+    )
     typer.echo(f"\nReport saved to: {output_dir}/")
+
+
+@app.command()
+def benchmark(
+    topic: str = typer.Argument(..., help="Research topic for benchmark prompts"),
+    models: str = typer.Option(..., "--models", help="Comma-separated list of models to benchmark"),
+    output_dir: str = typer.Option(
+        "output/benchmarks", "--output-dir", "-o", help="Directory for benchmark results"
+    ),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
+) -> None:
+    """Benchmark LLM providers by running targeted pipeline stages."""
+    _setup_logging(verbose)
+
+    from autoreview.benchmark.runner import run_benchmark
+
+    model_list = [m.strip() for m in models.split(",") if m.strip()]
+    if not model_list:
+        typer.echo("Error: provide at least one model via --models", err=True)
+        raise typer.Exit(code=1)
+
+    typer.echo(f"Benchmarking {len(model_list)} model(s): {', '.join(model_list)}")
+    typer.echo(f"Topic: {topic}")
+
+    try:
+        asyncio.run(run_benchmark(topic=topic, model_names=model_list, output_dir=output_dir))
+    except Exception as e:
+        typer.echo(f"Benchmark failed: {e}", err=True)
+        raise typer.Exit(code=1)
 
 
 if __name__ == "__main__":

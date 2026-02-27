@@ -219,10 +219,10 @@ class RemediationDispatcher:
         extractor = PaperExtractor(
             self.llm,
             domain_fields=self.config.extraction.domain_fields,
+            tiered_models=self.config.extraction.tiered_models,
+            section_truncation=self.config.extraction.section_truncation,
         )
-        new_extractions = await extractor.extract_batch(
-            [sp.paper for sp in new_screened],
-        )
+        new_extractions = await extractor.extract_batch(new_screened)
 
         # Merge
         kb.candidate_papers.extend(new_papers)

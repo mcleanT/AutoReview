@@ -8,7 +8,7 @@ from autoreview.llm.prompts.evaluation import (
 
 
 class MockScorerLLM:
-    async def generate_structured(self, prompt, response_model, system="", max_tokens=4096, temperature=0.0):
+    async def generate_structured(self, prompt, response_model, system="", max_tokens=4096, temperature=0.0, model_override=None):
         if response_model == SynthesisScoreResult:
             return LLMStructuredResponse(
                 parsed=SynthesisScoreResult(

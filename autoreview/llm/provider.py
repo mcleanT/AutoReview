@@ -38,6 +38,7 @@ class LLMProvider(Protocol):
         system: str = "",
         max_tokens: int | None = None,
         temperature: float = 0.3,
+        model_override: str | None = None,
     ) -> LLMResponse: ...
 
     async def generate_structured(
@@ -47,4 +48,5 @@ class LLMProvider(Protocol):
         system: str = "",
         max_tokens: int | None = None,
         temperature: float = 0.0,
+        model_override: str | None = None,
     ) -> LLMStructuredResponse: ...

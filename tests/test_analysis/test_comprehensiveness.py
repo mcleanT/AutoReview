@@ -161,7 +161,7 @@ class MockQueryCoverageLLM:
     def __init__(self, uncovered: list[str] | None = None):
         self.uncovered = uncovered or []
 
-    async def generate_structured(self, prompt, response_model, system="", max_tokens=4096, temperature=0.0):
+    async def generate_structured(self, prompt, response_model, system="", max_tokens=4096, temperature=0.0, model_override=None):
         from autoreview.llm.prompts.comprehensiveness import QueryCoverageResult, SubTopicCoverage
         if response_model == QueryCoverageResult:
             subtopics = [
@@ -226,7 +226,7 @@ class MockRescreeningLLM:
     def __init__(self):
         self.call_count = 0
 
-    async def generate_structured(self, prompt, response_model, system="", max_tokens=4096, temperature=0.0):
+    async def generate_structured(self, prompt, response_model, system="", max_tokens=4096, temperature=0.0, model_override=None):
         self.call_count += 1
         if response_model == ScreeningBatchResult:
             # Second pass: promote the first paper, keep second as marginal
@@ -279,7 +279,7 @@ class MockPostGapLLM:
         self.post_score = post_score
         self.remaining_major = remaining_major
 
-    async def generate_structured(self, prompt, response_model, system="", max_tokens=4096, temperature=0.0):
+    async def generate_structured(self, prompt, response_model, system="", max_tokens=4096, temperature=0.0, model_override=None):
         if response_model == GapAnalysisResult:
             gaps = []
             for i in range(self.remaining_major):
