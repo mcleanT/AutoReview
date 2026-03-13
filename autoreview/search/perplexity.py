@@ -272,9 +272,12 @@ class PerplexitySearch:
                                 "messages": [
                                     {
                                         "role": "system",
-                                        "content": "You are a research assistant. List academic papers "
-                                        "relevant to the query. For each paper, provide: title, "
-                                        "authors, year, and DOI if available.",
+                                        "content": (
+                                            "You are a research assistant. "
+                                            "List academic papers relevant to the query. "
+                                            "For each paper, provide: title, "
+                                            "authors, year, and DOI if available."
+                                        ),
                                     },
                                     {"role": "user", "content": query},
                                 ],
@@ -286,7 +289,9 @@ class PerplexitySearch:
                                 wait = 2 ** (attempt + 1)
                                 logger.warning(
                                     "perplexity.rate_limited",
-                                    query=query[:80], attempt=attempt + 1, wait=wait,
+                                    query=query[:80],
+                                    attempt=attempt + 1,
+                                    wait=wait,
                                 )
                                 await asyncio.sleep(wait)
                                 continue
@@ -294,15 +299,16 @@ class PerplexitySearch:
                                 logger.error("perplexity.rate_limit_exhausted", query=query[:80])
                                 break
 
-                        if response.status_code >= 500:
-                            if attempt < max_retries - 1:
-                                wait = 2 ** (attempt + 1)
-                                logger.warning(
-                                    "perplexity.server_error_retry",
-                                    status=response.status_code, attempt=attempt + 1, wait=wait,
-                                )
-                                await asyncio.sleep(wait)
-                                continue
+                        if response.status_code >= 500 and attempt < max_retries - 1:
+                            wait = 2 ** (attempt + 1)
+                            logger.warning(
+                                "perplexity.server_error_retry",
+                                status=response.status_code,
+                                attempt=attempt + 1,
+                                wait=wait,
+                            )
+                            await asyncio.sleep(wait)
+                            continue
 
                         response.raise_for_status()
                         data = response.json()
@@ -345,17 +351,22 @@ class PerplexitySearch:
                         break  # Success — exit retry loop
 
                     except httpx.HTTPStatusError as e:
-                        logger.warning("perplexity.error", status=e.response.status_code, query=query[:80])
+                        logger.warning(
+                            "perplexity.error", status=e.response.status_code, query=query[:80]
+                        )
                         break  # Non-retryable HTTP error
                     except httpx.RequestError as e:
                         if attempt < max_retries - 1:
                             logger.warning(
                                 "perplexity.request_error_retry",
-                                error=str(e), attempt=attempt + 1,
+                                error=str(e),
+                                attempt=attempt + 1,
                             )
                             await asyncio.sleep(2 ** (attempt + 1))
                         else:
-                            logger.warning("perplexity.request_error", error=str(e), query=query[:80])
+                            logger.warning(
+                                "perplexity.request_error", error=str(e), query=query[:80]
+                            )
 
         logger.info("perplexity.search.complete", total_papers=len(papers))
         return papers[:max_results]

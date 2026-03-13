@@ -7,7 +7,6 @@ import structlog
 from autoreview.critique.models import CritiqueIssue, CritiqueReport, CritiqueTarget
 from autoreview.critique.revision import revise_text, should_continue_revision
 from autoreview.llm.prompts.critique import (
-    HOLISTIC_CRITIQUE_SYSTEM_PROMPT,
     build_holistic_critique_prompt,
     get_holistic_critique_system_prompt,
 )

@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import pytest
 
-from autoreview.models.paper import CandidatePaper, ScreenedPaper
 from autoreview.extraction.models import (
     EvidenceStrength,
     Finding,
-    PaperExtraction,
     MethodologyRecord,
+    PaperExtraction,
 )
 from autoreview.models.knowledge_base import KnowledgeBase
+from autoreview.models.paper import CandidatePaper, ScreenedPaper
 
 
 @pytest.fixture
@@ -20,7 +20,10 @@ def sample_paper() -> CandidatePaper:
         year=2023,
         journal="Nature Reviews Neuroscience",
         doi="10.1038/s41583-023-0001",
-        abstract="This systematic review examines the role of gut microbiota in neurodegenerative diseases...",
+        abstract=(
+            "This systematic review examines the role of gut microbiota"
+            " in neurodegenerative diseases..."
+        ),
         source_database="pubmed",
         external_ids={"pmid": "12345678"},
         citation_count=42,

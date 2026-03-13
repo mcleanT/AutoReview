@@ -1,8 +1,6 @@
 """Tests for evidence-based section revision."""
 from __future__ import annotations
 
-import pytest
-
 from autoreview.extraction.models import EvidenceStrength, Finding, PaperExtraction
 from autoreview.llm.provider import LLMResponse
 from autoreview.writing.section_writer import SectionDraft, SectionWriter

@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import asyncio
 import pytest
 
-from autoreview.pipeline.dag import DAGRunner, DAGExecutionError
+from autoreview.pipeline.dag import DAGExecutionError, DAGRunner
 
 
 class TestDAGRunner:

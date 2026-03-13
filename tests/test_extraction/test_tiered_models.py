@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from autoreview.config.models import TieredModelConfig
 from autoreview.extraction.extractor import PaperExtractor
 from autoreview.extraction.models import EvidenceStrength, Finding, PaperExtraction

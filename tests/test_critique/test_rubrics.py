@@ -3,16 +3,15 @@
 from __future__ import annotations
 
 from autoreview.critique.models import CritiqueIssue, CritiqueSeverity
+from autoreview.critique.revision import _format_issues
 from autoreview.critique.rubrics import (
     HOLISTIC_DIMENSION_NAMES,
     HOLISTIC_RUBRICS,
     SECTION_DIMENSION_NAMES,
     SECTION_RUBRICS,
-    DimensionRubric,
     format_dimension_feedback,
     format_rubrics_for_prompt,
 )
-from autoreview.critique.revision import _format_issues
 
 
 class TestRubricFormatForPrompt:
@@ -60,19 +59,28 @@ class TestFormatDimensionFeedback:
 class TestDimensionCoverage:
     def test_all_section_dimensions_have_rubrics(self):
         expected = {
-            "synthesis_quality", "citation_accuracy", "coherence",
-            "connection_to_neighbors", "completeness", "balance",
-            "structural_variety", "paragraph_cohesion",
+            "synthesis_quality",
+            "citation_accuracy",
+            "coherence",
+            "connection_to_neighbors",
+            "completeness",
+            "balance",
+            "structural_variety",
+            "paragraph_cohesion",
         }
-        assert SECTION_DIMENSION_NAMES == expected
+        assert expected == SECTION_DIMENSION_NAMES
 
     def test_all_holistic_dimensions_have_rubrics(self):
         expected = {
-            "narrative_arc", "redundancy", "transitions",
-            "intro_conclusion_alignment", "balance", "completeness",
+            "narrative_arc",
+            "redundancy",
+            "transitions",
+            "intro_conclusion_alignment",
+            "balance",
+            "completeness",
             "prose_flow",
         }
-        assert HOLISTIC_DIMENSION_NAMES == expected
+        assert expected == HOLISTIC_DIMENSION_NAMES
 
     def test_each_rubric_has_five_anchors(self):
         for rubric in SECTION_RUBRICS + HOLISTIC_RUBRICS:
@@ -82,16 +90,22 @@ class TestDimensionCoverage:
         for rubric in SECTION_RUBRICS + HOLISTIC_RUBRICS:
             for i in range(len(rubric.anchors) - 1):
                 assert rubric.anchors[i].high < rubric.anchors[i + 1].low, (
-                    f"{rubric.dimension}: anchor {i} overlaps with {i+1}"
+                    f"{rubric.dimension}: anchor {i} overlaps with {i + 1}"
                 )
 
 
 class TestIssuesSortedBySeverity:
     def test_issues_sorted_by_severity(self):
         issues = [
-            CritiqueIssue(severity=CritiqueSeverity.MINOR, location="s1", description="minor issue"),
-            CritiqueIssue(severity=CritiqueSeverity.CRITICAL, location="s2", description="critical issue"),
-            CritiqueIssue(severity=CritiqueSeverity.MAJOR, location="s3", description="major issue"),
+            CritiqueIssue(
+                severity=CritiqueSeverity.MINOR, location="s1", description="minor issue"
+            ),
+            CritiqueIssue(
+                severity=CritiqueSeverity.CRITICAL, location="s2", description="critical issue"
+            ),
+            CritiqueIssue(
+                severity=CritiqueSeverity.MAJOR, location="s3", description="major issue"
+            ),
         ]
         formatted = _format_issues(issues)
         lines = formatted.strip().split("\n")

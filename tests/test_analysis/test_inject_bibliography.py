@@ -44,7 +44,6 @@ class TestInjectBibliography:
 
     def test_resolution_report(self):
         from paper.analysis.inject_bibliography import build_resolution_report
-
         from paper.analysis.reference_resolver import (
             ResolutionConfidence,
             ResolvedReference,

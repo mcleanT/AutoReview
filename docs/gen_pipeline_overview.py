@@ -1,9 +1,7 @@
 """Generate AutoReview pipeline overview PNG using matplotlib."""
 
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
-import numpy as np
+from matplotlib.patches import FancyBboxPatch
 
 # ── Colour palette ────────────────────────────────────────────────────────────
 SEARCH_COLOR    = "#4A90D9"   # blue

@@ -1,10 +1,8 @@
 """Tests for pipeline runner and node wiring."""
+
 from __future__ import annotations
 
-import pytest
-
 from autoreview.config import load_config
-from autoreview.models.knowledge_base import KnowledgeBase
 from autoreview.pipeline.runner import build_pipeline
 
 
@@ -71,7 +69,9 @@ class TestBuildPipeline:
             assert nodes.config.domain == domain
 
     def test_corpus_expansion_dependencies(self):
-        """corpus_expansion depends on contextual_enrichment; section_writing depends on corpus_expansion."""
+        """corpus_expansion depends on contextual_enrichment;
+        section_writing depends on corpus_expansion.
+        """
         config = load_config(domain="biomedical")
         dag, _ = build_pipeline(llm=None, config=config)
         assert "contextual_enrichment" in dag.nodes["corpus_expansion"].dependencies
@@ -105,6 +105,7 @@ class TestPipelineNodesHaveDispatcher:
 class TestSearchConfig:
     def test_remediation_config_defaults(self):
         from autoreview.config.models import SearchConfig
+
         config = SearchConfig()
         assert config.max_query_expansion_rounds == 2
         assert config.max_gap_search_rounds == 2

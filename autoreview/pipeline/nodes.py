@@ -36,7 +36,7 @@ from autoreview.writing.section_writer import SectionWriter
 logger = structlog.get_logger()
 
 
-class TokenBudgetExceeded(Exception):
+class TokenBudgetExceededError(Exception):
     """Raised when cumulative token usage exceeds the configured budget."""
 
     def __init__(self, used: int, budget: int) -> None:
@@ -129,7 +129,7 @@ class _GlobalTokenAccumulator:
         self.total_input += input_tokens
         self.total_output += output_tokens
         if self.budget and (self.total_input + self.total_output) > self.budget:
-            raise TokenBudgetExceeded(
+            raise TokenBudgetExceededError(
                 self.total_input + self.total_output,
                 self.budget,
             )
@@ -162,7 +162,7 @@ class _GlobalTokenAccumulator:
         node["cache_creation"] += cache_creation
 
         if self.budget and (self.total_input + self.total_output) > self.budget:
-            raise TokenBudgetExceeded(
+            raise TokenBudgetExceededError(
                 self.total_input + self.total_output,
                 self.budget,
             )
@@ -221,7 +221,10 @@ class PipelineNodes:
         response = await self.llm.generate_structured(
             prompt=prompt,
             response_model=QueryExpansionResult,
-            system="You are an expert research librarian generating search queries for a literature review.",
+            system=(
+                "You are an expert research librarian generating search queries "
+                "for a literature review."
+            ),
         )
         result: QueryExpansionResult = response.parsed
 
@@ -845,7 +848,8 @@ class PipelineNodes:
             "contextual_enrichment",
             "complete",
             f"Sections enriched: {len(kb.contextual_enrichment)}, "
-            f"Total extractions: {sum(len(e.contextual_extractions) for e in kb.contextual_enrichment.values())}",
+            f"Total extractions: "
+            f"{sum(len(e.contextual_extractions) for e in kb.contextual_enrichment.values())}",
             tracker.usage,
         )
 
@@ -1020,7 +1024,7 @@ class PipelineNodes:
         new_paper_ids = list(new_extractions.keys())
         section_new_papers: dict[str, list[str]] = {}
 
-        for query_str, section_ids in query_to_sections.items():
+        for _query_str, section_ids in query_to_sections.items():
             for sid in section_ids:
                 section_new_papers.setdefault(sid, []).extend(new_paper_ids)
 
@@ -1178,9 +1182,9 @@ class PipelineNodes:
 
         # 5. Citation snowballing from top-10 most-cited S2 papers in corpus
         try:
-            from autoreview.search.semantic_scholar import SemanticScholarSearch as S2
+            from autoreview.search.semantic_scholar import SemanticScholarSearch
 
-            s2 = S2()
+            s2 = SemanticScholarSearch()
             top_s2_ids = sorted(
                 [
                     (p.external_ids.get("s2_id", ""), p.citation_count or 0)

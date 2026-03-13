@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -17,7 +17,7 @@ from autoreview.models.paper import CandidatePaper
 logger = structlog.get_logger()
 
 
-class ResolutionConfidence(str, Enum):
+class ResolutionConfidence(StrEnum):
     HIGH = "high"  # DOI exact match
     MEDIUM = "medium"  # Title fuzzy match >= 85%
     LOW = "low"  # Title fuzzy match 70-85%

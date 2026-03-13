@@ -124,14 +124,14 @@ def run(
         llm = create_llm_provider(config.llm, provider=provider)
     except ValueError as e:
         typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
     try:
         kb = asyncio.run(run_pipeline(llm=llm, config=config, kb=kb))
     except Exception as e:
         logger.error("pipeline.failed", error=str(e))
         typer.echo(f"Pipeline failed: {e}", err=True)
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
     formatter = OutputFormatter(style=config.writing.citation_format)
     created = formatter.save(kb, output_dir, fmt=output_format)
@@ -188,13 +188,13 @@ def resume(
         llm = create_llm_provider(config.llm, provider=provider)
     except ValueError as e:
         typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
     try:
         kb = asyncio.run(run_pipeline(llm=llm, config=config, kb=kb, start_from=start_from))
     except Exception as e:
         typer.echo(f"Pipeline failed: {e}", err=True)
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
     formatter = OutputFormatter(style=config.writing.citation_format)
     created = formatter.save(kb, kb.output_dir, fmt=output_format)
@@ -274,7 +274,7 @@ def evaluate(
         llm = create_llm_provider(config.llm, provider=provider)
     except ValueError as e:
         typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
     if judge_model:
         try:
@@ -282,7 +282,7 @@ def evaluate(
             judge_llm = create_llm_provider(judge_config, provider=judge_provider or provider)
         except ValueError as e:
             typer.echo(f"Error: {e}", err=True)
-            raise typer.Exit(code=1)
+            raise typer.Exit(code=1) from e
     else:
         judge_llm = llm
 
@@ -301,11 +301,13 @@ def evaluate(
     typer.echo(f"\nOverall score: {result.overall_score:.2f}")
     typer.echo(f"  Citation recall:   {result.citation_score.recall:.1%}")
     typer.echo(
-        f"  Synthesis depth:   {result.synthesis_score.generated_score:.1f}/5 (ref: {result.synthesis_score.reference_score:.1f})"
+        f"  Synthesis depth:   {result.synthesis_score.generated_score:.1f}/5 "
+        f"(ref: {result.synthesis_score.reference_score:.1f})"
     )
     typer.echo(f"  Topical coverage:  {result.topic_coverage.generated_coverage:.1%}")
     typer.echo(
-        f"  Writing quality:   {result.writing_quality.generated_score:.1f}/5 (ref: {result.writing_quality.reference_score:.1f})"
+        f"  Writing quality:   {result.writing_quality.generated_score:.1f}/5 "
+        f"(ref: {result.writing_quality.reference_score:.1f})"
     )
     typer.echo(f"\nReport saved to: {output_dir}/")
 
@@ -336,7 +338,7 @@ def benchmark(
         asyncio.run(run_benchmark(topic=topic, model_names=model_list, output_dir=output_dir))
     except Exception as e:
         typer.echo(f"Benchmark failed: {e}", err=True)
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from e
 
 
 @app.command(name="batch-evaluate")
@@ -397,7 +399,7 @@ def batch_evaluate(
     # Group by model tier if available
     by_tier: dict[str, list] = defaultdict(list)
     by_domain: dict[str, list] = defaultdict(list)
-    for topic_cfg, result in zip(batch_config.topics, results):
+    for topic_cfg, result in zip(batch_config.topics, results, strict=False):
         if topic_cfg.model_tier:
             by_tier[topic_cfg.model_tier].append(result)
         by_domain[topic_cfg.domain].append(result)
@@ -416,7 +418,8 @@ def batch_evaluate(
     print(f"  Overall score:      {agg.overall_score.mean:.3f} ± {agg.overall_score.std:.3f}")
     print(f"  Citation recall:    {agg.citation_recall.mean:.3f} ± {agg.citation_recall.std:.3f}")
     print(
-        f"  Citation precision: {agg.citation_precision.mean:.3f} ± {agg.citation_precision.std:.3f}"
+        f"  Citation precision: "
+        f"{agg.citation_precision.mean:.3f} ± {agg.citation_precision.std:.3f}"
     )
     print(f"  Citation F1:        {agg.citation_f1.mean:.3f} ± {agg.citation_f1.std:.3f}")
     print(f"  Synthesis:          {agg.synthesis_score.mean:.2f}/5 ± {agg.synthesis_score.std:.2f}")

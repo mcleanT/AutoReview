@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from autoreview.llm.prompts.corpus_expansion import (
     CORPUS_EXPANSION_SYSTEM_PROMPT,
     CorpusExpansionQuery,

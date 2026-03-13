@@ -28,10 +28,10 @@ _MAX_HEADING_LEN = 80
 _HEADING_PATTERN = re.compile(
     r"^"
     r"(?:"
-    r"(?:\d+(?:\.\d+)*\.?[ \t]+)"       # Numbered: "1. ", "2.1 "
-    r"|(?:[IVXivx]+\.?[ \t]+)"          # Roman numeral: "I. ", "IV "
+    r"(?:\d+(?:\.\d+)*\.?[ \t]+)"  # Numbered: "1. ", "2.1 "
+    r"|(?:[IVXivx]+\.?[ \t]+)"  # Roman numeral: "I. ", "IV "
     r")?"
-    r"([A-Z][A-Za-z \t,&\-/]+)"         # Heading text (no newline in capture)
+    r"([A-Z][A-Za-z \t,&\-/]+)"  # Heading text (no newline in capture)
     r"[ \t]*$",
     re.MULTILINE,
 )
@@ -55,8 +55,7 @@ def parse_sections(text: str) -> list[ParsedSection]:
     """
     # Filter matches to only include lines short enough to be headings
     matches = [
-        m for m in _HEADING_PATTERN.finditer(text)
-        if len(m.group(0).strip()) <= _MAX_HEADING_LEN
+        m for m in _HEADING_PATTERN.finditer(text) if len(m.group(0).strip()) <= _MAX_HEADING_LEN
     ]
 
     if len(matches) < 2:
@@ -68,12 +67,14 @@ def parse_sections(text: str) -> list[ParsedSection]:
         name = match.group(1).strip()
         start = match.start()
         end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
-        sections.append(ParsedSection(
-            name=name,
-            start=start,
-            end=end,
-            text=text[start:end],
-        ))
+        sections.append(
+            ParsedSection(
+                name=name,
+                start=start,
+                end=end,
+                text=text[start:end],
+            )
+        )
 
     return sections
 
@@ -148,16 +149,23 @@ def section_aware_truncate(
         section_text = section.text
 
         # Cap Introduction
-        if "introduction" in name_lower and config.intro_max_chars > 0:
-            if len(section_text) > config.intro_max_chars:
-                section_text = section_text[: config.intro_max_chars] + "\n[...introduction truncated...]\n"
+        if (
+            "introduction" in name_lower
+            and config.intro_max_chars > 0
+            and len(section_text) > config.intro_max_chars
+        ):
+            section_text = (
+                section_text[: config.intro_max_chars] + "\n[...introduction truncated...]\n"
+            )
 
         # Cap or drop Methods
         if "method" in name_lower:
             if config.methods_max_chars == 0:
                 continue  # Drop entirely
             if len(section_text) > config.methods_max_chars:
-                section_text = section_text[: config.methods_max_chars] + "\n[...methods truncated...]\n"
+                section_text = (
+                    section_text[: config.methods_max_chars] + "\n[...methods truncated...]\n"
+                )
 
         kept_parts.append(section_text)
 

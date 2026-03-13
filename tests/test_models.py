@@ -1,35 +1,31 @@
 from __future__ import annotations
 
-import json
 import os
 import tempfile
 
 import pytest
 
-from autoreview.models.base import AutoReviewModel, TimestampedModel
-from autoreview.models.paper import CandidatePaper, ScreenedPaper
-from autoreview.extraction.models import (
-    EvidenceStrength,
-    Finding,
-    RelationshipClaim,
-    RelationshipType,
-    PaperExtraction,
-)
 from autoreview.analysis.evidence_map import (
-    Theme,
-    EvidenceMap,
     Contradiction,
-    IdentifiedGap,
+    EvidenceMap,
     GapSeverity,
-    ConsensusClaim,
+    IdentifiedGap,
 )
 from autoreview.critique.models import (
-    CritiqueReport,
     CritiqueIssue,
+    CritiqueReport,
     CritiqueSeverity,
     CritiqueTarget,
 )
+from autoreview.extraction.models import (
+    EvidenceStrength,
+    PaperExtraction,
+    RelationshipClaim,
+    RelationshipType,
+)
+from autoreview.models.base import TimestampedModel
 from autoreview.models.knowledge_base import KnowledgeBase, PipelinePhase
+from autoreview.models.paper import CandidatePaper, ScreenedPaper
 
 
 class TestBaseModels:
@@ -85,9 +81,9 @@ class TestPaperModels:
 
     def test_screened_paper_score_range(self):
         paper = CandidatePaper(title="T", authors=["A"], source_database="s2")
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError):
             ScreenedPaper(paper=paper, relevance_score=6, rationale="test", include=True)
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError):
             ScreenedPaper(paper=paper, relevance_score=0, rationale="test", include=True)
 
 
@@ -140,7 +136,7 @@ class TestEvidenceMap:
 
 class TestCritiqueModels:
     def test_critique_report_score_range(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError):
             CritiqueReport(
                 target=CritiqueTarget.OUTLINE,
                 passed=False,
@@ -175,15 +171,21 @@ class TestKnowledgeBase:
 
     def test_add_audit_entry(self, sample_kb):
         sample_kb.add_audit_entry(
-            "search", "query_expansion", "Generated 5 queries",
+            "search",
+            "query_expansion",
+            "Generated 5 queries",
             token_usage={"input_tokens": 500, "output_tokens": 200},
         )
         assert len(sample_kb.audit_log) == 1
         assert sample_kb.audit_log[0].node_name == "search"
 
     def test_total_tokens(self, sample_kb):
-        sample_kb.add_audit_entry("n1", "a1", token_usage={"input_tokens": 100, "output_tokens": 50})
-        sample_kb.add_audit_entry("n2", "a2", token_usage={"input_tokens": 200, "output_tokens": 75})
+        sample_kb.add_audit_entry(
+            "n1", "a1", token_usage={"input_tokens": 100, "output_tokens": 50}
+        )
+        sample_kb.add_audit_entry(
+            "n2", "a2", token_usage={"input_tokens": 200, "output_tokens": 75}
+        )
         totals = sample_kb.total_tokens()
         assert totals["input_tokens"] == 300
         assert totals["output_tokens"] == 125
@@ -212,4 +214,5 @@ class TestKnowledgeBase:
 
 def test_pipeline_phase_has_passage_search():
     from autoreview.models.knowledge_base import PipelinePhase
+
     assert PipelinePhase.PASSAGE_SEARCH == "passage_search"

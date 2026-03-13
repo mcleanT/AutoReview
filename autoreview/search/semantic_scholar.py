@@ -56,9 +56,14 @@ class SemanticScholarSearch:
             journal = (data.get("journal") or {}).get("name")
 
             return CandidatePaper(
-                title=title, authors=authors, year=data.get("year"),
-                journal=journal, doi=doi, abstract=data.get("abstract"),
-                source_database="semantic_scholar", external_ids=external_ids,
+                title=title,
+                authors=authors,
+                year=data.get("year"),
+                journal=journal,
+                doi=doi,
+                abstract=data.get("abstract"),
+                source_database="semantic_scholar",
+                external_ids=external_ids,
                 citation_count=data.get("citationCount"),
             )
         except Exception as e:
@@ -82,7 +87,12 @@ class SemanticScholarSearch:
                     try:
                         resp = await client.get(
                             f"{S2_API_BASE}/paper/search",
-                            params={"query": query, "offset": offset, "limit": limit, "fields": S2_FIELDS},
+                            params={
+                                "query": query,
+                                "offset": offset,
+                                "limit": limit,
+                                "fields": S2_FIELDS,
+                            },
                         )
                         if resp.status_code == 429:
                             logger.warning("s2.rate_limited", query=query[:80])
@@ -91,7 +101,9 @@ class SemanticScholarSearch:
                         resp.raise_for_status()
                         data = resp.json()
                     except httpx.HTTPStatusError as e:
-                        logger.warning("s2.search_error", status=e.response.status_code, query=query[:80])
+                        logger.warning(
+                            "s2.search_error", status=e.response.status_code, query=query[:80]
+                        )
                         break
                     except httpx.RequestError as e:
                         logger.warning("s2.request_error", error=str(e), query=query[:80])
@@ -124,7 +136,9 @@ class SemanticScholarSearch:
         await self._limiter.acquire()
         async with httpx.AsyncClient(timeout=30.0, headers=self._headers) as client:
             try:
-                resp = await client.get(f"{S2_API_BASE}/paper/{paper_id}", params={"fields": S2_FIELDS})
+                resp = await client.get(
+                    f"{S2_API_BASE}/paper/{paper_id}", params={"fields": S2_FIELDS}
+                )
                 resp.raise_for_status()
                 return self._parse_paper(resp.json())
             except (httpx.HTTPStatusError, httpx.RequestError) as e:

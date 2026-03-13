@@ -10,19 +10,15 @@ from __future__ import annotations
 
 import json
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 
 import structlog
 from pydantic import Field
 
 from autoreview.config.models import LLMConfig
 from autoreview.extraction.models import (
-    Finding,
-    MethodologyRecord,
     PaperExtraction,
-    RelationshipClaim,
 )
 from autoreview.llm.factory import create_llm_provider
 from autoreview.llm.provider import LLMProvider
@@ -46,16 +42,21 @@ class QueryExpansionResult(AutoReviewModel):
 # Synthetic prompts (no external search needed)
 # ---------------------------------------------------------------------------
 
+
 def _query_expansion_prompt(topic: str) -> tuple[str, str]:
-    system = "You are an expert research librarian generating search queries for a literature review."
+    system = (
+        "You are an expert research librarian generating search queries for a literature review."
+    )
     prompt = (
-        f"Generate comprehensive search queries for a scientific literature review on: '{topic}'\n\n"
+        f"Generate comprehensive search queries for a scientific literature review on: "
+        f"'{topic}'\n\n"
         f"Produce:\n"
         f"- 3-5 PubMed Boolean/MeSH queries\n"
         f"- 3-5 Semantic Scholar semantic queries\n"
         f"- 3-5 OpenAlex general academic queries\n"
         f"- 2-3 Perplexity natural-language discovery questions\n"
-        f"- A scope document (1 paragraph) defining review boundaries, expected sub-topics, and exclusions\n"
+        f"- A scope document (1 paragraph) defining review boundaries, "
+        f"expected sub-topics, and exclusions\n"
     )
     return system, prompt
 
@@ -94,7 +95,8 @@ def _extraction_prompt() -> tuple[str, str]:
         f"A Longitudinal Cohort Study\n\n"
         f"Abstract:\n{SYNTHETIC_ABSTRACT}\n\n"
         f"Extract: key findings with evidence strength, methods summary, limitations, "
-        f"methodology details (approach, datasets, metrics). Use paper_id 'synth-001' for all findings."
+        f"methodology details (approach, datasets, metrics). "
+        f"Use paper_id 'synth-001' for all findings."
     )
     return system, prompt
 
@@ -125,8 +127,10 @@ def _writing_prompt(topic: str) -> tuple[str, str]:
 # Stage runner
 # ---------------------------------------------------------------------------
 
+
 class StageResult(AutoReviewModel):
     """Result of a single benchmark stage."""
+
     stage: str
     model: str
     success: bool
@@ -149,8 +153,10 @@ async def _run_query_expansion(llm: LLMProvider, model_name: str, topic: str) ->
         elapsed = time.monotonic() - t0
         parsed: QueryExpansionResult = response.parsed  # type: ignore[assignment]
         total_queries = (
-            len(parsed.pubmed_queries) + len(parsed.semantic_scholar_queries)
-            + len(parsed.openalex_queries) + len(parsed.perplexity_questions)
+            len(parsed.pubmed_queries)
+            + len(parsed.semantic_scholar_queries)
+            + len(parsed.openalex_queries)
+            + len(parsed.perplexity_questions)
         )
         return StageResult(
             stage="query_expansion",
@@ -189,7 +195,9 @@ async def _run_extraction(llm: LLMProvider, model_name: str) -> StageResult:
             elapsed_seconds=round(elapsed, 2),
             input_tokens=response.input_tokens,
             output_tokens=response.output_tokens,
-            output_preview=f"{len(parsed.key_findings)} findings, methods: {len(parsed.methods_summary)} chars",
+            output_preview=(
+                f"{len(parsed.key_findings)} findings, methods: {len(parsed.methods_summary)} chars"
+            ),
         )
     except Exception as e:
         return StageResult(
@@ -235,11 +243,15 @@ async def _run_writing(llm: LLMProvider, model_name: str, topic: str) -> StageRe
 # Orchestrator
 # ---------------------------------------------------------------------------
 
+
 def _print_table(results: list[StageResult]) -> None:
     """Print a comparison table to stdout."""
     import typer
 
-    header = f"{'Model':<25} {'Stage':<20} {'Status':<8} {'Time (s)':<10} {'In Tok':<10} {'Out Tok':<10} {'Preview'}"
+    header = (
+        f"{'Model':<25} {'Stage':<20} {'Status':<8} "
+        f"{'Time (s)':<10} {'In Tok':<10} {'Out Tok':<10} {'Preview'}"
+    )
     typer.echo("\n" + "=" * len(header))
     typer.echo(header)
     typer.echo("-" * len(header))
@@ -271,9 +283,14 @@ async def run_benchmark(
         except ValueError as e:
             typer.echo(f"  Skipping {model_name}: {e}", err=True)
             for stage in ("query_expansion", "paper_extraction", "section_writing"):
-                all_results.append(StageResult(
-                    stage=stage, model=model_name, success=False, error=str(e),
-                ))
+                all_results.append(
+                    StageResult(
+                        stage=stage,
+                        model=model_name,
+                        success=False,
+                        error=str(e),
+                    )
+                )
             continue
 
         typer.echo("  Stage 1/3: Query expansion...")
@@ -291,12 +308,12 @@ async def run_benchmark(
     out_path = Path(output_dir)
     out_path.mkdir(parents=True, exist_ok=True)
     report = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "topic": topic,
         "models": model_names,
         "results": [r.model_dump() for r in all_results],
     }
-    report_file = out_path / f"benchmark_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.json"
+    report_file = out_path / f"benchmark_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.json"
     report_file.write_text(json.dumps(report, indent=2))
     typer.echo(f"Report saved to: {report_file}")
 

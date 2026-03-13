@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import os
 import time
 from functools import partial
@@ -36,6 +37,7 @@ class PubMedSearch:
 
     def _setup_entrez(self) -> Any:
         from Bio import Entrez
+
         Entrez.email = self._email
         if self._api_key:
             Entrez.api_key = self._api_key
@@ -44,16 +46,20 @@ class PubMedSearch:
     def _sync_search_with_retry(self, query: str, max_results: int) -> list[str]:
         for attempt in range(_MAX_RETRIES):
             try:
-                Entrez = self._setup_entrez()
-                handle = Entrez.esearch(db="pubmed", term=query, retmax=max_results, sort="relevance")
-                results = Entrez.read(handle)
+                entrez = self._setup_entrez()
+                handle = entrez.esearch(
+                    db="pubmed", term=query, retmax=max_results, sort="relevance"
+                )
+                results = entrez.read(handle)
                 handle.close()
                 return results.get("IdList", [])
             except Exception as e:
                 if attempt < _MAX_RETRIES - 1:
                     logger.warning(
                         "pubmed.search_retry",
-                        query=query[:80], attempt=attempt + 1, error=str(e),
+                        query=query[:80],
+                        attempt=attempt + 1,
+                        error=str(e),
                     )
                     time.sleep(_RETRY_BACKOFF[attempt])
                 else:
@@ -63,16 +69,19 @@ class PubMedSearch:
     def _sync_fetch_with_retry(self, pmids: list[str]) -> list[dict[str, Any]]:
         if not pmids:
             return []
-        Entrez = self._setup_entrez()
+        entrez = self._setup_entrez()
         all_articles: list[dict[str, Any]] = []
         for i in range(0, len(pmids), 200):
-            batch = pmids[i:i + 200]
+            batch = pmids[i : i + 200]
             for attempt in range(_MAX_RETRIES):
                 try:
-                    handle = Entrez.efetch(
-                        db="pubmed", id=",".join(batch), rettype="xml", retmode="xml",
+                    handle = entrez.efetch(
+                        db="pubmed",
+                        id=",".join(batch),
+                        rettype="xml",
+                        retmode="xml",
                     )
-                    records = Entrez.read(handle)
+                    records = entrez.read(handle)
                     handle.close()
                     all_articles.extend(records.get("PubmedArticle", []))
                     break
@@ -80,12 +89,16 @@ class PubMedSearch:
                     if attempt < _MAX_RETRIES - 1:
                         logger.warning(
                             "pubmed.fetch_retry",
-                            batch_start=i, attempt=attempt + 1, error=str(e),
+                            batch_start=i,
+                            attempt=attempt + 1,
+                            error=str(e),
                         )
                         time.sleep(_RETRY_BACKOFF[attempt])
                     else:
                         logger.error(
-                            "pubmed.fetch_failed", batch_start=i, error=str(e),
+                            "pubmed.fetch_failed",
+                            batch_start=i,
+                            error=str(e),
                         )
         return all_articles
 
@@ -107,10 +120,8 @@ class PubMedSearch:
             year = None
             pub_date = article_data.get("Journal", {}).get("JournalIssue", {}).get("PubDate", {})
             if "Year" in pub_date:
-                try:
+                with contextlib.suppress(ValueError, TypeError):
                     year = int(pub_date["Year"])
-                except (ValueError, TypeError):
-                    pass
 
             journal = article_data.get("Journal", {}).get("Title")
             abstract_parts = article_data.get("Abstract", {}).get("AbstractText", [])
@@ -143,8 +154,13 @@ class PubMedSearch:
                     break
 
             return CandidatePaper(
-                title=title, authors=authors, year=year, journal=journal,
-                doi=doi, abstract=abstract, source_database="pubmed",
+                title=title,
+                authors=authors,
+                year=year,
+                journal=journal,
+                doi=doi,
+                abstract=abstract,
+                source_database="pubmed",
                 external_ids=external_ids,
             )
         except Exception as e:
@@ -159,7 +175,8 @@ class PubMedSearch:
         for query in queries:
             await self._limiter.acquire()
             pmids = await loop.run_in_executor(
-                None, partial(self._sync_search_with_retry, query, per_query_max),
+                None,
+                partial(self._sync_search_with_retry, query, per_query_max),
             )
             all_pmids.extend(pmids)
             logger.info("pubmed.search", query=query[:80], results=len(pmids))
@@ -170,7 +187,8 @@ class PubMedSearch:
 
         await self._limiter.acquire()
         articles = await loop.run_in_executor(
-            None, partial(self._sync_fetch_with_retry, unique_pmids),
+            None,
+            partial(self._sync_fetch_with_retry, unique_pmids),
         )
 
         papers = [p for a in articles if (p := self._parse_article(a)) is not None]
@@ -181,6 +199,7 @@ class PubMedSearch:
         loop = asyncio.get_running_loop()
         await self._limiter.acquire()
         articles = await loop.run_in_executor(
-            None, partial(self._sync_fetch_with_retry, [paper_id]),
+            None,
+            partial(self._sync_fetch_with_retry, [paper_id]),
         )
         return self._parse_article(articles[0]) if articles else None

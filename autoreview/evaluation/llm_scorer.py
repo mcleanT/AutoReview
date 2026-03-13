@@ -26,7 +26,11 @@ class LLMScorer:
             prompt, SynthesisScoreResult, system=EVALUATION_SYSTEM_PROMPT
         )
         r = resp.parsed
-        logger.info("llm_scorer.synthesis", generated=r.generated_score, reference=r.reference_score)
+        logger.info(
+            "llm_scorer.synthesis",
+            generated=r.generated_score,
+            reference=r.reference_score,
+        )
         return SynthesisScore(
             generated_score=r.generated_score,
             reference_score=r.reference_score,

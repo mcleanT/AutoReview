@@ -4,7 +4,7 @@ from typing import Any
 
 import structlog
 
-from autoreview.analysis.evidence_map import EvidenceMap, GapSeverity, IdentifiedGap, Theme
+from autoreview.analysis.evidence_map import GapSeverity, IdentifiedGap, Theme
 from autoreview.llm.prompts.clustering import (
     GAP_ANALYSIS_SYSTEM_PROMPT,
     GapAnalysisResult,

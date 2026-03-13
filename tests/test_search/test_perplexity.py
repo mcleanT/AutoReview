@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 import httpx
-import pytest
 import respx
 
 from autoreview.search.perplexity import (
+    PERPLEXITY_API_BASE,
     PerplexitySearch,
     _build_citation_context,
     _extract_doi_from_url,
@@ -14,9 +14,7 @@ from autoreview.search.perplexity import (
     _extract_year_from_url,
     _parse_citation_object,
     _parse_citation_string,
-    PERPLEXITY_API_BASE,
 )
-
 
 # ---------------------------------------------------------------------------
 # Unit tests for helper functions

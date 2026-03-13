@@ -3,8 +3,7 @@ section_critique_loop, and holistic_critique_loop."""
 
 from __future__ import annotations
 
-import pytest
-
+from autoreview.critique.holistic_critic import HolisticCritic, holistic_critique_loop
 from autoreview.critique.models import (
     CritiqueIssue,
     CritiqueReport,
@@ -18,27 +17,32 @@ from autoreview.critique.revision import (
     should_continue_revision,
 )
 from autoreview.critique.section_critic import SectionCritic, section_critique_loop
-from autoreview.critique.holistic_critic import HolisticCritic, holistic_critique_loop
 from autoreview.llm.prompts.outline import OutlineSection, ReviewOutline
 from autoreview.llm.provider import LLMResponse, LLMStructuredResponse
 from autoreview.writing.section_writer import SectionDraft
 
-
 # ---------------------------------------------------------------------------
 # Shared test data helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_outline() -> ReviewOutline:
     return ReviewOutline(
         title="Test Review",
         sections=[
             OutlineSection(
-                id="1", title="Introduction", description="Overview",
-                paper_ids=["p1"], estimated_word_count=500,
+                id="1",
+                title="Introduction",
+                description="Overview",
+                paper_ids=["p1"],
+                estimated_word_count=500,
             ),
             OutlineSection(
-                id="2", title="Results", description="Findings",
-                paper_ids=["p1", "p2"], estimated_word_count=800,
+                id="2",
+                title="Results",
+                description="Findings",
+                paper_ids=["p1", "p2"],
+                estimated_word_count=800,
             ),
         ],
     )
@@ -83,6 +87,7 @@ def _make_section_draft() -> SectionDraft:
 # Mock LLMs
 # ---------------------------------------------------------------------------
 
+
 class MockRevisionLLM:
     """Mock LLM for revise_text tests. Records calls and returns configurable text."""
 
@@ -91,25 +96,46 @@ class MockRevisionLLM:
         self.generate_calls: list[dict] = []
         self.structured_calls: list[dict] = []
 
-    async def generate(self, prompt, system="", max_tokens=4096, temperature=0.3, model_override=None):
-        self.generate_calls.append({
-            "prompt": prompt,
-            "system": system,
-            "temperature": temperature,
-        })
+    async def generate(
+        self,
+        prompt,
+        system="",
+        max_tokens=4096,
+        temperature=0.3,
+        model_override=None,
+    ):
+        self.generate_calls.append(
+            {
+                "prompt": prompt,
+                "system": system,
+                "temperature": temperature,
+            }
+        )
         return LLMResponse(
             content=self.revised_text,
             input_tokens=400,
             output_tokens=200,
         )
 
-    async def generate_structured(self, prompt, response_model, system="", max_tokens=4096, temperature=0.0, model_override=None):
-        self.structured_calls.append({
-            "prompt": prompt,
-            "response_model": response_model,
-        })
+    async def generate_structured(
+        self,
+        prompt,
+        response_model,
+        system="",
+        max_tokens=4096,
+        temperature=0.0,
+        model_override=None,
+    ):
+        self.structured_calls.append(
+            {
+                "prompt": prompt,
+                "response_model": response_model,
+            }
+        )
         return LLMStructuredResponse(
-            parsed=response_model(), input_tokens=500, output_tokens=300,
+            parsed=response_model(),
+            input_tokens=500,
+            output_tokens=300,
         )
 
 
@@ -128,15 +154,27 @@ class MockCritiqueLoopLLM:
         self.structured_calls: list[str] = []
         self.generate_calls: list[str] = []
 
-    async def generate_structured(self, prompt, response_model, system="", max_tokens=4096, temperature=0.0, model_override=None):
+    async def generate_structured(
+        self,
+        prompt,
+        response_model,
+        system="",
+        max_tokens=4096,
+        temperature=0.0,
+        model_override=None,
+    ):
         self.structured_calls.append(prompt)
         report = self.reports[min(self._structured_idx, len(self.reports) - 1)]
         self._structured_idx += 1
         return LLMStructuredResponse(
-            parsed=report, input_tokens=500, output_tokens=300,
+            parsed=report,
+            input_tokens=500,
+            output_tokens=300,
         )
 
-    async def generate(self, prompt, system="", max_tokens=4096, temperature=0.3, model_override=None):
+    async def generate(
+        self, prompt, system="", max_tokens=4096, temperature=0.3, model_override=None
+    ):
         self.generate_calls.append(prompt)
         return LLMResponse(
             content=self.revised_text,
@@ -154,15 +192,21 @@ class MockOutlineGenerator:
         self.revision_calls: list[dict] = []
 
     async def generate(
-        self, evidence_map, scope_document, required_sections=None,
-        previous_outline=None, critique_report=None,
+        self,
+        evidence_map,
+        scope_document,
+        required_sections=None,
+        previous_outline=None,
+        critique_report=None,
     ):
         self.call_count += 1
         if previous_outline is not None:
-            self.revision_calls.append({
-                "previous_outline": previous_outline,
-                "critique_report": critique_report,
-            })
+            self.revision_calls.append(
+                {
+                    "previous_outline": previous_outline,
+                    "critique_report": critique_report,
+                }
+            )
         return self.outline
 
 
@@ -184,6 +228,7 @@ class MockOutlineCritic:
 # ===========================================================================
 # should_continue_revision tests
 # ===========================================================================
+
 
 class TestShouldContinueRevision:
     """Unit tests for the should_continue_revision termination function."""
@@ -218,9 +263,7 @@ class TestShouldContinueRevision:
 
     def test_score_converged_stops(self):
         """If improvement is less than convergence_delta, stop (plateau)."""
-        assert should_continue_revision(
-            [0.70, 0.71], convergence_delta=0.02
-        ) is False
+        assert should_continue_revision([0.70, 0.71], convergence_delta=0.02) is False
 
     def test_score_converged_exactly_at_delta(self):
         """Improvement equal to delta should not continue (< check uses <)."""
@@ -228,39 +271,33 @@ class TestShouldContinueRevision:
         # Wait, let's check the code: improvement < convergence_delta
         # 0.02 < 0.02 is False, so it won't trigger the stop.
         # That means it should continue!
-        assert should_continue_revision(
-            [0.70, 0.72], convergence_delta=0.02
-        ) is True
+        assert should_continue_revision([0.70, 0.72], convergence_delta=0.02) is True
 
     def test_score_decreasing_stops(self):
         """If score decreased, improvement is negative, which is < delta. Should stop."""
-        assert should_continue_revision(
-            [0.75, 0.73], convergence_delta=0.02
-        ) is False
+        assert should_continue_revision([0.75, 0.73], convergence_delta=0.02) is False
 
     def test_score_improving_significantly_continues(self):
         """If improvement exceeds delta and below threshold, continue."""
-        assert should_continue_revision(
-            [0.60, 0.70], threshold=0.80, convergence_delta=0.02
-        ) is True
+        assert (
+            should_continue_revision([0.60, 0.70], threshold=0.80, convergence_delta=0.02) is True
+        )
 
     def test_convergence_not_checked_with_single_score(self):
-        """With only one score, convergence cannot be assessed, should continue if below threshold."""
-        assert should_continue_revision(
-            [0.70], threshold=0.80, convergence_delta=0.02
-        ) is True
+        """With only one score, convergence cannot be assessed, continue if below threshold."""
+        assert should_continue_revision([0.70], threshold=0.80, convergence_delta=0.02) is True
 
     def test_multiple_factors_threshold_wins(self):
         """If latest score meets threshold, stop even if convergence says continue."""
-        assert should_continue_revision(
-            [0.50, 0.85], threshold=0.80, convergence_delta=0.02
-        ) is False
+        assert (
+            should_continue_revision([0.50, 0.85], threshold=0.80, convergence_delta=0.02) is False
+        )
 
     def test_multiple_factors_max_iterations_wins(self):
         """Max iterations reached should stop even if score is below threshold."""
-        assert should_continue_revision(
-            [0.50, 0.60, 0.70], threshold=0.80, max_iterations=3
-        ) is False
+        assert (
+            should_continue_revision([0.50, 0.60, 0.70], threshold=0.80, max_iterations=3) is False
+        )
 
     def test_default_parameters(self):
         """Test with default parameters (threshold=0.80, delta=0.02, max=3)."""
@@ -277,6 +314,7 @@ class TestShouldContinueRevision:
 # ===========================================================================
 # revise_text tests
 # ===========================================================================
+
 
 class TestReviseText:
     """Tests for the revise_text function."""
@@ -334,10 +372,7 @@ class TestReviseText:
         llm = MockRevisionLLM()
         critique = _make_critique_report(passed=False, score=0.55)
 
-        await revise_text(
-            llm, "Text", critique,
-            context="Full review scope: gut-brain axis in PD"
-        )
+        await revise_text(llm, "Text", critique, context="Full review scope: gut-brain axis in PD")
 
         prompt = llm.generate_calls[0]["prompt"]
         assert "gut-brain axis in PD" in prompt
@@ -396,7 +431,9 @@ class TestReviseText:
         """For a section-targeted critique, dimension feedback should use section rubrics."""
         llm = MockRevisionLLM()
         critique = _make_critique_report(
-            passed=False, score=0.55, target=CritiqueTarget.SECTION,
+            passed=False,
+            score=0.55,
+            target=CritiqueTarget.SECTION,
         )
 
         await revise_text(llm, "Section text", critique)
@@ -431,6 +468,7 @@ class TestReviseText:
 # ===========================================================================
 # _format_issues tests (supplementing test_rubrics.py)
 # ===========================================================================
+
 
 class TestFormatIssues:
     """Additional tests for _format_issues."""
@@ -486,14 +524,13 @@ class TestFormatIssues:
 # outline_critique_loop tests
 # ===========================================================================
 
+
 class TestOutlineCritiqueLoop:
     """Tests for the outline_critique_loop function."""
 
     async def test_passes_on_first_attempt(self):
         """When the first critique passes, no revision is needed."""
-        passing = _make_critique_report(
-            passed=True, score=0.90, target=CritiqueTarget.OUTLINE
-        )
+        passing = _make_critique_report(passed=True, score=0.90, target=CritiqueTarget.OUTLINE)
         generator = MockOutlineGenerator()
         critic = MockOutlineCritic([passing])
 
@@ -515,12 +552,8 @@ class TestOutlineCritiqueLoop:
 
     async def test_fails_then_passes(self):
         """When first critique fails and second passes, one revision cycle occurs."""
-        failing = _make_critique_report(
-            passed=False, score=0.55, target=CritiqueTarget.OUTLINE
-        )
-        passing = _make_critique_report(
-            passed=True, score=0.85, target=CritiqueTarget.OUTLINE
-        )
+        failing = _make_critique_report(passed=False, score=0.55, target=CritiqueTarget.OUTLINE)
+        passing = _make_critique_report(passed=True, score=0.85, target=CritiqueTarget.OUTLINE)
         generator = MockOutlineGenerator()
         critic = MockOutlineCritic([failing, passing])
 
@@ -542,9 +575,7 @@ class TestOutlineCritiqueLoop:
 
     async def test_max_cycles_reached(self):
         """When max cycles is reached without passing, loop stops."""
-        failing = _make_critique_report(
-            passed=False, score=0.55, target=CritiqueTarget.OUTLINE
-        )
+        failing = _make_critique_report(passed=False, score=0.55, target=CritiqueTarget.OUTLINE)
         generator = MockOutlineGenerator()
         critic = MockOutlineCritic([failing, failing])
 
@@ -564,12 +595,8 @@ class TestOutlineCritiqueLoop:
 
     async def test_convergence_stops_loop(self):
         """If scores converge (plateau), the loop should stop early."""
-        low1 = _make_critique_report(
-            passed=False, score=0.60, target=CritiqueTarget.OUTLINE
-        )
-        low2 = _make_critique_report(
-            passed=False, score=0.61, target=CritiqueTarget.OUTLINE
-        )
+        low1 = _make_critique_report(passed=False, score=0.60, target=CritiqueTarget.OUTLINE)
+        low2 = _make_critique_report(passed=False, score=0.61, target=CritiqueTarget.OUTLINE)
         generator = MockOutlineGenerator()
         critic = MockOutlineCritic([low1, low2])
 
@@ -590,14 +617,14 @@ class TestOutlineCritiqueLoop:
 
     async def test_returns_final_outline(self):
         """The loop should return the last generated outline."""
-        passing = _make_critique_report(
-            passed=True, score=0.90, target=CritiqueTarget.OUTLINE
-        )
+        passing = _make_critique_report(passed=True, score=0.90, target=CritiqueTarget.OUTLINE)
         custom_outline = ReviewOutline(
             title="Custom Outline",
             sections=[
                 OutlineSection(
-                    id="1", title="Intro", description="Intro",
+                    id="1",
+                    title="Intro",
+                    description="Intro",
                     estimated_word_count=300,
                 ),
             ],
@@ -617,9 +644,7 @@ class TestOutlineCritiqueLoop:
 
     async def test_single_max_cycle(self):
         """With max_cycles=1, only one critique is performed (no revision)."""
-        failing = _make_critique_report(
-            passed=False, score=0.50, target=CritiqueTarget.OUTLINE
-        )
+        failing = _make_critique_report(passed=False, score=0.50, target=CritiqueTarget.OUTLINE)
         generator = MockOutlineGenerator()
         critic = MockOutlineCritic([failing])
 
@@ -666,6 +691,7 @@ class TestOutlineCritiqueLoop:
 # ===========================================================================
 # section_critique_loop tests
 # ===========================================================================
+
 
 class TestSectionCritiqueLoop:
     """Tests for the section_critique_loop function."""
@@ -718,9 +744,7 @@ class TestSectionCritiqueLoop:
 
     async def test_max_cycles_stops_loop(self):
         """Loop stops at max_cycles even if section never passes."""
-        failing = _make_critique_report(
-            passed=False, score=0.55, target=CritiqueTarget.SECTION
-        )
+        failing = _make_critique_report(passed=False, score=0.55, target=CritiqueTarget.SECTION)
         llm = MockCritiqueLoopLLM([failing, failing])
         critic = SectionCritic(llm)
 
@@ -736,12 +760,8 @@ class TestSectionCritiqueLoop:
 
     async def test_revised_text_replaces_draft(self):
         """After revision, the draft text should be the revised text."""
-        failing = _make_critique_report(
-            passed=False, score=0.55, target=CritiqueTarget.SECTION
-        )
-        passing = _make_critique_report(
-            passed=True, score=0.90, target=CritiqueTarget.SECTION
-        )
+        failing = _make_critique_report(passed=False, score=0.55, target=CritiqueTarget.SECTION)
+        passing = _make_critique_report(passed=True, score=0.90, target=CritiqueTarget.SECTION)
         llm = MockCritiqueLoopLLM(
             [failing, passing],
             revised_text="This is the improved section with better synthesis.",
@@ -760,12 +780,8 @@ class TestSectionCritiqueLoop:
 
     async def test_preserves_section_metadata(self):
         """The revised draft should preserve section_id and title."""
-        failing = _make_critique_report(
-            passed=False, score=0.55, target=CritiqueTarget.SECTION
-        )
-        passing = _make_critique_report(
-            passed=True, score=0.90, target=CritiqueTarget.SECTION
-        )
+        failing = _make_critique_report(passed=False, score=0.55, target=CritiqueTarget.SECTION)
+        passing = _make_critique_report(passed=True, score=0.90, target=CritiqueTarget.SECTION)
         llm = MockCritiqueLoopLLM([failing, passing])
         critic = SectionCritic(llm)
 
@@ -777,8 +793,11 @@ class TestSectionCritiqueLoop:
         )
 
         draft, _ = await section_critique_loop(
-            llm=llm, critic=critic, draft=original,
-            outline=_make_outline(), max_cycles=2,
+            llm=llm,
+            critic=critic,
+            draft=original,
+            outline=_make_outline(),
+            max_cycles=2,
         )
 
         assert draft.section_id == "2.1"
@@ -786,9 +805,11 @@ class TestSectionCritiqueLoop:
         assert draft.citations_used == ["p3"]
 
     async def test_extra_issues_injected_on_first_cycle(self):
-        """Extra issues (e.g. citation validation) should be injected into the first cycle's report."""
+        """Extra issues (e.g. citation validation) should be injected into first cycle's report."""
         failing = _make_critique_report(
-            passed=False, score=0.55, target=CritiqueTarget.SECTION,
+            passed=False,
+            score=0.55,
+            target=CritiqueTarget.SECTION,
             issues=[
                 CritiqueIssue(
                     severity=CritiqueSeverity.MINOR,
@@ -797,9 +818,7 @@ class TestSectionCritiqueLoop:
                 ),
             ],
         )
-        passing = _make_critique_report(
-            passed=True, score=0.90, target=CritiqueTarget.SECTION
-        )
+        passing = _make_critique_report(passed=True, score=0.90, target=CritiqueTarget.SECTION)
         llm = MockCritiqueLoopLLM([failing, passing])
         critic = SectionCritic(llm)
 
@@ -812,8 +831,12 @@ class TestSectionCritiqueLoop:
         ]
 
         draft, critiques = await section_critique_loop(
-            llm=llm, critic=critic, draft=_make_section_draft(),
-            outline=_make_outline(), max_cycles=2, extra_issues=extra,
+            llm=llm,
+            critic=critic,
+            draft=_make_section_draft(),
+            outline=_make_outline(),
+            max_cycles=2,
+            extra_issues=extra,
         )
 
         # First critique should have extra issues prepended
@@ -824,15 +847,16 @@ class TestSectionCritiqueLoop:
 
     async def test_with_adjacent_text(self):
         """Adjacent text should be passed through to the critic."""
-        passing = _make_critique_report(
-            passed=True, score=0.90, target=CritiqueTarget.SECTION
-        )
+        passing = _make_critique_report(passed=True, score=0.90, target=CritiqueTarget.SECTION)
         llm = MockCritiqueLoopLLM([passing])
         critic = SectionCritic(llm)
 
         draft, critiques = await section_critique_loop(
-            llm=llm, critic=critic, draft=_make_section_draft(),
-            outline=_make_outline(), max_cycles=2,
+            llm=llm,
+            critic=critic,
+            draft=_make_section_draft(),
+            outline=_make_outline(),
+            max_cycles=2,
             adjacent_text="Previous section discussed X.",
         )
 
@@ -845,19 +869,19 @@ class TestSectionCritiqueLoop:
 # holistic_critique_loop tests
 # ===========================================================================
 
+
 class TestHolisticCritiqueLoop:
     """Tests for the holistic_critique_loop function."""
 
     async def test_passes_on_first_attempt(self):
         """When the full draft passes, no revision occurs."""
-        passing = _make_critique_report(
-            passed=True, score=0.88, target=CritiqueTarget.FULL_DRAFT
-        )
+        passing = _make_critique_report(passed=True, score=0.88, target=CritiqueTarget.FULL_DRAFT)
         llm = MockCritiqueLoopLLM([passing])
         critic = HolisticCritic(llm)
 
         draft, critiques = await holistic_critique_loop(
-            llm=llm, critic=critic,
+            llm=llm,
+            critic=critic,
             full_draft="Full draft text.",
             scope_document="Review scope",
         )
@@ -869,12 +893,8 @@ class TestHolisticCritiqueLoop:
 
     async def test_fails_then_passes(self):
         """When first critique fails, revision runs, then second critique passes."""
-        failing = _make_critique_report(
-            passed=False, score=0.55, target=CritiqueTarget.FULL_DRAFT
-        )
-        passing = _make_critique_report(
-            passed=True, score=0.85, target=CritiqueTarget.FULL_DRAFT
-        )
+        failing = _make_critique_report(passed=False, score=0.55, target=CritiqueTarget.FULL_DRAFT)
+        passing = _make_critique_report(passed=True, score=0.85, target=CritiqueTarget.FULL_DRAFT)
         llm = MockCritiqueLoopLLM(
             [failing, passing],
             revised_text="Improved full draft.",
@@ -882,7 +902,8 @@ class TestHolisticCritiqueLoop:
         critic = HolisticCritic(llm)
 
         draft, critiques = await holistic_critique_loop(
-            llm=llm, critic=critic,
+            llm=llm,
+            critic=critic,
             full_draft="Original draft.",
             scope_document="scope",
         )
@@ -894,20 +915,15 @@ class TestHolisticCritiqueLoop:
     async def test_max_cycles_stops_loop(self):
         """Loop stops at max_cycles even if never passes."""
         # Use incrementally increasing scores to avoid convergence stopping early
-        fail1 = _make_critique_report(
-            passed=False, score=0.50, target=CritiqueTarget.FULL_DRAFT
-        )
-        fail2 = _make_critique_report(
-            passed=False, score=0.60, target=CritiqueTarget.FULL_DRAFT
-        )
-        fail3 = _make_critique_report(
-            passed=False, score=0.70, target=CritiqueTarget.FULL_DRAFT
-        )
+        fail1 = _make_critique_report(passed=False, score=0.50, target=CritiqueTarget.FULL_DRAFT)
+        fail2 = _make_critique_report(passed=False, score=0.60, target=CritiqueTarget.FULL_DRAFT)
+        fail3 = _make_critique_report(passed=False, score=0.70, target=CritiqueTarget.FULL_DRAFT)
         llm = MockCritiqueLoopLLM([fail1, fail2, fail3])
         critic = HolisticCritic(llm)
 
         draft, critiques = await holistic_critique_loop(
-            llm=llm, critic=critic,
+            llm=llm,
+            critic=critic,
             full_draft="Draft.",
             scope_document="scope",
             max_cycles=3,
@@ -917,17 +933,14 @@ class TestHolisticCritiqueLoop:
 
     async def test_convergence_stops_early(self):
         """If scores plateau, the loop should stop before max_cycles."""
-        low1 = _make_critique_report(
-            passed=False, score=0.60, target=CritiqueTarget.FULL_DRAFT
-        )
-        low2 = _make_critique_report(
-            passed=False, score=0.61, target=CritiqueTarget.FULL_DRAFT
-        )
+        low1 = _make_critique_report(passed=False, score=0.60, target=CritiqueTarget.FULL_DRAFT)
+        low2 = _make_critique_report(passed=False, score=0.61, target=CritiqueTarget.FULL_DRAFT)
         llm = MockCritiqueLoopLLM([low1, low2])
         critic = HolisticCritic(llm)
 
         draft, critiques = await holistic_critique_loop(
-            llm=llm, critic=critic,
+            llm=llm,
+            critic=critic,
             full_draft="Draft.",
             scope_document="scope",
             max_cycles=5,
@@ -939,7 +952,9 @@ class TestHolisticCritiqueLoop:
     async def test_extra_issues_on_first_cycle(self):
         """Extra issues should be injected into the first cycle's critique."""
         failing = _make_critique_report(
-            passed=False, score=0.55, target=CritiqueTarget.FULL_DRAFT,
+            passed=False,
+            score=0.55,
+            target=CritiqueTarget.FULL_DRAFT,
             issues=[
                 CritiqueIssue(
                     severity=CritiqueSeverity.MINOR,
@@ -948,9 +963,7 @@ class TestHolisticCritiqueLoop:
                 ),
             ],
         )
-        passing = _make_critique_report(
-            passed=True, score=0.85, target=CritiqueTarget.FULL_DRAFT
-        )
+        passing = _make_critique_report(passed=True, score=0.85, target=CritiqueTarget.FULL_DRAFT)
         llm = MockCritiqueLoopLLM([failing, passing])
         critic = HolisticCritic(llm)
 
@@ -963,7 +976,8 @@ class TestHolisticCritiqueLoop:
         ]
 
         draft, critiques = await holistic_critique_loop(
-            llm=llm, critic=critic,
+            llm=llm,
+            critic=critic,
             full_draft="Draft.",
             scope_document="scope",
             extra_issues=extra,
@@ -975,17 +989,14 @@ class TestHolisticCritiqueLoop:
 
     async def test_revision_passes_scope_as_context(self):
         """The revision call should include scope document context."""
-        failing = _make_critique_report(
-            passed=False, score=0.55, target=CritiqueTarget.FULL_DRAFT
-        )
-        passing = _make_critique_report(
-            passed=True, score=0.85, target=CritiqueTarget.FULL_DRAFT
-        )
+        failing = _make_critique_report(passed=False, score=0.55, target=CritiqueTarget.FULL_DRAFT)
+        passing = _make_critique_report(passed=True, score=0.85, target=CritiqueTarget.FULL_DRAFT)
         llm = MockCritiqueLoopLLM([failing, passing])
         critic = HolisticCritic(llm)
 
         draft, _ = await holistic_critique_loop(
-            llm=llm, critic=critic,
+            llm=llm,
+            critic=critic,
             full_draft="Draft.",
             scope_document="gut-brain axis review scope",
         )
@@ -995,15 +1006,14 @@ class TestHolisticCritiqueLoop:
 
     async def test_custom_threshold(self):
         """A custom threshold should be respected."""
-        score_65 = _make_critique_report(
-            passed=False, score=0.65, target=CritiqueTarget.FULL_DRAFT
-        )
+        score_65 = _make_critique_report(passed=False, score=0.65, target=CritiqueTarget.FULL_DRAFT)
         llm = MockCritiqueLoopLLM([score_65])
         critic = HolisticCritic(llm)
 
         # With threshold 0.60, the score 0.65 should trigger stop
         draft, critiques = await holistic_critique_loop(
-            llm=llm, critic=critic,
+            llm=llm,
+            critic=critic,
             full_draft="Draft.",
             scope_document="scope",
             threshold=0.60,

@@ -3,10 +3,24 @@ from __future__ import annotations
 import pytest
 
 from autoreview.analysis.comprehensiveness import (
+    BenchmarkValidator,
+    BorderlineRescreener,
     CheckStatus,
     ComprehensiveCheckResult,
+    CoverageAnomalyChecker,
+    PostGapRevalidator,
+    QueryCoverageChecker,
     RemediationAction,
 )
+from autoreview.analysis.evidence_map import (
+    GapSeverity,
+    IdentifiedGap,
+    Theme,
+)
+from autoreview.llm.prompts.clustering import GapAnalysisResult, GapItem
+from autoreview.llm.prompts.screening import ScreeningBatchResult, ScreeningDecision
+from autoreview.llm.provider import LLMStructuredResponse
+from autoreview.models.paper import CandidatePaper, ScreenedPaper
 
 
 class TestRemediationAction:
@@ -74,11 +88,9 @@ class TestComprehensiveCheckResult:
         assert result.status == "warning"
 
 
-from autoreview.analysis.comprehensiveness import CoverageAnomalyChecker
-from autoreview.models.paper import CandidatePaper, ScreenedPaper
-
-
-def _make_candidates(n: int, source: str = "pubmed", with_abstract: bool = True) -> list[CandidatePaper]:
+def _make_candidates(
+    n: int, source: str = "pubmed", with_abstract: bool = True
+) -> list[CandidatePaper]:
     return [
         CandidatePaper(
             title=f"Paper {i}",
@@ -119,7 +131,8 @@ class TestCoverageAnomalyChecker:
         screened = _make_screened(candidates[:30])
         checker = CoverageAnomalyChecker()
         result = checker.check(
-            candidates, screened,
+            candidates,
+            screened,
             expected_sources=["pubmed", "semantic_scholar"],
         )
         assert result.status == "warning"
@@ -151,18 +164,23 @@ class TestCoverageAnomalyChecker:
         assert "source_counts" in result.metrics
 
 
-from autoreview.analysis.comprehensiveness import QueryCoverageChecker
-from autoreview.llm.provider import LLMStructuredResponse
-
-
 class MockQueryCoverageLLM:
     """Returns a structured coverage assessment."""
 
     def __init__(self, uncovered: list[str] | None = None):
         self.uncovered = uncovered or []
 
-    async def generate_structured(self, prompt, response_model, system="", max_tokens=4096, temperature=0.0, model_override=None):
+    async def generate_structured(
+        self,
+        prompt,
+        response_model,
+        system="",
+        max_tokens=4096,
+        temperature=0.0,
+        model_override=None,
+    ):
         from autoreview.llm.prompts.comprehensiveness import QueryCoverageResult, SubTopicCoverage
+
         if response_model == QueryCoverageResult:
             subtopics = [
                 SubTopicCoverage(
@@ -216,25 +234,35 @@ class TestQueryCoverageChecker:
         assert "sub_topics_total" in result.metrics
 
 
-from autoreview.analysis.comprehensiveness import BorderlineRescreener
-from autoreview.llm.prompts.screening import ScreeningBatchResult, ScreeningDecision
-
-
 class MockRescreeningLLM:
     """First call returns borderline scores, second call promotes some."""
 
     def __init__(self):
         self.call_count = 0
 
-    async def generate_structured(self, prompt, response_model, system="", max_tokens=4096, temperature=0.0, model_override=None):
+    async def generate_structured(
+        self,
+        prompt,
+        response_model,
+        system="",
+        max_tokens=4096,
+        temperature=0.0,
+        model_override=None,
+    ):
         self.call_count += 1
         if response_model == ScreeningBatchResult:
             # Second pass: promote the first paper, keep second as marginal
             return LLMStructuredResponse(
-                parsed=ScreeningBatchResult(decisions=[
-                    ScreeningDecision(paper_index=0, relevance_score=3, rationale="Relevant on second look"),
-                    ScreeningDecision(paper_index=1, relevance_score=2, rationale="Still marginal"),
-                ]),
+                parsed=ScreeningBatchResult(
+                    decisions=[
+                        ScreeningDecision(
+                            paper_index=0, relevance_score=3, rationale="Relevant on second look"
+                        ),
+                        ScreeningDecision(
+                            paper_index=1, relevance_score=2, rationale="Still marginal"
+                        ),
+                    ]
+                ),
                 input_tokens=300,
                 output_tokens=150,
             )
@@ -246,8 +274,12 @@ class TestBorderlineRescreener:
         llm = MockRescreeningLLM()
         rescreener = BorderlineRescreener(llm)
         borderline = [
-            CandidatePaper(title="Borderline 1", authors=["A"], source_database="test", abstract="Abstract 1"),
-            CandidatePaper(title="Borderline 2", authors=["A"], source_database="test", abstract="Abstract 2"),
+            CandidatePaper(
+                title="Borderline 1", authors=["A"], source_database="test", abstract="Abstract 1"
+            ),
+            CandidatePaper(
+                title="Borderline 2", authors=["A"], source_database="test", abstract="Abstract 2"
+            ),
         ]
         result, promoted = await rescreener.rescreen(borderline, "scope doc")
         assert result.check_name == "borderline_rescreening"
@@ -265,13 +297,6 @@ class TestBorderlineRescreener:
         assert result.details == "No borderline papers to re-screen"
 
 
-from autoreview.analysis.comprehensiveness import PostGapRevalidator
-from autoreview.analysis.evidence_map import (
-    EvidenceMap, GapSeverity, IdentifiedGap, Theme,
-)
-from autoreview.llm.prompts.clustering import GapAnalysisResult, GapItem
-
-
 class MockPostGapLLM:
     """Returns improved or unchanged gap analysis."""
 
@@ -279,16 +304,26 @@ class MockPostGapLLM:
         self.post_score = post_score
         self.remaining_major = remaining_major
 
-    async def generate_structured(self, prompt, response_model, system="", max_tokens=4096, temperature=0.0, model_override=None):
+    async def generate_structured(
+        self,
+        prompt,
+        response_model,
+        system="",
+        max_tokens=4096,
+        temperature=0.0,
+        model_override=None,
+    ):
         if response_model == GapAnalysisResult:
             gaps = []
             for i in range(self.remaining_major):
-                gaps.append(GapItem(
-                    expected_topic=f"Unfilled gap {i}",
-                    current_coverage="Still missing",
-                    severity="major",
-                    suggested_queries=[],
-                ))
+                gaps.append(
+                    GapItem(
+                        expected_topic=f"Unfilled gap {i}",
+                        current_coverage="Still missing",
+                        severity="major",
+                        suggested_queries=[],
+                    )
+                )
             return LLMStructuredResponse(
                 parsed=GapAnalysisResult(gaps=gaps, coverage_score=self.post_score),
                 input_tokens=400,
@@ -339,9 +374,6 @@ class TestPostGapRevalidator:
         assert result.details == "No prior gaps to revalidate"
 
 
-from autoreview.analysis.comprehensiveness import BenchmarkValidator
-
-
 class MockS2Client:
     """Mock Semantic Scholar client for benchmark validation."""
 
@@ -353,7 +385,11 @@ class MockS2Client:
     ):
         self.review_title = review_title
         self.review_citations = review_citations
-        self.reference_dois = reference_dois if reference_dois is not None else ["10.1000/ref1", "10.1000/ref2", "10.1000/ref3"]
+        self.reference_dois = (
+            reference_dois
+            if reference_dois is not None
+            else ["10.1000/ref1", "10.1000/ref2", "10.1000/ref3"]
+        )
 
     async def find_review(self, topic: str) -> dict | None:
         return {
@@ -389,8 +425,10 @@ class TestBenchmarkValidator:
         class NoReviewClient:
             async def find_review(self, topic: str) -> dict | None:
                 return None
+
             async def get_references(self, paper_id: str) -> list[str]:
                 return []
+
         validator = BenchmarkValidator(s2_client=NoReviewClient())
         result = await validator.check("obscure topic", set())
         assert result.status == "passed"
@@ -431,7 +469,8 @@ class TestChecksPopulateRemediation:
         screened = _make_screened(candidates[:30])
         checker = CoverageAnomalyChecker()
         result = checker.check(
-            candidates, screened,
+            candidates,
+            screened,
             expected_sources=["pubmed", "semantic_scholar"],
         )
         assert result.remediation is not None
@@ -481,12 +520,14 @@ class TestChecksPopulateRemediation:
 class TestComprehensiveCheckIntegration:
     def test_knowledge_base_has_field(self):
         from autoreview.models.knowledge_base import KnowledgeBase
+
         kb = KnowledgeBase(topic="test", domain="general", output_dir="/tmp/test")
         assert hasattr(kb, "comprehensiveness_checks")
         assert kb.comprehensiveness_checks == []
 
     def test_results_serialize(self):
         from autoreview.models.knowledge_base import KnowledgeBase
+
         kb = KnowledgeBase(topic="test", domain="general", output_dir="/tmp/test")
         kb.comprehensiveness_checks.append(
             ComprehensiveCheckResult(

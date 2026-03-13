@@ -57,7 +57,7 @@ class CitationValidator:
         cited_ids = _CITATION_RE.findall(text)
         unique_cited = set(cited_ids)
         known_ids = set(extractions.keys())
-        section_set = set(section_paper_ids)
+        set(section_paper_ids)
 
         valid = [pid for pid in unique_cited if pid in known_ids]
         invalid = [pid for pid in unique_cited if pid not in known_ids]
@@ -117,30 +117,40 @@ class CitationValidator:
         issues: list[CritiqueIssue] = []
 
         for pid in report.invalid_citations:
-            issues.append(CritiqueIssue(
-                severity=CritiqueSeverity.CRITICAL,
-                location=report.section_id or "unknown",
-                description=f"Citation [@{pid}] references a paper not found in the extraction corpus.",
-                suggested_fix=f"Remove [@{pid}] or replace with a valid paper ID.",
-            ))
+            issues.append(
+                CritiqueIssue(
+                    severity=CritiqueSeverity.CRITICAL,
+                    location=report.section_id or "unknown",
+                    description=(
+                        f"Citation [@{pid}] references a paper not found in the extraction corpus."
+                    ),
+                    suggested_fix=f"Remove [@{pid}] or replace with a valid paper ID.",
+                )
+            )
 
         for pid in report.uncited_papers:
-            issues.append(CritiqueIssue(
-                severity=CritiqueSeverity.MAJOR,
-                location=report.section_id or "unknown",
-                description=f"Paper '{pid}' was assigned to this section but is never cited.",
-                suggested_fix=f"Incorporate findings from [@{pid}] or remove from section assignment.",
-            ))
+            issues.append(
+                CritiqueIssue(
+                    severity=CritiqueSeverity.MAJOR,
+                    location=report.section_id or "unknown",
+                    description=f"Paper '{pid}' was assigned to this section but is never cited.",
+                    suggested_fix=(
+                        f"Incorporate findings from [@{pid}] or remove from section assignment."
+                    ),
+                )
+            )
 
         for sa in report.suspicious_attributions:
-            issues.append(CritiqueIssue(
-                severity=CritiqueSeverity.MAJOR,
-                location=report.section_id or "unknown",
-                description=(
-                    f"Citation [@{sa.paper_id}] may be misattributed. "
-                    f"Claimed: '{sa.claimed_text}'. {sa.similarity_note}"
-                ),
-                suggested_fix="Verify that the cited paper actually supports this claim.",
-            ))
+            issues.append(
+                CritiqueIssue(
+                    severity=CritiqueSeverity.MAJOR,
+                    location=report.section_id or "unknown",
+                    description=(
+                        f"Citation [@{sa.paper_id}] may be misattributed. "
+                        f"Claimed: '{sa.claimed_text}'. {sa.similarity_note}"
+                    ),
+                    suggested_fix="Verify that the cited paper actually supports this claim.",
+                )
+            )
 
         return issues

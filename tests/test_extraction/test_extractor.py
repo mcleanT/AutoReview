@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-import pytest
-
-from autoreview.models.paper import CandidatePaper
+from autoreview.extraction.extractor import PaperExtractor, PaperScreener
 from autoreview.extraction.models import EvidenceStrength, Finding, PaperExtraction
-from autoreview.extraction.extractor import PaperScreener, PaperExtractor
-from autoreview.llm.provider import LLMStructuredResponse
 from autoreview.llm.prompts.screening import ScreeningBatchResult, ScreeningDecision
+from autoreview.llm.provider import LLMStructuredResponse
+from autoreview.models.paper import CandidatePaper
 
 
 class MockLLM:
@@ -15,29 +13,53 @@ class MockLLM:
     def __init__(self) -> None:
         self.calls: list[dict] = []
 
-    async def generate_structured(self, prompt, response_model, system="", max_tokens=4096, temperature=0.0, model_override=None):
-        self.calls.append({"prompt": prompt, "response_model": response_model, "model_override": model_override})
+    async def generate_structured(
+        self,
+        prompt,
+        response_model,
+        system="",
+        max_tokens=4096,
+        temperature=0.0,
+        model_override=None,
+    ):
+        self.calls.append(
+            {
+                "prompt": prompt,
+                "response_model": response_model,
+                "model_override": model_override,
+            }
+        )
 
         if response_model == ScreeningBatchResult:
             return LLMStructuredResponse(
-                parsed=ScreeningBatchResult(decisions=[
-                    ScreeningDecision(paper_index=0, relevance_score=4, rationale="Relevant"),
-                    ScreeningDecision(paper_index=1, relevance_score=2, rationale="Marginal"),
-                    ScreeningDecision(paper_index=2, relevance_score=5, rationale="Highly relevant"),
-                ]),
-                input_tokens=500, output_tokens=200,
+                parsed=ScreeningBatchResult(
+                    decisions=[
+                        ScreeningDecision(paper_index=0, relevance_score=4, rationale="Relevant"),
+                        ScreeningDecision(paper_index=1, relevance_score=2, rationale="Marginal"),
+                        ScreeningDecision(
+                            paper_index=2, relevance_score=5, rationale="Highly relevant"
+                        ),
+                    ]
+                ),
+                input_tokens=500,
+                output_tokens=200,
             )
         elif response_model == PaperExtraction:
             return LLMStructuredResponse(
                 parsed=PaperExtraction(
                     paper_id="placeholder",
                     key_findings=[
-                        Finding(claim="Test finding", evidence_strength=EvidenceStrength.MODERATE, paper_id="placeholder")
+                        Finding(
+                            claim="Test finding",
+                            evidence_strength=EvidenceStrength.MODERATE,
+                            paper_id="placeholder",
+                        )
                     ],
                     methods_summary="Test methods",
                     limitations="Test limitations",
                 ),
-                input_tokens=1000, output_tokens=500,
+                input_tokens=1000,
+                output_tokens=500,
             )
 
         raise ValueError(f"Unexpected model: {response_model}")
@@ -48,7 +70,9 @@ class TestPaperScreener:
         llm = MockLLM()
         screener = PaperScreener(llm, batch_size=10)
         papers = [
-            CandidatePaper(title=f"Paper {i}", authors=["A"], source_database="test", abstract=f"Abstract {i}")
+            CandidatePaper(
+                title=f"Paper {i}", authors=["A"], source_database="test", abstract=f"Abstract {i}"
+            )
             for i in range(3)
         ]
         result = await screener.screen(papers, scope_document="Test scope", threshold=3)
@@ -71,8 +95,10 @@ class TestPaperExtractor:
         llm = MockLLM()
         extractor = PaperExtractor(llm, max_concurrent=5)
         paper = CandidatePaper(
-            title="Test Paper", authors=["Author A"],
-            source_database="test", abstract="This paper studies X.",
+            title="Test Paper",
+            authors=["Author A"],
+            source_database="test",
+            abstract="This paper studies X.",
         )
         result = await extractor.extract_one(paper)
         assert result.paper_id == paper.id
@@ -82,7 +108,9 @@ class TestPaperExtractor:
         llm = MockLLM()
         extractor = PaperExtractor(llm, max_concurrent=5)
         papers = [
-            CandidatePaper(title=f"Paper {i}", authors=["A"], source_database="test", abstract=f"Abstract {i}")
+            CandidatePaper(
+                title=f"Paper {i}", authors=["A"], source_database="test", abstract=f"Abstract {i}"
+            )
             for i in range(3)
         ]
         results = await extractor.extract_batch(papers)
@@ -94,7 +122,9 @@ class TestPaperExtractor:
         llm = MockLLM()
         extractor = PaperExtractor(llm)
 
-        p1 = CandidatePaper(title="T", authors=["A"], source_database="test", abstract="Ab", full_text="Full")
+        p1 = CandidatePaper(
+            title="T", authors=["A"], source_database="test", abstract="Ab", full_text="Full"
+        )
         assert extractor._get_text_and_source(p1) == ("Full", "full_text")
 
         p2 = CandidatePaper(title="T", authors=["A"], source_database="test", abstract="Ab only")

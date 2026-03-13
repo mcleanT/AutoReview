@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 
 import jinja2
 import structlog
@@ -203,7 +202,7 @@ class OutputFormatter:
         template = _jinja_env.get_template("review_paper.md.jinja2")
         return template.render(
             title=kb.topic,
-            date=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            date=datetime.now(UTC).strftime("%Y-%m-%d"),
             domain=kb.domain,
             body=resolved,
             bibliography=bibliography,
@@ -255,7 +254,7 @@ class OutputFormatter:
         template = _jinja_env.get_template("review_paper.tex.jinja2")
         latex = template.render(
             title=_latex_escape(kb.topic),
-            date=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            date=datetime.now(UTC).strftime("%Y-%m-%d"),
             body=latex_body,
         )
 

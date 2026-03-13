@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import Field
@@ -64,7 +64,7 @@ class Contradiction(AutoReviewModel):
     theme: str | None = None
 
 
-class GapSeverity(str, Enum):
+class GapSeverity(StrEnum):
     """Severity of an identified gap in the literature."""
 
     MAJOR = "major"

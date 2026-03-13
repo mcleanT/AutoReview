@@ -1,4 +1,5 @@
 """Tests for clustering prompt builders."""
+
 from __future__ import annotations
 
 from autoreview.llm.prompts.clustering import build_retry_gap_queries_prompt
@@ -8,7 +9,10 @@ class TestRetryGapQueriesPrompt:
     def test_includes_remaining_gaps(self):
         prompt = build_retry_gap_queries_prompt(
             remaining_gaps=[
-                {"expected_topic": "Drug resistance mechanisms", "current_coverage": "No papers found"},
+                {
+                    "expected_topic": "Drug resistance mechanisms",
+                    "current_coverage": "No papers found",
+                },
             ],
             previous_queries=["drug resistance", "antimicrobial resistance"],
         )
@@ -29,4 +33,8 @@ class TestRetryGapQueriesPrompt:
             previous_queries=["old query"],
         )
         # Should instruct to use different terminology
-        assert "alternative" in prompt.lower() or "different" in prompt.lower() or "synonym" in prompt.lower()
+        assert (
+            "alternative" in prompt.lower()
+            or "different" in prompt.lower()
+            or "synonym" in prompt.lower()
+        )

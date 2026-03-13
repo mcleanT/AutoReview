@@ -14,10 +14,10 @@ from autoreview.search.full_text import (
     _extract_text_from_jats_xml,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_screened(
     doi: str | None = None,
@@ -47,11 +47,13 @@ _SAMPLE_JATS = b"""<?xml version="1.0" encoding="UTF-8"?>
   <body>
     <sec>
       <title>Introduction</title>
-      <p>This is the introduction paragraph of the paper with enough text to pass the 100 character minimum threshold for extraction.</p>
+      <p>This is the introduction paragraph of the paper with enough text
+      to pass the 100 character minimum threshold for extraction.</p>
     </sec>
     <sec>
       <title>Methods</title>
-      <p>We performed a comprehensive analysis using standard methods and approaches that are well established in the field.</p>
+      <p>We performed a comprehensive analysis using standard methods
+      and approaches that are well established in the field.</p>
     </sec>
     <fig><caption><p>Figure caption</p></caption></fig>
   </body>
@@ -64,6 +66,7 @@ _SAMPLE_PDF_TEXT = "A" * 200  # Simulates extracted PDF text > 100 chars
 # ---------------------------------------------------------------------------
 # JATS XML extraction
 # ---------------------------------------------------------------------------
+
 
 class TestJatsExtraction:
     def test_extracts_body_text(self):
@@ -97,11 +100,14 @@ _SAMPLE_ELSEVIER_XML = """\
     <ce:sections>
       <ce:section>
         <ce:section-title>Introduction</ce:section-title>
-        <ce:para>During brain development, progenitors generate successive waves of neurons that populate distinct cerebral regions. This paragraph is long enough to exceed the minimum threshold.</ce:para>
+        <ce:para>During brain development, progenitors generate successive waves
+        of neurons that populate distinct cerebral regions. Long enough to
+        exceed the minimum threshold.</ce:para>
       </ce:section>
       <ce:section>
         <ce:section-title>Methods</ce:section-title>
-        <ce:para>We performed a comprehensive immunohistochemical analysis using standard protocols that have been validated across multiple laboratories.</ce:para>
+        <ce:para>We performed a comprehensive immunohistochemical analysis using standard
+        protocols that have been validated across multiple laboratories.</ce:para>
       </ce:section>
     </ce:sections>
   </originalText>
@@ -130,6 +136,7 @@ class TestElsevierXmlExtraction:
 # ---------------------------------------------------------------------------
 # Strategy: Elsevier ScienceDirect API
 # ---------------------------------------------------------------------------
+
 
 class TestElsevierApiStrategy:
     @pytest.mark.asyncio
@@ -221,11 +228,13 @@ _SAMPLE_SPRINGER_JATS = b"""\
     <body>
       <sec>
         <title>Introduction</title>
-        <p>Cellular senescence is a state of irreversible growth arrest that contributes to organismal aging and multiple age-related pathologies.</p>
+        <p>Cellular senescence is a state of irreversible growth arrest that
+        contributes to organismal aging and multiple age-related pathologies.</p>
       </sec>
       <sec>
         <title>Results</title>
-        <p>We identified several genetic features shared across tissues including p16INK4a expression, SASP components, and telomere dysfunction markers.</p>
+        <p>We identified several genetic features shared across tissues including
+        p16INK4a expression, SASP components, and telomere dysfunction markers.</p>
       </sec>
     </body>
   </article>
@@ -295,8 +304,8 @@ class TestSpringerOaStrategy:
 
         empty_resp = MagicMock()
         empty_resp.status_code = 200
-        empty_resp.text = '<response><result><total>0</total></result><records/></response>'
-        empty_resp.content = b'<response><result><total>0</total></result><records/></response>'
+        empty_resp.text = "<response><result><total>0</total></result><records/></response>"
+        empty_resp.content = b"<response><result><total>0</total></result><records/></response>"
         resolver._client = MagicMock()
         resolver._client.get = AsyncMock(return_value=empty_resp)
 
@@ -343,6 +352,7 @@ class TestSpringerOaStrategy:
 # Strategy: Semantic Scholar PDF
 # ---------------------------------------------------------------------------
 
+
 class TestS2PdfStrategy:
     @pytest.mark.asyncio
     async def test_fetches_pdf_from_s2_url(self):
@@ -388,6 +398,7 @@ class TestS2PdfStrategy:
 # ---------------------------------------------------------------------------
 # Strategy: PubMed Central
 # ---------------------------------------------------------------------------
+
 
 class TestPmcStrategy:
     @pytest.mark.asyncio
@@ -453,6 +464,7 @@ class TestPmcStrategy:
 # Strategy: arXiv
 # ---------------------------------------------------------------------------
 
+
 class TestArxivStrategy:
     @pytest.mark.asyncio
     async def test_fetches_arxiv_pdf(self):
@@ -491,7 +503,7 @@ class TestArxivStrategy:
             "autoreview.search.full_text._extract_text_from_pdf",
             return_value=_SAMPLE_PDF_TEXT,
         ):
-            text = await resolver._try_arxiv(sp.paper)
+            await resolver._try_arxiv(sp.paper)
 
         call_args = resolver._client.get.call_args
         assert "2301.12345v3" not in str(call_args)
@@ -508,6 +520,7 @@ class TestArxivStrategy:
 # ---------------------------------------------------------------------------
 # Strategy: bioRxiv / medRxiv
 # ---------------------------------------------------------------------------
+
 
 class TestBiorxivStrategy:
     @pytest.mark.asyncio
@@ -569,6 +582,7 @@ class TestBiorxivStrategy:
 # Batch PMID -> PMCID conversion
 # ---------------------------------------------------------------------------
 
+
 class TestBatchPmidConversion:
     @pytest.mark.asyncio
     async def test_batch_conversion(self):
@@ -618,6 +632,7 @@ class TestBatchPmidConversion:
 # ---------------------------------------------------------------------------
 # Full resolve() integration
 # ---------------------------------------------------------------------------
+
 
 class TestResolveIntegration:
     @pytest.mark.asyncio
@@ -698,6 +713,7 @@ class TestResolveIntegration:
 # Pipeline node integration
 # ---------------------------------------------------------------------------
 
+
 class TestPipelineNodeIntegration:
     @pytest.mark.asyncio
     async def test_node_uses_full_text_resolver(self):
@@ -713,11 +729,11 @@ class TestPipelineNodeIntegration:
         sp = _make_screened(doi="10.1234/test")
         kb.screened_papers = [sp]
 
-        with patch("autoreview.search.full_text.FullTextResolver") as MockResolver:
+        with patch("autoreview.search.full_text.FullTextResolver") as mock_resolver:
             mock_instance = AsyncMock()
             mock_instance.resolve = AsyncMock(return_value={"s2_pdf": 1})
             mock_instance.close = AsyncMock()
-            MockResolver.return_value = mock_instance
+            mock_resolver.return_value = mock_instance
 
             await nodes.full_text_retrieval(kb)
 
@@ -741,22 +757,23 @@ class TestPipelineNodeIntegration:
         with patch.dict(os.environ, {}, clear=True):
             os.environ.pop("UNPAYWALL_EMAIL", None)
 
-            with patch("autoreview.search.full_text.FullTextResolver") as MockResolver:
+            with patch("autoreview.search.full_text.FullTextResolver") as mock_resolver:
                 mock_instance = AsyncMock()
                 mock_instance.resolve = AsyncMock(return_value={})
                 mock_instance.close = AsyncMock()
-                MockResolver.return_value = mock_instance
+                mock_resolver.return_value = mock_instance
 
                 await nodes.full_text_retrieval(kb)
 
         assert kb.current_phase == PipelinePhase.FULL_TEXT_RETRIEVAL
         # The resolver should still be created (it handles None email gracefully)
-        MockResolver.assert_called_once()
+        mock_resolver.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
 # Search source changes: S2 openAccessPdf and PubMed PMCID
 # ---------------------------------------------------------------------------
+
 
 class TestSemanticScholarOpenAccessPdf:
     def test_parse_paper_with_open_access_pdf(self):

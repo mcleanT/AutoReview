@@ -15,13 +15,19 @@ class SectionNarrativeDirective(AutoReviewModel):
 
     section_id: str
     narrative_role: str
-    """The role this section plays in the paper's argument, e.g. 'sets up the central tension'."""
+    """The role this section plays in the paper's argument.
+
+    e.g. 'sets up the central tension'.
+    """
 
     central_claim: str
     """The thesis statement or central claim for this section."""
 
     structural_suggestion: str
-    """Suggested structural approach, e.g. 'comparative: mechanistic vs. epidemiological evidence'."""
+    """Suggested structural approach.
+
+    e.g. 'comparative: mechanistic vs. epidemiological evidence'.
+    """
 
     key_insights: list[str]
     """3–5 analytical insights to foreground (not paper IDs — synthesized observations)."""

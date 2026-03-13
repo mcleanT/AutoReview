@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import Field
@@ -10,7 +10,7 @@ from pydantic import Field
 from autoreview.models.base import AutoReviewModel, TimestampedModel
 
 
-class EvidenceStrength(str, Enum):
+class EvidenceStrength(StrEnum):
     """Strength of evidence supporting a finding."""
 
     STRONG = "strong"
@@ -19,7 +19,7 @@ class EvidenceStrength(str, Enum):
     PRELIMINARY = "preliminary"
 
 
-class RelationshipType(str, Enum):
+class RelationshipType(StrEnum):
     """Type of relationship between papers or claims."""
 
     SUPPORTS = "supports"

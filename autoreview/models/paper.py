@@ -6,7 +6,7 @@ import re
 
 from pydantic import Field, field_validator
 
-from autoreview.models.base import AutoReviewModel, TimestampedModel
+from autoreview.models.base import TimestampedModel
 
 
 class CandidatePaper(TimestampedModel):

@@ -3,8 +3,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from autoreview.search.pubmed import PubMedSearch
 
 
@@ -238,7 +236,7 @@ class TestPubMedSearch:
         ]
 
         search = PubMedSearch(email="test@test.com")
-        papers = await search.search(["query1", "query2"], max_results=100)
+        await search.search(["query1", "query2"], max_results=100)
 
         # _sync_fetch should receive unique PMIDs only
         fetch_call_args = mock_fetch.call_args[0][0]

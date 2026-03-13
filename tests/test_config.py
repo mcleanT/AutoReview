@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-import os
-import pytest
-
-from autoreview.config import load_config, deep_merge
+from autoreview.config import deep_merge, load_config
 
 
 class TestDeepMerge:

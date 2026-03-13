@@ -125,7 +125,7 @@ class SearchAggregator:
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         all_papers: list[CandidatePaper] = []
-        for name, result in zip(source_names, results):
+        for name, result in zip(source_names, results, strict=False):
             if isinstance(result, Exception):
                 logger.error("aggregator.source_failed", source=name, error=str(result))
                 continue

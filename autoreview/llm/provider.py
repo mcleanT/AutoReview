@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Protocol, TypeVar, runtime_checkable
+
 from pydantic import BaseModel
 
 T = TypeVar("T", bound=BaseModel)
@@ -8,6 +9,7 @@ T = TypeVar("T", bound=BaseModel)
 
 class LLMResponse(BaseModel):
     """Wrapper for free-form LLM responses with token usage metadata."""
+
     content: str
     input_tokens: int = 0
     output_tokens: int = 0
@@ -18,6 +20,7 @@ class LLMResponse(BaseModel):
 
 class LLMStructuredResponse(BaseModel):
     """Wrapper for structured LLM responses with token usage metadata."""
+
     # Generic would be ideal but Pydantic BaseModel + Generic is tricky
     # Callers know the type from context
     parsed: object  # The parsed Pydantic model instance
@@ -30,7 +33,10 @@ class LLMStructuredResponse(BaseModel):
 
 @runtime_checkable
 class LLMProvider(Protocol):
-    """Protocol for LLM providers. Implementations must support both free-form and structured output."""
+    """Protocol for LLM providers.
+
+    Implementations must support both free-form and structured output.
+    """
 
     async def generate(
         self,

@@ -1,15 +1,14 @@
 """Tests for passage mining module."""
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 from autoreview.analysis.passage_miner import PassageMiner
 from autoreview.extraction.models import EvidenceStrength, Finding, PaperExtraction
-from autoreview.llm.provider import LLMStructuredResponse
 from autoreview.llm.prompts.passage_mining import (
     SectionMiningResult,
     UndercitedClaim,
 )
+from autoreview.llm.provider import LLMStructuredResponse
 
 
 class MockPassageMinerLLM:
@@ -38,7 +37,9 @@ class MockPassageMinerLLM:
                             priority="high",
                         ),
                     ],
-                    topic_expansions=["telomere shortening mechanisms in organ-specific senescence"],
+                    topic_expansions=[
+                        "telomere shortening mechanisms in organ-specific senescence",
+                    ],
                 ),
                 input_tokens=400,
                 output_tokens=200,

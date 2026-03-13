@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 EXTRACTION_SYSTEM_PROMPT = """\
 You are an expert research analyst performing structured extraction from scientific papers. \
 Extract key findings, methodology, limitations, and relationships to other work.

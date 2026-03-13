@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import os
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -20,7 +19,7 @@ from autoreview.models.narrative import NarrativePlan
 from autoreview.models.paper import CandidatePaper, ScreenedPaper
 
 
-class PipelinePhase(str, Enum):
+class PipelinePhase(StrEnum):
     """Current phase of the review generation pipeline."""
 
     INITIALIZED = "initialized"
@@ -103,7 +102,7 @@ class KnowledgeBase(TimestampedModel):
             token_usage: Optional dict with 'input_tokens' and 'output_tokens' counts.
         """
         entry = AuditEntry(
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             node_name=node_name,
             action=action,
             details=details,
@@ -126,7 +125,7 @@ class KnowledgeBase(TimestampedModel):
         snapshots_dir = Path(self.output_dir) / "snapshots"
         snapshots_dir.mkdir(parents=True, exist_ok=True)
 
-        timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+        timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
         snapshot_path = snapshots_dir / f"{timestamp}_{node_name}.json"
         latest_path = snapshots_dir / "latest.json"
 

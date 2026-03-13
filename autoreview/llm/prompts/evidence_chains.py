@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-
 EVIDENCE_CHAIN_SYSTEM_PROMPT = """\
 You are an expert research analyst identifying evidence chains across papers. \
 An evidence chain traces how a line of inquiry developed: early exploratory work, \

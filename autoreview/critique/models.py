@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import Field
 
 from autoreview.models.base import AutoReviewModel, TimestampedModel
 
 
-class CritiqueSeverity(str, Enum):
+class CritiqueSeverity(StrEnum):
     """Severity level of a critique issue."""
 
     CRITICAL = "critical"
@@ -17,7 +17,7 @@ class CritiqueSeverity(str, Enum):
     MINOR = "minor"
 
 
-class CritiqueTarget(str, Enum):
+class CritiqueTarget(StrEnum):
     """What artifact the critique evaluates."""
 
     OUTLINE = "outline"

@@ -116,7 +116,7 @@ class TestToCritiqueIssues:
         issues = CitationValidator.to_critique_issues(report)
 
         # invalid -> CRITICAL, uncited -> MAJOR
-        severities = {i.description: i.severity for i in issues}
+        {i.description: i.severity for i in issues}
         critical_issues = [i for i in issues if i.severity == CritiqueSeverity.CRITICAL]
         major_issues = [i for i in issues if i.severity == CritiqueSeverity.MAJOR]
 

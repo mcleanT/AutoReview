@@ -71,10 +71,7 @@ def load_config(
     """
     # Load domain-specific YAML if it exists
     yaml_path = _DEFAULTS_DIR / f"{domain}.yaml"
-    if yaml_path.exists():
-        base = _load_yaml(yaml_path)
-    else:
-        base = {"domain": domain}
+    base = _load_yaml(yaml_path) if yaml_path.exists() else {"domain": domain}
 
     # Apply env var overrides
     config = _apply_env_overrides(base)

@@ -197,7 +197,7 @@ class PaperExtractor:
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         extractions: dict[str, PaperExtraction] = {}
-        for pid, result in zip(paper_ids, results):
+        for pid, result in zip(paper_ids, results, strict=False):
             if isinstance(result, Exception):
                 logger.error("extraction.error", paper_id=pid, error=str(result))
                 continue

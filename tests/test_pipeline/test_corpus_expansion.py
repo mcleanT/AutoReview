@@ -24,11 +24,11 @@ from autoreview.models.enrichment import (
     SectionEnrichment,
 )
 from autoreview.models.knowledge_base import KnowledgeBase, PipelinePhase
-from autoreview.models.paper import CandidatePaper, ScreenedPaper
+from autoreview.models.paper import CandidatePaper
 from autoreview.pipeline.nodes import PipelineNodes
 
-
 # --- Mock search source ---
+
 
 class MockSearchSource:
     """Fake search source that returns a fixed paper."""
@@ -55,7 +55,13 @@ class MockCorpusExpansionLLM:
         self.calls: list[str] = []
 
     async def generate_structured(
-        self, prompt, response_model, system="", max_tokens=4096, temperature=0.0, model_override=None,
+        self,
+        prompt,
+        response_model,
+        system="",
+        max_tokens=4096,
+        temperature=0.0,
+        model_override=None,
     ):
         self.calls.append(response_model.__name__)
 
@@ -266,7 +272,9 @@ class TestCorpusExpansion:
 
     async def test_skips_when_no_enrichment(self, config):
         kb = KnowledgeBase(
-            topic="test", domain="biomedical", output_dir="/tmp/test",
+            topic="test",
+            domain="biomedical",
+            output_dir="/tmp/test",
         )
         nodes = PipelineNodes(MockCorpusExpansionLLM(), config)
         await nodes.corpus_expansion(kb)
@@ -276,7 +284,9 @@ class TestCorpusExpansion:
 
     async def test_skips_when_enrichment_has_no_extractions(self, config):
         kb = KnowledgeBase(
-            topic="test", domain="biomedical", output_dir="/tmp/test",
+            topic="test",
+            domain="biomedical",
+            output_dir="/tmp/test",
         )
         kb.contextual_enrichment = {
             "1": SectionEnrichment(
@@ -317,6 +327,7 @@ class TestCorpusExpansion:
 
         # Outline sections should have gained new paper IDs
         from autoreview.llm.prompts.outline import ReviewOutline
+
         outline = ReviewOutline.model_validate(kb.outline)
         section_1 = outline.get_section("1")
         section_2 = outline.get_section("2")

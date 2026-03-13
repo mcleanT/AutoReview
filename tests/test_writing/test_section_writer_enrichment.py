@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from autoreview.analysis.evidence_map import EvidenceMap, Theme
 from autoreview.extraction.models import EvidenceStrength, Finding, PaperExtraction
 from autoreview.llm.prompts.outline import OutlineSection, ReviewOutline
@@ -131,12 +129,18 @@ def _make_outline() -> ReviewOutline:
         title="Test Review",
         sections=[
             OutlineSection(
-                id="1", title="Introduction", description="Overview",
-                paper_ids=["p1"], estimated_word_count=500,
+                id="1",
+                title="Introduction",
+                description="Overview",
+                paper_ids=["p1"],
+                estimated_word_count=500,
             ),
             OutlineSection(
-                id="2", title="Results", description="Key findings",
-                paper_ids=["p1", "p2"], estimated_word_count=1000,
+                id="2",
+                title="Results",
+                description="Key findings",
+                paper_ids=["p1", "p2"],
+                estimated_word_count=1000,
             ),
         ],
     )
@@ -152,13 +156,17 @@ def _make_extractions() -> dict[str, PaperExtraction]:
     return {
         "p1": PaperExtraction(
             paper_id="p1",
-            key_findings=[Finding(claim="Claim A", evidence_strength=EvidenceStrength.STRONG, paper_id="p1")],
+            key_findings=[
+                Finding(claim="Claim A", evidence_strength=EvidenceStrength.STRONG, paper_id="p1")
+            ],
             methods_summary="Methods A",
             limitations="Limits A",
         ),
         "p2": PaperExtraction(
             paper_id="p2",
-            key_findings=[Finding(claim="Claim B", evidence_strength=EvidenceStrength.MODERATE, paper_id="p2")],
+            key_findings=[
+                Finding(claim="Claim B", evidence_strength=EvidenceStrength.MODERATE, paper_id="p2")
+            ],
             methods_summary="Methods B",
             limitations="Limits B",
         ),

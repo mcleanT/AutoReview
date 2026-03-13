@@ -5,7 +5,6 @@ from __future__ import annotations
 from autoreview.analysis.evidence_map import EvidenceMap
 from autoreview.llm.prompts.outline import ReviewOutline
 
-
 NARRATIVE_ARCHITECT_SYSTEM_PROMPT = """\
 You are a scientific editor planning the narrative architecture of a review paper.
 You do not write prose — you plan the story: what central argument the paper builds,

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 SECTION_WRITING_SYSTEM_PROMPT = """\
 You are an expert scientific writer drafting a section of a review paper. \
 Your writing must SYNTHESIZE findings across papers — do NOT summarize papers one by one. \

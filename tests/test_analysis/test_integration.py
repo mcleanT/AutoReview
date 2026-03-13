@@ -49,7 +49,8 @@ class TestBibliographyInjectionIntegration:
         ):
             mock_extract.return_value = "fake text"
             mock_bib.return_value = [
-                "[1] Smith J, Doe A. Machine learning in biology. Nature. 2020. doi:10.1038/test001",
+                "[1] Smith J, Doe A. Machine learning in biology."
+                " Nature. 2020. doi:10.1038/test001",
                 "[2] Zhang L. Deep learning approaches. Science. 2019;365:100-105.",
                 "[3] Unknown Author. Unparseable reference with no details.",
             ]

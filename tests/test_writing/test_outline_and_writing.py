@@ -1,17 +1,21 @@
 from __future__ import annotations
 
-import pytest
-
 from autoreview.analysis.evidence_map import (
-    ConsensusClaim, Contradiction, EvidenceMap, Theme, SubTheme,
+    ConsensusClaim,
+    Contradiction,
+    EvidenceMap,
+    Theme,
 )
+from autoreview.critique.holistic_critic import HolisticCritic, holistic_critique_loop
 from autoreview.critique.models import (
-    CritiqueIssue, CritiqueReport, CritiqueSeverity, CritiqueTarget,
+    CritiqueIssue,
+    CritiqueReport,
+    CritiqueSeverity,
+    CritiqueTarget,
 )
 from autoreview.critique.outline_critic import OutlineCritic, _outline_to_text
 from autoreview.critique.revision import should_continue_revision
-from autoreview.critique.section_critic import SectionCritic, section_critique_loop
-from autoreview.critique.holistic_critic import HolisticCritic, holistic_critique_loop
+from autoreview.critique.section_critic import SectionCritic
 from autoreview.extraction.models import EvidenceStrength, Finding, PaperExtraction
 from autoreview.llm.prompts.outline import OutlineSection, ReviewOutline
 from autoreview.llm.provider import LLMResponse, LLMStructuredResponse
@@ -25,20 +29,32 @@ def _make_outline() -> ReviewOutline:
         title="Test Review",
         sections=[
             OutlineSection(
-                id="1", title="Introduction", description="Overview",
-                paper_ids=["p1"], estimated_word_count=500,
+                id="1",
+                title="Introduction",
+                description="Overview",
+                paper_ids=["p1"],
+                estimated_word_count=500,
             ),
             OutlineSection(
-                id="2", title="Methods", description="Review methodology",
-                paper_ids=[], estimated_word_count=300,
+                id="2",
+                title="Methods",
+                description="Review methodology",
+                paper_ids=[],
+                estimated_word_count=300,
             ),
             OutlineSection(
-                id="3", title="Results", description="Key findings",
-                paper_ids=["p1", "p2"], estimated_word_count=1000,
+                id="3",
+                title="Results",
+                description="Key findings",
+                paper_ids=["p1", "p2"],
+                estimated_word_count=1000,
                 subsections=[
                     OutlineSection(
-                        id="3.1", title="Theme A", description="First theme",
-                        paper_ids=["p1"], estimated_word_count=500,
+                        id="3.1",
+                        title="Theme A",
+                        description="First theme",
+                        paper_ids=["p1"],
+                        estimated_word_count=500,
                     ),
                 ],
             ),
@@ -52,10 +68,21 @@ def _make_evidence_map() -> EvidenceMap:
             Theme(name="Theme A", description="First theme", paper_ids=["p1", "p2"]),
         ],
         consensus_claims=[
-            ConsensusClaim(claim="Finding X", supporting_paper_ids=["p1", "p2"], strength="moderate", evidence_count=2),
+            ConsensusClaim(
+                claim="Finding X",
+                supporting_paper_ids=["p1", "p2"],
+                strength="moderate",
+                evidence_count=2,
+            ),
         ],
         contradictions=[
-            Contradiction(claim_a="A", claim_b="B", paper_ids_a=["p1"], paper_ids_b=["p2"], theme="Theme A"),
+            Contradiction(
+                claim_a="A",
+                claim_b="B",
+                paper_ids_a=["p1"],
+                paper_ids_b=["p2"],
+                theme="Theme A",
+            ),
         ],
     )
 
@@ -64,13 +91,19 @@ def _make_extractions() -> dict[str, PaperExtraction]:
     return {
         "p1": PaperExtraction(
             paper_id="p1",
-            key_findings=[Finding(claim="Claim A", evidence_strength=EvidenceStrength.STRONG, paper_id="p1")],
-            methods_summary="Methods A", limitations="Limits A",
+            key_findings=[
+                Finding(claim="Claim A", evidence_strength=EvidenceStrength.STRONG, paper_id="p1")
+            ],
+            methods_summary="Methods A",
+            limitations="Limits A",
         ),
         "p2": PaperExtraction(
             paper_id="p2",
-            key_findings=[Finding(claim="Claim B", evidence_strength=EvidenceStrength.MODERATE, paper_id="p2")],
-            methods_summary="Methods B", limitations="Limits B",
+            key_findings=[
+                Finding(claim="Claim B", evidence_strength=EvidenceStrength.MODERATE, paper_id="p2")
+            ],
+            methods_summary="Methods B",
+            limitations="Limits B",
         ),
     }
 
@@ -82,18 +115,31 @@ class MockWritingLLM:
         self.critique_score = critique_score
         self.calls: list[str] = []
 
-    async def generate(self, prompt, system="", max_tokens=4096, temperature=0.3, model_override=None):
+    async def generate(
+        self, prompt, system="", max_tokens=4096, temperature=0.3, model_override=None
+    ):
         self.calls.append("generate")
         return LLMResponse(
             content="This section synthesizes findings from multiple studies [@p1] [@p2].",
-            input_tokens=500, output_tokens=300,
+            input_tokens=500,
+            output_tokens=300,
         )
 
-    async def generate_structured(self, prompt, response_model, system="", max_tokens=4096, temperature=0.0, model_override=None):
+    async def generate_structured(
+        self,
+        prompt,
+        response_model,
+        system="",
+        max_tokens=4096,
+        temperature=0.0,
+        model_override=None,
+    ):
         self.calls.append("generate_structured")
         if response_model == ReviewOutline:
             return LLMStructuredResponse(
-                parsed=_make_outline(), input_tokens=800, output_tokens=400,
+                parsed=_make_outline(),
+                input_tokens=800,
+                output_tokens=400,
             )
         elif response_model == CritiqueReport:
             return LLMStructuredResponse(
@@ -108,9 +154,12 @@ class MockWritingLLM:
                             location="Section 3",
                             description="Could use better transitions",
                         ),
-                    ] if self.critique_score < 0.80 else [],
+                    ]
+                    if self.critique_score < 0.80
+                    else [],
                 ),
-                input_tokens=600, output_tokens=300,
+                input_tokens=600,
+                output_tokens=300,
             )
         raise ValueError(f"Unexpected: {response_model}")
 
@@ -176,7 +225,9 @@ class TestRevision:
         assert should_continue_revision([0.70, 0.71], convergence_delta=0.02) is False
 
     def test_should_continue_improving(self):
-        assert should_continue_revision([0.60, 0.70], threshold=0.80, convergence_delta=0.02) is True
+        assert (
+            should_continue_revision([0.60, 0.70], threshold=0.80, convergence_delta=0.02) is True
+        )
 
 
 class TestSectionWriter:
@@ -186,7 +237,10 @@ class TestSectionWriter:
         outline = _make_outline()
         section = outline.sections[0]
         draft = await writer.write_section(
-            section, outline, _make_extractions(), _make_evidence_map(),
+            section,
+            outline,
+            _make_extractions(),
+            _make_evidence_map(),
         )
         assert draft.section_id == "1"
         assert "synthesizes" in draft.text
@@ -234,7 +288,10 @@ class TestHolisticCritic:
         llm = MockWritingLLM(critique_score=0.85)
         critic = HolisticCritic(llm)
         draft, critiques = await holistic_critique_loop(
-            llm, critic, "Draft text", "Scope",
+            llm,
+            critic,
+            "Draft text",
+            "Scope",
         )
         assert len(critiques) == 1
         assert critiques[0].passed is True

@@ -4,7 +4,7 @@ from typing import Any
 
 import structlog
 
-from autoreview.analysis.evidence_map import EvidenceMap, Theme
+from autoreview.analysis.evidence_map import EvidenceMap
 from autoreview.critique.models import CritiqueReport
 from autoreview.llm.prompts.outline import (
     OUTLINE_REVISION_SYSTEM_PROMPT,

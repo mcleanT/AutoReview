@@ -62,10 +62,11 @@ line-length = 100
 target-version = "py311"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "N", "UP", "B", "SIM", "TCH"]
+select = ["E", "F", "I", "N", "UP", "B", "SIM"]
 
 [tool.ruff.lint.per-file-ignores]
 "autoreview/llm/prompts/*.py" = ["E501"]
+"autoreview/critique/rubrics.py" = ["E501"]
 
 [tool.mypy]
 python_version = "3.11"

@@ -1,7 +1,6 @@
 """Tests for the passage_search pipeline node."""
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 from autoreview.analysis.evidence_map import EvidenceMap, Theme
 from autoreview.config import load_config
@@ -14,7 +13,15 @@ from autoreview.pipeline.nodes import PipelineNodes
 class MockPassageSearchLLM:
     """Mock LLM for passage_search node tests."""
 
-    async def generate_structured(self, prompt, response_model, system="", max_tokens=4096, temperature=0.0, model_override=None):
+    async def generate_structured(
+        self,
+        prompt,
+        response_model,
+        system="",
+        max_tokens=4096,
+        temperature=0.0,
+        model_override=None,
+    ):
         from autoreview.llm.prompts.passage_mining import SectionMiningResult, UndercitedClaim
 
         if response_model == SectionMiningResult:
@@ -32,14 +39,16 @@ class MockPassageSearchLLM:
                     ],
                     topic_expansions=[],
                 ),
-                input_tokens=300, output_tokens=150,
+                input_tokens=300,
+                output_tokens=150,
             )
         # Handle screening batch calls
         name = getattr(response_model, "__name__", "")
         if "Screening" in name or "Batch" in name:
             return LLMStructuredResponse(
                 parsed=response_model(decisions=[]),
-                input_tokens=100, output_tokens=50,
+                input_tokens=100,
+                output_tokens=50,
             )
         # Handle extraction calls
         if response_model == PaperExtraction:
@@ -47,18 +56,27 @@ class MockPassageSearchLLM:
                 parsed=PaperExtraction(
                     paper_id="new_p1",
                     key_findings=[
-                        Finding(claim="New finding", evidence_strength=EvidenceStrength.MODERATE, paper_id="new_p1")
+                        Finding(
+                            claim="New finding",
+                            evidence_strength=EvidenceStrength.MODERATE,
+                            paper_id="new_p1",
+                        )
                     ],
-                    methods_summary="RCT", limitations="Small n",
+                    methods_summary="RCT",
+                    limitations="Small n",
                 ),
-                input_tokens=200, output_tokens=100,
+                input_tokens=200,
+                output_tokens=100,
             )
         raise ValueError(f"Unexpected: {response_model}")
 
-    async def generate(self, prompt, system="", max_tokens=4096, temperature=0.3, model_override=None):
+    async def generate(
+        self, prompt, system="", max_tokens=4096, temperature=0.3, model_override=None
+    ):
         return LLMResponse(
             content="Revised section text with [@p1] and [@new_p1].",
-            input_tokens=400, output_tokens=100,
+            input_tokens=400,
+            output_tokens=100,
         )
 
 
@@ -75,9 +93,14 @@ def _make_kb_with_drafts() -> KnowledgeBase:
         "p1": PaperExtraction(
             paper_id="p1",
             key_findings=[
-                Finding(claim="Cells senesce with age", evidence_strength=EvidenceStrength.MODERATE, paper_id="p1")
+                Finding(
+                    claim="Cells senesce with age",
+                    evidence_strength=EvidenceStrength.MODERATE,
+                    paper_id="p1",
+                )
             ],
-            methods_summary="In vitro", limitations="Cell lines only",
+            methods_summary="In vitro",
+            limitations="Cell lines only",
         )
     }
     kb.evidence_map = EvidenceMap(

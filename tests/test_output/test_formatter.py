@@ -6,9 +6,14 @@ from pathlib import Path
 
 import pytest
 
-from autoreview.models.paper import CandidatePaper, ScreenedPaper
 from autoreview.models.knowledge_base import KnowledgeBase
-from autoreview.output.formatter import OutputFormatter, _resolve_citations, _latex_escape, _markdown_to_latex
+from autoreview.models.paper import CandidatePaper
+from autoreview.output.formatter import (
+    OutputFormatter,
+    _latex_escape,
+    _markdown_to_latex,
+    _resolve_citations,
+)
 
 
 @pytest.fixture

@@ -1,4 +1,5 @@
 """Remediation dispatcher for actionable comprehensiveness checks."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -28,16 +29,17 @@ class RemediationDispatcher:
 
     def _max_rounds(self, action: str) -> int:
         """Get the max rounds for an action from config."""
-        if action == "expand_queries":
-            return self.config.search.max_query_expansion_rounds
-        elif action == "retry_gap_search":
-            return self.config.search.max_gap_search_rounds
-        elif action == "lower_screening_threshold":
-            return 1  # Always max 1
-        return 0
+        action_map = {
+            "expand_queries": self.config.search.max_query_expansion_rounds,
+            "retry_gap_search": self.config.search.max_gap_search_rounds,
+            "lower_screening_threshold": 1,  # Always max 1
+        }
+        return action_map.get(action, 0)
 
     async def execute(
-        self, kb: KnowledgeBase, check_result: ComprehensiveCheckResult,
+        self,
+        kb: KnowledgeBase,
+        check_result: ComprehensiveCheckResult,
     ) -> bool:
         """Execute the remediation action from a check result.
 
@@ -85,7 +87,9 @@ class RemediationDispatcher:
         return result
 
     async def _expand_queries(
-        self, kb: KnowledgeBase, params: dict[str, Any],
+        self,
+        kb: KnowledgeBase,
+        params: dict[str, Any],
     ) -> bool:
         """Generate additional queries for uncovered sub-topics."""
         from pydantic import Field
@@ -147,7 +151,9 @@ class RemediationDispatcher:
         return added > 0
 
     async def _retry_gap_search(
-        self, kb: KnowledgeBase, params: dict[str, Any],
+        self,
+        kb: KnowledgeBase,
+        params: dict[str, Any],
     ) -> bool:
         """Retry gap search with alternative queries for remaining gaps."""
         from pydantic import Field
@@ -180,21 +186,23 @@ class RemediationDispatcher:
             return False
 
         # Build search sources (primary + secondary only)
-        gap_dbs = (
-            self.config.databases.get("primary", [])
-            + self.config.databases.get("secondary", [])
+        gap_dbs = self.config.databases.get("primary", []) + self.config.databases.get(
+            "secondary", []
         )
         sources = []
         for db in gap_dbs:
             try:
                 if db == "semantic_scholar":
                     from autoreview.search.semantic_scholar import SemanticScholarSearch
+
                     sources.append(SemanticScholarSearch())
                 elif db == "pubmed":
                     from autoreview.search.pubmed import PubMedSearch
+
                     sources.append(PubMedSearch())
                 elif db == "openalex":
                     from autoreview.search.openalex import OpenAlexSearch
+
                     sources.append(OpenAlexSearch())
             except Exception:
                 pass
@@ -246,7 +254,9 @@ class RemediationDispatcher:
         return len(new_screened) > 0
 
     async def _lower_screening_threshold(
-        self, kb: KnowledgeBase, params: dict[str, Any],
+        self,
+        kb: KnowledgeBase,
+        params: dict[str, Any],
     ) -> bool:
         """Re-screen rejected papers at a lower threshold."""
         from autoreview.extraction.extractor import PaperScreener

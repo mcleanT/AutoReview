@@ -8,7 +8,10 @@ import structlog
 from autoreview.analysis.evidence_map import EvidenceMap
 from autoreview.extraction.models import PaperExtraction
 from autoreview.llm.prompts.outline import OutlineSection, ReviewOutline
-from autoreview.llm.prompts.writing import SECTION_WRITING_SYSTEM_PROMPT, build_section_writing_prompt
+from autoreview.llm.prompts.writing import (
+    SECTION_WRITING_SYSTEM_PROMPT,
+    build_section_writing_prompt,
+)
 from autoreview.models.base import AutoReviewModel
 from autoreview.models.enrichment import SectionEnrichment
 from autoreview.models.narrative import NarrativePlan, SectionNarrativeDirective
@@ -18,6 +21,7 @@ logger = structlog.get_logger()
 
 class SectionDraft(AutoReviewModel):
     """A drafted section with metadata."""
+
     section_id: str
     title: str
     text: str
@@ -28,7 +32,10 @@ def _format_outline_context(
     outline: ReviewOutline,
     current_section_id: str | None = None,
 ) -> str:
-    """Format outline with focused context: full detail for current+neighbors, title-only for rest."""
+    """Format outline with focused context.
+
+    Full detail for current+neighbors, title-only for rest.
+    """
     flat = outline.flatten()
 
     # Find current section index for neighbor detection
@@ -118,21 +125,31 @@ def _generate_synthesis_directives(
         chain_descs = []
         for raw_chain in evidence_map.evidence_chains:
             try:
-                chain = EvidenceChain.model_validate(raw_chain) if isinstance(raw_chain, dict) else raw_chain
+                chain = (
+                    EvidenceChain.model_validate(raw_chain)
+                    if isinstance(raw_chain, dict)
+                    else raw_chain
+                )
                 if set(chain.paper_ids) & section_set:
                     pids = ", ".join(f"[@{pid}]" for pid in chain.paper_ids)
                     chain_descs.append(f"- [{chain.chain_type}] {chain.description} ({pids})")
             except Exception:
                 continue
         if chain_descs:
-            directives.append("**Evidence Chains — trace these in your prose:**\n" + "\n".join(chain_descs))
+            directives.append(
+                "**Evidence Chains — trace these in your prose:**\n" + "\n".join(chain_descs)
+            )
 
     # Enriched contradictions
     if evidence_map.enriched_contradictions:
         contra_descs = []
         for raw_ec in evidence_map.enriched_contradictions:
             try:
-                ec = EnrichedContradiction.model_validate(raw_ec) if isinstance(raw_ec, dict) else raw_ec
+                ec = (
+                    EnrichedContradiction.model_validate(raw_ec)
+                    if isinstance(raw_ec, dict)
+                    else raw_ec
+                )
                 if (set(ec.paper_ids_a) | set(ec.paper_ids_b)) & section_set:
                     framing = f" Framing: {ec.framing_strategy}" if ec.framing_strategy else ""
                     contra_descs.append(f"- '{ec.claim_a}' vs '{ec.claim_b}'.{framing}")
@@ -153,10 +170,15 @@ def _generate_synthesis_directives(
     if evidence_map.temporal_progressions:
         for raw_tp in evidence_map.temporal_progressions:
             try:
-                tp = TemporalProgression.model_validate(raw_tp) if isinstance(raw_tp, dict) else raw_tp
+                tp = (
+                    TemporalProgression.model_validate(raw_tp)
+                    if isinstance(raw_tp, dict)
+                    else raw_tp
+                )
                 if set(tp.paper_ids) & section_set:
                     directives.append(
-                        f"**Temporal Progression:** {tp.early_period} focused on: {tp.early_focus}. "
+                        f"**Temporal Progression:** {tp.early_period} "
+                        f"focused on: {tp.early_focus}. "
                         f"{tp.late_period} shifted to: {tp.late_focus}. "
                         f"Consider using chronological structure to trace this evolution."
                     )
@@ -167,7 +189,10 @@ def _generate_synthesis_directives(
     for cc in evidence_map.consensus_claims:
         overlap = set(cc.supporting_paper_ids) & section_set
         if overlap:
-            directives.append(f"- Highlight consensus: '{cc.claim}' ({cc.evidence_count} papers, {cc.strength} evidence)")
+            directives.append(
+                f"- Highlight consensus: '{cc.claim}' "
+                f"({cc.evidence_count} papers, {cc.strength} evidence)"
+            )
 
     return "\n\n".join(directives) if directives else ""
 
@@ -185,7 +210,9 @@ def _format_contextual_enrichment(enrichment: SectionEnrichment) -> str:
     blocks = []
     for ext in enrichment.contextual_extractions:
         concepts = ", ".join(ext.key_concepts) if ext.key_concepts else "(none)"
-        connections = "; ".join(ext.cross_field_connections) if ext.cross_field_connections else "(none)"
+        connections = (
+            "; ".join(ext.cross_field_connections) if ext.cross_field_connections else "(none)"
+        )
         blocks.append(
             f"### {ext.paper_title}\n"
             f"**Background:** {ext.background_summary}\n"
@@ -222,7 +249,9 @@ class SectionWriter:
         adjacent = ""
         if preceding_text:
             # Only include last 1000 chars (closing paragraph) for transition context
-            truncated_preceding = preceding_text[-1000:] if len(preceding_text) > 1000 else preceding_text
+            truncated_preceding = (
+                preceding_text[-1000:] if len(preceding_text) > 1000 else preceding_text
+            )
             adjacent += f"### Preceding Section (ending)\n{truncated_preceding}\n\n"
         if following_text:
             adjacent += f"### Following Section\n{following_text[:500]}"
@@ -282,7 +311,6 @@ class SectionWriter:
         )
 
         return draft
-
 
     async def revise_section_with_evidence(
         self,

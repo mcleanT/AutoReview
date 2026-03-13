@@ -1,42 +1,62 @@
 from __future__ import annotations
 
-import pytest
-
 from autoreview.analysis.clustering import ThematicClusterer, _format_findings_for_clustering
 from autoreview.analysis.evidence_map import (
-    ConsensusClaim, Contradiction, EvidenceMap, Theme, SubTheme,
-)
-from autoreview.extraction.models import EvidenceStrength, Finding, PaperExtraction
-from autoreview.llm.provider import LLMStructuredResponse
-from autoreview.llm.prompts.clustering import (
-    ClusteringResult, ContradictionResult, ThemeCluster, SubThemeCluster,
-    ConsensusClaimResult, ContradictionItem, GapAnalysisResult, GapItem,
+    EvidenceMap,
+    Theme,
 )
 from autoreview.analysis.gap_detector import GapDetector
+from autoreview.extraction.models import EvidenceStrength, Finding, PaperExtraction
+from autoreview.llm.prompts.clustering import (
+    ClusteringResult,
+    ConsensusClaimResult,
+    ContradictionItem,
+    ContradictionResult,
+    GapAnalysisResult,
+    GapItem,
+    SubThemeCluster,
+    ThemeCluster,
+)
+from autoreview.llm.provider import LLMStructuredResponse
 
 
 class MockClusteringLLM:
     """Mock LLM for clustering tests."""
 
-    async def generate_structured(self, prompt, response_model, system="", max_tokens=4096, temperature=0.0, model_override=None):
+    async def generate_structured(
+        self,
+        prompt,
+        response_model,
+        system="",
+        max_tokens=4096,
+        temperature=0.0,
+        model_override=None,
+    ):
         if response_model == ClusteringResult:
             return LLMStructuredResponse(
-                parsed=ClusteringResult(themes=[
-                    ThemeCluster(
-                        name="Gut-Brain Axis",
-                        description="Mechanisms linking gut to brain",
-                        paper_ids=["p1", "p2"],
-                        sub_themes=[
-                            SubThemeCluster(name="Vagal Pathways", description="Via vagus nerve", paper_ids=["p1"]),
-                        ],
-                    ),
-                    ThemeCluster(
-                        name="Microbiome Composition",
-                        description="Changes in microbial composition",
-                        paper_ids=["p2", "p3"],
-                    ),
-                ]),
-                input_tokens=800, output_tokens=400,
+                parsed=ClusteringResult(
+                    themes=[
+                        ThemeCluster(
+                            name="Gut-Brain Axis",
+                            description="Mechanisms linking gut to brain",
+                            paper_ids=["p1", "p2"],
+                            sub_themes=[
+                                SubThemeCluster(
+                                    name="Vagal Pathways",
+                                    description="Via vagus nerve",
+                                    paper_ids=["p1"],
+                                ),
+                            ],
+                        ),
+                        ThemeCluster(
+                            name="Microbiome Composition",
+                            description="Changes in microbial composition",
+                            paper_ids=["p2", "p3"],
+                        ),
+                    ]
+                ),
+                input_tokens=800,
+                output_tokens=400,
             )
         elif response_model == ContradictionResult:
             return LLMStructuredResponse(
@@ -59,7 +79,8 @@ class MockClusteringLLM:
                         ),
                     ],
                 ),
-                input_tokens=600, output_tokens=300,
+                input_tokens=600,
+                output_tokens=300,
             )
         elif response_model == GapAnalysisResult:
             return LLMStructuredResponse(
@@ -74,7 +95,8 @@ class MockClusteringLLM:
                     ],
                     coverage_score=0.75,
                 ),
-                input_tokens=400, output_tokens=200,
+                input_tokens=400,
+                output_tokens=200,
             )
         raise ValueError(f"Unexpected: {response_model}")
 
@@ -83,18 +105,27 @@ def _make_extractions() -> dict[str, PaperExtraction]:
     return {
         "p1": PaperExtraction(
             paper_id="p1",
-            key_findings=[Finding(claim="Claim A", evidence_strength=EvidenceStrength.STRONG, paper_id="p1")],
-            methods_summary="Methods A", limitations="Limits A",
+            key_findings=[
+                Finding(claim="Claim A", evidence_strength=EvidenceStrength.STRONG, paper_id="p1")
+            ],
+            methods_summary="Methods A",
+            limitations="Limits A",
         ),
         "p2": PaperExtraction(
             paper_id="p2",
-            key_findings=[Finding(claim="Claim B", evidence_strength=EvidenceStrength.MODERATE, paper_id="p2")],
-            methods_summary="Methods B", limitations="Limits B",
+            key_findings=[
+                Finding(claim="Claim B", evidence_strength=EvidenceStrength.MODERATE, paper_id="p2")
+            ],
+            methods_summary="Methods B",
+            limitations="Limits B",
         ),
         "p3": PaperExtraction(
             paper_id="p3",
-            key_findings=[Finding(claim="Claim C", evidence_strength=EvidenceStrength.WEAK, paper_id="p3")],
-            methods_summary="Methods C", limitations="Limits C",
+            key_findings=[
+                Finding(claim="Claim C", evidence_strength=EvidenceStrength.WEAK, paper_id="p3")
+            ],
+            methods_summary="Methods C",
+            limitations="Limits C",
         ),
     }
 
@@ -123,7 +154,9 @@ class TestThematicClusterer:
         themes = [
             Theme(name="Test Theme", description="Desc", paper_ids=["p1", "p2"]),
         ]
-        consensus, contradictions = await clusterer.detect_contradictions(themes, _make_extractions())
+        consensus, contradictions = await clusterer.detect_contradictions(
+            themes, _make_extractions()
+        )
         assert len(consensus) == 1
         assert consensus[0].claim == "Gut dysbiosis is common in PD"
         assert len(contradictions) == 1

@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import pytest
-
+from autoreview.critique.holistic_critic import HolisticCritic
 from autoreview.critique.models import (
     CritiqueIssue,
     CritiqueReport,
@@ -12,15 +11,14 @@ from autoreview.critique.models import (
 )
 from autoreview.critique.outline_critic import OutlineCritic, _outline_to_text
 from autoreview.critique.section_critic import SectionCritic
-from autoreview.critique.holistic_critic import HolisticCritic
 from autoreview.llm.prompts.outline import OutlineSection, ReviewOutline
 from autoreview.llm.provider import LLMResponse, LLMStructuredResponse
 from autoreview.writing.section_writer import SectionDraft
 
-
 # ---------------------------------------------------------------------------
 # Test fixtures
 # ---------------------------------------------------------------------------
+
 
 def _make_outline() -> ReviewOutline:
     return ReviewOutline(
@@ -113,6 +111,7 @@ def _make_failing_report(target: CritiqueTarget, target_id: str | None = None) -
 # Mock LLMs
 # ---------------------------------------------------------------------------
 
+
 class MockStructuredLLM:
     """Mock LLM that returns a configurable CritiqueReport from generate_structured."""
 
@@ -120,25 +119,39 @@ class MockStructuredLLM:
         self.report = report
         self.calls: list[dict] = []
 
-    async def generate_structured(self, prompt, response_model, system="", max_tokens=4096, temperature=0.0, model_override=None):
-        self.calls.append({
-            "method": "generate_structured",
-            "prompt": prompt,
-            "response_model": response_model,
-            "system": system,
-        })
+    async def generate_structured(
+        self,
+        prompt,
+        response_model,
+        system="",
+        max_tokens=4096,
+        temperature=0.0,
+        model_override=None,
+    ):
+        self.calls.append(
+            {
+                "method": "generate_structured",
+                "prompt": prompt,
+                "response_model": response_model,
+                "system": system,
+            }
+        )
         return LLMStructuredResponse(
             parsed=self.report,
             input_tokens=500,
             output_tokens=300,
         )
 
-    async def generate(self, prompt, system="", max_tokens=4096, temperature=0.3, model_override=None):
-        self.calls.append({
-            "method": "generate",
-            "prompt": prompt,
-            "system": system,
-        })
+    async def generate(
+        self, prompt, system="", max_tokens=4096, temperature=0.3, model_override=None
+    ):
+        self.calls.append(
+            {
+                "method": "generate",
+                "prompt": prompt,
+                "system": system,
+            }
+        )
         return LLMResponse(
             content="Revised text here.",
             input_tokens=400,
@@ -159,11 +172,21 @@ class MockSequenceLLM:
         self.structured_calls: list[dict] = []
         self.generate_calls: list[dict] = []
 
-    async def generate_structured(self, prompt, response_model, system="", max_tokens=4096, temperature=0.0, model_override=None):
-        self.structured_calls.append({
-            "prompt": prompt,
-            "response_model": response_model,
-        })
+    async def generate_structured(
+        self,
+        prompt,
+        response_model,
+        system="",
+        max_tokens=4096,
+        temperature=0.0,
+        model_override=None,
+    ):
+        self.structured_calls.append(
+            {
+                "prompt": prompt,
+                "response_model": response_model,
+            }
+        )
         report = self.reports[min(self._call_index, len(self.reports) - 1)]
         self._call_index += 1
         return LLMStructuredResponse(
@@ -172,7 +195,9 @@ class MockSequenceLLM:
             output_tokens=300,
         )
 
-    async def generate(self, prompt, system="", max_tokens=4096, temperature=0.3, model_override=None):
+    async def generate(
+        self, prompt, system="", max_tokens=4096, temperature=0.3, model_override=None
+    ):
         self.generate_calls.append({"prompt": prompt})
         return LLMResponse(
             content="Revised text after addressing critique feedback.",
@@ -184,6 +209,7 @@ class MockSequenceLLM:
 # ===========================================================================
 # OutlineCritic tests
 # ===========================================================================
+
 
 class TestOutlineCritic:
     """Tests for the OutlineCritic class."""
@@ -201,7 +227,9 @@ class TestOutlineCritic:
         assert report.overall_score == 0.88
 
     async def test_critique_sets_target_to_outline(self):
-        """The returned report must have target set to OUTLINE regardless of what the LLM returns."""
+        """The returned report must have target set to OUTLINE
+        regardless of what the LLM returns.
+        """
         # Give the LLM a report with wrong target -- critic should override it
         wrong_target_report = CritiqueReport(
             target=CritiqueTarget.SECTION,
@@ -319,6 +347,7 @@ class TestOutlineToText:
 # SectionCritic tests
 # ===========================================================================
 
+
 class TestSectionCritic:
     """Tests for the SectionCritic class."""
 
@@ -328,9 +357,7 @@ class TestSectionCritic:
         llm = MockStructuredLLM(expected)
         critic = SectionCritic(llm)
 
-        report = await critic.critique(
-            _make_section_draft(), _make_outline()
-        )
+        report = await critic.critique(_make_section_draft(), _make_outline())
 
         assert isinstance(report, CritiqueReport)
         assert report.passed is True
@@ -345,9 +372,7 @@ class TestSectionCritic:
         llm = MockStructuredLLM(wrong_target)
         critic = SectionCritic(llm)
 
-        report = await critic.critique(
-            _make_section_draft(), _make_outline()
-        )
+        report = await critic.critique(_make_section_draft(), _make_outline())
 
         assert report.target == CritiqueTarget.SECTION
 
@@ -391,9 +416,7 @@ class TestSectionCritic:
         llm = MockStructuredLLM(_make_passing_report(CritiqueTarget.SECTION))
         critic = SectionCritic(llm)
 
-        report = await critic.critique(
-            _make_section_draft(), _make_outline()
-        )
+        report = await critic.critique(_make_section_draft(), _make_outline())
 
         assert report.passed is True
         # Adjacent context should be empty in the prompt
@@ -451,6 +474,7 @@ class TestSectionCritic:
 # ===========================================================================
 # HolisticCritic tests
 # ===========================================================================
+
 
 class TestHolisticCritic:
     """Tests for the HolisticCritic class."""

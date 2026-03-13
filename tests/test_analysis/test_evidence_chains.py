@@ -7,25 +7,17 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from autoreview.analysis.evidence_chains import (
-    EnrichedContradiction,
     EvidenceChain,
     EvidenceChainBuilder,
-    EvidenceStrengthDistribution,
-    SynthesisDirectiveBundle,
-    TemporalProgression,
 )
 from autoreview.analysis.evidence_map import (
     ConsensusClaim,
     Contradiction,
     EvidenceMap,
-    Theme,
 )
 from autoreview.extraction.models import (
-    EvidenceStrength,
     Finding,
     PaperExtraction,
-    RelationshipClaim,
-    RelationshipType,
 )
 
 

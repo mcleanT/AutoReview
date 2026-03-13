@@ -25,10 +25,10 @@ import structlog
 from autoreview.models.paper import CandidatePaper, ScreenedPaper
 from autoreview.search.rate_limiter import RateLimiter
 
-logger = structlog.get_logger()
-
 # Reuse the PDF / HTML text extraction helpers from the unpaywall module.
 from autoreview.search.unpaywall import _extract_text_from_pdf
+
+logger = structlog.get_logger()
 
 _MAX_TEXT_CHARS = 200_000
 

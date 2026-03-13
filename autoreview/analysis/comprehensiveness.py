@@ -1,8 +1,9 @@
 """Comprehensiveness checks for literature search validation."""
+
 from __future__ import annotations
 
 import os
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 import httpx
@@ -23,7 +24,7 @@ from autoreview.models.paper import CandidatePaper, ScreenedPaper
 logger = structlog.get_logger()
 
 
-class CheckStatus(str, Enum):
+class CheckStatus(StrEnum):
     PASSED = "passed"
     WARNING = "warning"
     FAILED = "failed"
@@ -94,7 +95,9 @@ class CoverageAnomalyChecker:
 
         # Low screened count
         if total_screened < self.min_screened:
-            warnings.append(f"Only {total_screened} papers passed screening (minimum: {self.min_screened})")
+            warnings.append(
+                f"Only {total_screened} papers passed screening (minimum: {self.min_screened})"
+            )
 
         # Missing abstracts
         no_abstract = sum(1 for p in candidates if not p.abstract)
@@ -112,8 +115,7 @@ class CoverageAnomalyChecker:
         remediation = None
         if warnings:
             failed_sources = [
-                src for src in (expected_sources or [])
-                if source_counts.get(src, 0) == 0
+                src for src in (expected_sources or []) if source_counts.get(src, 0) == 0
             ]
             if rejection_rate > self.max_rejection_rate:
                 remediation = RemediationAction(
@@ -317,7 +319,8 @@ class PostGapRevalidator:
         else:
             status = CheckStatus.PASSED
             details = (
-                f"All major gaps filled. Coverage improved {pre_coverage:.2f} -> {post_coverage:.2f}"
+                f"All major gaps filled. Coverage improved "
+                f"{pre_coverage:.2f} -> {post_coverage:.2f}"
             )
 
         logger.info(
@@ -377,12 +380,10 @@ class SemanticScholarBenchmarkClient:
 
         # Filter for review papers, sort by citations
         reviews = [
-            p for p in data
+            p
+            for p in data
             if p.get("citationCount", 0) >= 50
-            and any(
-                t in (p.get("publicationTypes") or [])
-                for t in ["Review", "Meta-Analysis"]
-            )
+            and any(t in (p.get("publicationTypes") or []) for t in ["Review", "Meta-Analysis"])
         ]
         if not reviews:
             # Fall back to highest-cited paper regardless of type
@@ -457,7 +458,11 @@ class BenchmarkValidator:
                 status=CheckStatus.PASSED,
                 score=1.0,
                 details=f"Benchmark review '{review_title}' has no extractable reference DOIs",
-                metrics={"benchmark_found": True, "benchmark_title": review_title, "reference_count": 0},
+                metrics={
+                    "benchmark_found": True,
+                    "benchmark_title": review_title,
+                    "reference_count": 0,
+                },
             )
 
         normalized_pipeline = {d.lower().strip() for d in pipeline_dois}
@@ -468,7 +473,8 @@ class BenchmarkValidator:
             status = CheckStatus.PASSED
             details = (
                 f"Recall {recall:.0%} against benchmark '{review_title}' "
-                f"({review_citations} citations): {len(matched)}/{len(reference_dois)} references found"
+                f"({review_citations} citations): "
+                f"{len(matched)}/{len(reference_dois)} references found"
             )
         else:
             status = CheckStatus.WARNING

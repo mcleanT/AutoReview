@@ -130,19 +130,23 @@ class EvidenceChainBuilder:
                     continue
                 year = paper_years.get(pid)
                 for f in ext.key_findings:
-                    findings_with_meta.append({
-                        "paper_id": pid,
-                        "claim": f.claim,
-                        "evidence_strength": f.evidence_strength,
-                        "year": year,
-                    })
+                    findings_with_meta.append(
+                        {
+                            "paper_id": pid,
+                            "claim": f.claim,
+                            "evidence_strength": f.evidence_strength,
+                            "year": year,
+                        }
+                    )
                 for r in ext.relationships:
-                    relationships.append({
-                        "source_paper_id": r.source_paper_id,
-                        "target_paper_id": r.target_paper_id,
-                        "relationship_type": r.relationship_type,
-                        "description": r.description,
-                    })
+                    relationships.append(
+                        {
+                            "source_paper_id": r.source_paper_id,
+                            "target_paper_id": r.target_paper_id,
+                            "relationship_type": r.relationship_type,
+                            "description": r.description,
+                        }
+                    )
 
             if len(findings_with_meta) < 2:
                 continue
@@ -151,10 +155,11 @@ class EvidenceChainBuilder:
 
             try:
                 # Request structured chains from LLM
-                from autoreview.models.base import AutoReviewModel as ARM
                 from pydantic import Field as PydField
 
-                class ChainResult(ARM):
+                from autoreview.models.base import AutoReviewModel
+
+                class ChainResult(AutoReviewModel):
                     chains: list[dict] = PydField(default_factory=list)
 
                 response = await self.llm.generate_structured(
@@ -171,21 +176,25 @@ class EvidenceChainBuilder:
                     for pid in chain_paper_ids:
                         ext = extractions.get(pid)
                         if ext and ext.key_findings:
-                            links.append(EvidenceChainLink(
-                                paper_id=pid,
-                                claim=ext.key_findings[0].claim,
-                                evidence_strength=ext.key_findings[0].evidence_strength,
-                                year=paper_years.get(pid),
-                            ))
+                            links.append(
+                                EvidenceChainLink(
+                                    paper_id=pid,
+                                    claim=ext.key_findings[0].claim,
+                                    evidence_strength=ext.key_findings[0].evidence_strength,
+                                    year=paper_years.get(pid),
+                                )
+                            )
 
-                    all_chains.append(EvidenceChain(
-                        chain_id=f"chain_{chain_counter}",
-                        theme=theme.name,
-                        description=c.get("description", ""),
-                        links=links,
-                        chain_type=c.get("chain_type", "progressive"),
-                        paper_ids=chain_paper_ids,
-                    ))
+                    all_chains.append(
+                        EvidenceChain(
+                            chain_id=f"chain_{chain_counter}",
+                            theme=theme.name,
+                            description=c.get("description", ""),
+                            links=links,
+                            chain_type=c.get("chain_type", "progressive"),
+                            paper_ids=chain_paper_ids,
+                        )
+                    )
 
             except Exception as e:
                 logger.warning("evidence_chains.build_failed", theme=theme.name, error=str(e))
@@ -215,8 +224,14 @@ class EvidenceChainBuilder:
 
         guidance_map = {
             "strong": "Lead with confident assertions; most evidence is robust.",
-            "moderate": "Present findings with appropriate confidence; note that most evidence is moderate-strength.",
-            "weak": "Use hedging language; emphasize that evidence is suggestive rather than conclusive.",
+            "moderate": (
+                "Present findings with appropriate confidence; "
+                "note that most evidence is moderate-strength."
+            ),
+            "weak": (
+                "Use hedging language; emphasize that evidence is "
+                "suggestive rather than conclusive."
+            ),
             "preliminary": "Frame as an emerging area; highlight the need for further research.",
         }
 
@@ -234,7 +249,10 @@ class EvidenceChainBuilder:
         contradictions: list[Contradiction],
         extractions: dict[str, PaperExtraction],
     ) -> list[EnrichedContradiction]:
-        """Enrich contradictions with methodology differences and framing strategies (LLM-assisted)."""
+        """Enrich contradictions with methodology differences and framing strategies.
+
+        LLM-assisted enrichment.
+        """
         from autoreview.llm.prompts.evidence_chains import (
             CONTRADICTION_ENRICHMENT_SYSTEM_PROMPT,
             build_contradiction_enrichment_prompt,
@@ -244,22 +262,23 @@ class EvidenceChainBuilder:
 
         for c in contradictions:
             methods_a = [
-                extractions[pid].methods_summary
-                for pid in c.paper_ids_a if pid in extractions
+                extractions[pid].methods_summary for pid in c.paper_ids_a if pid in extractions
             ]
             methods_b = [
-                extractions[pid].methods_summary
-                for pid in c.paper_ids_b if pid in extractions
+                extractions[pid].methods_summary for pid in c.paper_ids_b if pid in extractions
             ]
 
             try:
                 prompt = build_contradiction_enrichment_prompt(
-                    c.claim_a, c.claim_b, methods_a, methods_b,
+                    c.claim_a,
+                    c.claim_b,
+                    methods_a,
+                    methods_b,
                 )
 
-                from autoreview.models.base import AutoReviewModel as ARM
+                from autoreview.models.base import AutoReviewModel
 
-                class EnrichmentResult(ARM):
+                class EnrichmentResult(AutoReviewModel):
                     methodological_differences: str = ""
                     framing_strategy: str = ""
 
@@ -270,28 +289,32 @@ class EvidenceChainBuilder:
                 )
                 result: EnrichmentResult = response.parsed
 
-                enriched.append(EnrichedContradiction(
-                    claim_a=c.claim_a,
-                    claim_b=c.claim_b,
-                    paper_ids_a=c.paper_ids_a,
-                    paper_ids_b=c.paper_ids_b,
-                    possible_explanation=c.possible_explanation,
-                    theme=c.theme,
-                    methodological_differences=result.methodological_differences,
-                    framing_strategy=result.framing_strategy,
-                ))
+                enriched.append(
+                    EnrichedContradiction(
+                        claim_a=c.claim_a,
+                        claim_b=c.claim_b,
+                        paper_ids_a=c.paper_ids_a,
+                        paper_ids_b=c.paper_ids_b,
+                        possible_explanation=c.possible_explanation,
+                        theme=c.theme,
+                        methodological_differences=result.methodological_differences,
+                        framing_strategy=result.framing_strategy,
+                    )
+                )
 
             except Exception as e:
                 logger.warning("contradiction_enrichment.failed", error=str(e))
                 # Fall back to unenriched version
-                enriched.append(EnrichedContradiction(
-                    claim_a=c.claim_a,
-                    claim_b=c.claim_b,
-                    paper_ids_a=c.paper_ids_a,
-                    paper_ids_b=c.paper_ids_b,
-                    possible_explanation=c.possible_explanation,
-                    theme=c.theme,
-                ))
+                enriched.append(
+                    EnrichedContradiction(
+                        claim_a=c.claim_a,
+                        claim_b=c.claim_b,
+                        paper_ids_a=c.paper_ids_a,
+                        paper_ids_b=c.paper_ids_b,
+                        possible_explanation=c.possible_explanation,
+                        theme=c.theme,
+                    )
+                )
 
         return enriched
 
@@ -340,15 +363,21 @@ class EvidenceChainBuilder:
         early_years = [y for _, y in early]
         late_years = [y for _, y in late]
 
-        return [TemporalProgression(
-            theme="overall",
-            early_period=f"{min(early_years)}-{max(early_years)}",
-            early_focus=early_focus,
-            late_period=f"{min(late_years)}-{max(late_years)}",
-            late_focus=late_focus,
-            trajectory=f"Research shifted from early findings ({min(early_years)}-{max(early_years)}) to later developments ({min(late_years)}-{max(late_years)})",
-            paper_ids=[pid for pid, _ in papers_with_years],
-        )]
+        return [
+            TemporalProgression(
+                theme="overall",
+                early_period=f"{min(early_years)}-{max(early_years)}",
+                early_focus=early_focus,
+                late_period=f"{min(late_years)}-{max(late_years)}",
+                late_focus=late_focus,
+                trajectory=(
+                    f"Research shifted from early findings "
+                    f"({min(early_years)}-{max(early_years)}) to later "
+                    f"developments ({min(late_years)}-{max(late_years)})"
+                ),
+                paper_ids=[pid for pid, _ in papers_with_years],
+            )
+        ]
 
     async def build_section_directives(
         self,
@@ -418,7 +447,8 @@ class EvidenceChainBuilder:
         for cc in evidence_map.consensus_claims:
             if set(cc.supporting_paper_ids) & section_set:
                 consensus_lines.append(
-                    f"- '{cc.claim}' (supported by {cc.evidence_count} papers, {cc.strength} evidence)"
+                    f"- '{cc.claim}' (supported by {cc.evidence_count} papers, "
+                    f"{cc.strength} evidence)"
                 )
         consensus_text = "\n".join(consensus_lines)
 
@@ -446,12 +476,8 @@ class EvidenceChainBuilder:
             contra_descs = []
             for ec in relevant_contradictions:
                 framing = f" Framing: {ec.framing_strategy}" if ec.framing_strategy else ""
-                contra_descs.append(
-                    f"- '{ec.claim_a}' vs '{ec.claim_b}'.{framing}"
-                )
-            directive_parts.append(
-                "**Contradictions to address:**\n" + "\n".join(contra_descs)
-            )
+                contra_descs.append(f"- '{ec.claim_a}' vs '{ec.claim_b}'.{framing}")
+            directive_parts.append("**Contradictions to address:**\n" + "\n".join(contra_descs))
 
         if relevant_progressions:
             for tp in relevant_progressions:

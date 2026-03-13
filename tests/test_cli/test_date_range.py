@@ -23,7 +23,7 @@ class TestDateRangeCLI:
         mock_kb.output_dir = "output"
         mock_run.return_value = mock_kb
 
-        result = runner.invoke(app, ["run", "test topic", "--date-range", "-2019"])
+        runner.invoke(app, ["run", "test topic", "--date-range", "-2019"])
 
         # Verify date_range was set on config
         assert mock_config.search.date_range == "-2019"
@@ -49,6 +49,6 @@ class TestDateRangeCLI:
         mock_llm.return_value = MagicMock()
         mock_run.return_value = mock_kb
 
-        result = runner.invoke(app, ["resume", "snapshot.json", "--date-range", "2015-2019"])
+        runner.invoke(app, ["resume", "snapshot.json", "--date-range", "2015-2019"])
 
         assert mock_config.search.date_range == "2015-2019"

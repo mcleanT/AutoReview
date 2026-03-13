@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from autoreview.analysis.contextual_enricher import ContextualEnricher
 from autoreview.llm.prompts.enrichment import (
     BatchContextualExtractionResult,

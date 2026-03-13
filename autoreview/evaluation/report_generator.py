@@ -29,16 +29,29 @@ def generate_markdown_report(result: EvaluationResult) -> str:
         "| Dimension | Generated | Reference | Delta |",
         "|---|---|---|---|",
         f"| Citation Recall | {cs.recall:.2f} | — | — |",
-        f"| Synthesis Depth | {ss.generated_score:.1f}/5 | {ss.reference_score:.1f}/5 | {ss.delta:+.2f} |",
-        f"| Topical Coverage | {tc.generated_coverage:.2f} | {tc.reference_coverage:.2f} | {tc.generated_coverage - tc.reference_coverage:+.2f} |",
-        f"| Writing Quality | {wq.generated_score:.1f}/5 | {wq.reference_score:.1f}/5 | {wq.delta:+.2f} |",
+        (
+            f"| Synthesis Depth | {ss.generated_score:.1f}/5 "
+            f"| {ss.reference_score:.1f}/5 | {ss.delta:+.2f} |"
+        ),
+        (
+            f"| Topical Coverage | {tc.generated_coverage:.2f} "
+            f"| {tc.reference_coverage:.2f} "
+            f"| {tc.generated_coverage - tc.reference_coverage:+.2f} |"
+        ),
+        (
+            f"| Writing Quality | {wq.generated_score:.1f}/5 "
+            f"| {wq.reference_score:.1f}/5 | {wq.delta:+.2f} |"
+        ),
         f"| **Overall** | **{result.overall_score:.2f}** | — | — |",
         "",
         "---",
         "",
         "## Citation Coverage",
         "",
-        f"- **Recall:** {cs.recall:.1%} ({cs.matched_count}/{cs.reference_count} reference papers matched)",
+        (
+            f"- **Recall:** {cs.recall:.1%} "
+            f"({cs.matched_count}/{cs.reference_count} reference papers matched)"
+        ),
         f"- **Generated bibliography size:** {cs.generated_count} papers",
     ]
     if cs.missed_titles:
