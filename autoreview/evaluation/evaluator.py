@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
-from pathlib import Path
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 import structlog
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 from autoreview.evaluation.citation_matcher import match_citations, parse_bibliography_from_markdown
 from autoreview.evaluation.llm_scorer import LLMScorer
@@ -16,6 +19,7 @@ from autoreview.evaluation.models import (
 )
 from autoreview.evaluation.pdf_extractor import extract_bibliography_lines, extract_text_from_pdf
 from autoreview.evaluation.report_generator import save_report
+from autoreview.evaluation.structural_metrics import compute_structural_metrics
 
 logger = structlog.get_logger()
 
@@ -26,7 +30,7 @@ async def run_evaluation(
     generated_path: Path,
     reference_path: Path,
     output_dir: Path,
-    llm,
+    judge_llm,
 ) -> EvaluationResult:
     generated_text = generated_path.read_text(encoding="utf-8")
     reference_text = extract_text_from_pdf(reference_path)
@@ -35,7 +39,9 @@ async def run_evaluation(
     ref_refs = extract_bibliography_lines(reference_text)
     citation_score = match_citations(gen_refs, ref_refs)
 
-    scorer = LLMScorer(llm)
+    structural = compute_structural_metrics(generated_text)
+
+    scorer = LLMScorer(judge_llm)
     tasks = [
         scorer.score_synthesis(generated_text, reference_text),
         scorer.score_topic_coverage(generated_text, reference_text),
@@ -48,24 +54,32 @@ async def run_evaluation(
     writing_quality: WritingQualityScore | None = None
 
     for i, r in enumerate(raw):
-        if isinstance(r, Exception):
+        if isinstance(r, BaseException):
             logger.warning("evaluator.scoring_failed", index=i, error=str(r))
-        elif i == 0:
+            continue
+        if isinstance(r, SynthesisScore):
             synthesis_score = r
-        elif i == 1:
+        elif isinstance(r, TopicCoverageScore):
             topic_coverage = r
-        elif i == 2:
+        elif isinstance(r, WritingQualityScore):
             writing_quality = r
 
     if synthesis_score is None:
         synthesis_score = SynthesisScore(
-            generated_score=0, reference_score=0, delta=0,
-            dimension_scores={}, generated_observations="error", reference_observations="error",
+            generated_score=0,
+            reference_score=0,
+            delta=0,
+            dimension_scores={},
+            generated_observations="error",
+            reference_observations="error",
         )
     if topic_coverage is None:
         topic_coverage = TopicCoverageScore(
-            generated_coverage=0, reference_coverage=1.0,
-            topics_in_both=[], topics_only_in_reference=[], topics_only_in_generated=[],
+            generated_coverage=0,
+            reference_coverage=1.0,
+            topics_in_both=[],
+            topics_only_in_reference=[],
+            topics_only_in_generated=[],
         )
     if writing_quality is None:
         writing_quality = WritingQualityScore(
@@ -81,7 +95,7 @@ async def run_evaluation(
     )
 
     result = EvaluationResult(
-        timestamp=datetime.now(timezone.utc).isoformat(),
+        timestamp=datetime.now(UTC).isoformat(),
         generated_path=str(generated_path),
         reference_path=str(reference_path),
         citation_score=citation_score,
@@ -89,6 +103,7 @@ async def run_evaluation(
         topic_coverage=topic_coverage,
         writing_quality=writing_quality,
         overall_score=overall_score,
+        structural_metrics=structural,
     )
 
     save_report(result, output_dir)

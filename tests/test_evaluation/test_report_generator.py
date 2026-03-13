@@ -1,8 +1,13 @@
 import json
 import tempfile
 from pathlib import Path
+
 from autoreview.evaluation.models import (
-    EvaluationResult, CitationScore, SynthesisScore, TopicCoverageScore, WritingQualityScore,
+    CitationScore,
+    EvaluationResult,
+    SynthesisScore,
+    TopicCoverageScore,
+    WritingQualityScore,
 )
 from autoreview.evaluation.report_generator import generate_markdown_report, save_report
 
@@ -12,10 +17,38 @@ def _make_result() -> EvaluationResult:
         timestamp="2026-02-24T00:00:00",
         generated_path="output/review.md",
         reference_path="reference.pdf",
-        citation_score=CitationScore(recall=0.62, matched_count=22, reference_count=35, generated_count=36, matched_titles=["Smith 2020", "Jones 2021"], missed_titles=["Lee 2019"]),
-        synthesis_score=SynthesisScore(generated_score=3.8, reference_score=4.2, delta=-0.4, dimension_scores={"cross_paper": 3.5, "gap_identification": 4.0}, generated_observations="Decent synthesis.", reference_observations="Strong synthesis."),
-        topic_coverage=TopicCoverageScore(generated_coverage=0.70, reference_coverage=1.0, topics_in_both=["SASP", "telomere"], topics_only_in_reference=["immune senescence", "lysosomal pathway"], topics_only_in_generated=["gut microbiome"]),
-        writing_quality=WritingQualityScore(generated_score=3.5, reference_score=4.0, delta=-0.5, dimension_scores={"clarity": 3.5, "flow": 3.5}),
+        citation_score=CitationScore(
+            recall=0.62,
+            precision=0.61,
+            f1=0.615,
+            matched_count=22,
+            reference_count=35,
+            generated_count=36,
+            matched_titles=["Smith 2020", "Jones 2021"],
+            missed_titles=["Lee 2019"],
+            hallucinated_titles=[],
+        ),
+        synthesis_score=SynthesisScore(
+            generated_score=3.8,
+            reference_score=4.2,
+            delta=-0.4,
+            dimension_scores={"cross_paper": 3.5, "gap_identification": 4.0},
+            generated_observations="Decent synthesis.",
+            reference_observations="Strong synthesis.",
+        ),
+        topic_coverage=TopicCoverageScore(
+            generated_coverage=0.70,
+            reference_coverage=1.0,
+            topics_in_both=["SASP", "telomere"],
+            topics_only_in_reference=["immune senescence", "lysosomal pathway"],
+            topics_only_in_generated=["gut microbiome"],
+        ),
+        writing_quality=WritingQualityScore(
+            generated_score=3.5,
+            reference_score=4.0,
+            delta=-0.5,
+            dimension_scores={"clarity": 3.5, "flow": 3.5},
+        ),
         overall_score=0.65,
     )
 

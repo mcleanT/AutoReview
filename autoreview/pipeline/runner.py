@@ -6,14 +6,16 @@ import json
 import time
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
-from autoreview.config.models import DomainConfig
 from autoreview.models.knowledge_base import KnowledgeBase, PipelinePhase
 from autoreview.pipeline.dag import DAGRunner
 from autoreview.pipeline.nodes import PipelineNodes
+
+if TYPE_CHECKING:
+    from autoreview.config.models import DomainConfig
 
 logger = structlog.get_logger()
 
@@ -24,7 +26,9 @@ def _node_summary(name: str, kb: KnowledgeBase) -> str:
         "query_expansion": f"{len(kb.search_queries)} queries generated",
         "search": f"{len(kb.candidate_papers)} candidates found",
         "screening": f"{len(kb.screened_papers)} papers passed screening",
-        "full_text_retrieval": f"{sum(1 for sp in kb.screened_papers if sp.paper.full_text)} full texts retrieved",
+        "full_text_retrieval": (
+            f"{sum(1 for sp in kb.screened_papers if sp.paper.full_text)} full texts retrieved"
+        ),
         "extraction": f"{len(kb.extractions)} papers extracted",
         "clustering": f"{len(kb.evidence_map.themes) if kb.evidence_map else 0} themes, "
         f"{len(kb.evidence_map.contradictions) if kb.evidence_map else 0} contradictions",
@@ -192,5 +196,12 @@ async def run_pipeline(
     except Exception as e:
         logger.error("pipeline.failed", error=str(e))
         raise
+
+    # Write token usage summary
+    token_summary = nodes._global_tokens.token_summary()
+    token_summary["model"] = config.llm.model
+    token_usage_path = Path(kb.output_dir) / "token_usage.json"
+    token_usage_path.write_text(json.dumps(token_summary, indent=2))
+    logger.info("pipeline.token_usage_saved", path=str(token_usage_path))
 
     return kb

@@ -23,3 +23,17 @@ Fully autonomous pipeline for generating publication-ready scientific review pap
 - Retry with exponential backoff on API rate limits (search sources + LLM)
 - Graceful degradation: if a search source fails, continue with remaining sources
 - Pipeline state snapshots enable restart from last successful node
+
+---
+
+## Living Repository Protocol
+
+Read `.living/` before starting work:
+- `.living/decisions.md` — project decisions log
+- `.living/learnings.md` — lessons learned
+- `.living/conventions.md` — project-specific conventions
+
+After significant actions:
+- Log non-obvious decisions to `.living/decisions.md`
+- Log unexpected findings or gotchas to `.living/learnings.md`
+- Check `../.living/learnings.md` for cross-project insights from the Science portfolio
