@@ -16,14 +16,21 @@ class MockLLM:
         self.calls: list[dict] = []
 
     async def generate_structured(
-        self, prompt, response_model, system="", max_tokens=4096,
-        temperature=0.0, model_override=None,
+        self,
+        prompt,
+        response_model,
+        system="",
+        max_tokens=4096,
+        temperature=0.0,
+        model_override=None,
     ):
-        self.calls.append({
-            "prompt": prompt,
-            "response_model": response_model,
-            "model_override": model_override,
-        })
+        self.calls.append(
+            {
+                "prompt": prompt,
+                "response_model": response_model,
+                "model_override": model_override,
+            }
+        )
         return LLMStructuredResponse(
             parsed=PaperExtraction(
                 paper_id="placeholder",
@@ -45,8 +52,10 @@ class MockLLM:
 
 def _make_paper(title: str = "Test Paper") -> CandidatePaper:
     return CandidatePaper(
-        title=title, authors=["Author A"],
-        source_database="test", abstract="Test abstract.",
+        title=title,
+        authors=["Author A"],
+        source_database="test",
+        abstract="Test abstract.",
     )
 
 

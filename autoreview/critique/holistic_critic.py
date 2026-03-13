@@ -68,7 +68,8 @@ async def holistic_critique_loop(
 
     for cycle in range(max_cycles):
         report = await critic.critique(
-            current_draft, scope_document,
+            current_draft,
+            scope_document,
             previous_scores=previous_scores,
         )
 
@@ -100,7 +101,9 @@ async def holistic_critique_loop(
 
         # Cross-section revision with full draft context
         current_draft = await revise_text(
-            llm, current_draft, report,
+            llm,
+            current_draft,
+            report,
             context=f"Full review scope: {scope_document[:1000]}",
         )
 

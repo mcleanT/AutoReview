@@ -57,9 +57,7 @@ class WritingQualityResult(AutoReviewModel):
     generated_weaknesses: str
 
 
-def build_synthesis_prompt(
-    generated_text: str, reference_text: str, max_chars: int = 40000
-) -> str:
+def build_synthesis_prompt(generated_text: str, reference_text: str, max_chars: int = 40000) -> str:
     return (
         f"{_SYNTHESIS_RUBRIC}\n\n"
         f"=== GENERATED REVIEW ===\n{generated_text[:max_chars]}\n\n"

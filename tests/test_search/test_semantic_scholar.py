@@ -1,4 +1,5 @@
 """Tests for SemanticScholarSearch citation snowballing."""
+
 from __future__ import annotations
 
 import httpx
@@ -55,9 +56,7 @@ class TestGetReferences:
     @respx.mock
     async def test_get_references_handles_http_error(self):
         paper_id = "bad_id"
-        respx.get(f"{S2_BASE}/paper/{paper_id}/references").mock(
-            return_value=httpx.Response(404)
-        )
+        respx.get(f"{S2_BASE}/paper/{paper_id}/references").mock(return_value=httpx.Response(404))
         s2 = SemanticScholarSearch()
         papers = await s2.get_references(paper_id, limit=50)
         assert papers == []

@@ -1,4 +1,5 @@
 """Tests for query expansion prompt builders."""
+
 from __future__ import annotations
 
 from autoreview.llm.prompts.query_expansion import build_targeted_query_expansion_prompt

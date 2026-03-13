@@ -1,4 +1,5 @@
 """Tests for PerplexitySearch citation parsing and paper extraction."""
+
 from __future__ import annotations
 
 import httpx
@@ -352,9 +353,7 @@ class TestPerplexitySearchIntegration:
 
     @respx.mock
     async def test_search_handles_http_error(self):
-        respx.post(f"{PERPLEXITY_API_BASE}/chat/completions").mock(
-            return_value=httpx.Response(429)
-        )
+        respx.post(f"{PERPLEXITY_API_BASE}/chat/completions").mock(return_value=httpx.Response(429))
         search = PerplexitySearch(api_key="test-key")
         papers = await search.search(["test query"])
         assert papers == []

@@ -99,7 +99,9 @@ async def section_critique_loop(
     previous_scores: dict[str, float] | None = None
     for cycle in range(max_cycles):
         report = await critic.critique(
-            current_draft, outline, adjacent_text,
+            current_draft,
+            outline,
+            adjacent_text,
             previous_scores=previous_scores,
         )
 

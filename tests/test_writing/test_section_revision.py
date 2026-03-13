@@ -1,4 +1,5 @@
 """Tests for evidence-based section revision."""
+
 from __future__ import annotations
 
 from autoreview.extraction.models import EvidenceStrength, Finding, PaperExtraction

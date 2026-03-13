@@ -37,24 +37,29 @@ def build_narrative_planning_prompt(
 
     # Summarise evidence map
     themes_text = "\n".join(
-        f"- {t.name}: {t.description} ({len(t.paper_ids)} papers)"
-        for t in evidence_map.themes
+        f"- {t.name}: {t.description} ({len(t.paper_ids)} papers)" for t in evidence_map.themes
     )
 
-    consensus_text = "\n".join(
-        f"- '{cc.claim}' ({cc.evidence_count} papers)"
-        for cc in evidence_map.consensus_claims[:10]
-    ) or "(none identified)"
+    consensus_text = (
+        "\n".join(
+            f"- '{cc.claim}' ({cc.evidence_count} papers)"
+            for cc in evidence_map.consensus_claims[:10]
+        )
+        or "(none identified)"
+    )
 
-    contradictions_text = "\n".join(
-        f"- '{c.claim_a}' vs '{c.claim_b}' — {c.possible_explanation or 'explanation unclear'}"
-        for c in evidence_map.contradictions[:10]
-    ) or "(none identified)"
+    contradictions_text = (
+        "\n".join(
+            f"- '{c.claim_a}' vs '{c.claim_b}' — {c.possible_explanation or 'explanation unclear'}"
+            for c in evidence_map.contradictions[:10]
+        )
+        or "(none identified)"
+    )
 
-    gaps_text = "\n".join(
-        f"- {g.expected_topic} (severity: {g.severity})"
-        for g in evidence_map.gaps[:10]
-    ) or "(none identified)"
+    gaps_text = (
+        "\n".join(f"- {g.expected_topic} (severity: {g.severity})" for g in evidence_map.gaps[:10])
+        or "(none identified)"
+    )
 
     section_ids = ", ".join(s.id for s in outline.flatten())
 

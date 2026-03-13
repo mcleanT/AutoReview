@@ -7,6 +7,7 @@ from autoreview.models.base import AutoReviewModel
 
 class OutlineSection(AutoReviewModel):
     """A section in the review outline."""
+
     id: str  # e.g., "1", "2.1", "3.2.1"
     title: str
     description: str
@@ -28,6 +29,7 @@ OutlineSection.model_rebuild()
 
 class ReviewOutline(AutoReviewModel):
     """Complete review outline."""
+
     title: str
     sections: list[OutlineSection]
 

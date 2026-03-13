@@ -33,9 +33,7 @@ class SearchConfig(BaseModel):
             )
         year_from_str, year_to_str = m.group(1), m.group(2)
         if year_from_str and year_to_str and int(year_from_str) > int(year_to_str):
-            raise ValueError(
-                f"date_range start ({year_from_str}) must be <= end ({year_to_str})"
-            )
+            raise ValueError(f"date_range start ({year_from_str}) must be <= end ({year_to_str})")
         return v
 
 

@@ -68,6 +68,7 @@ class TestDAGRunner:
             async def node(ctx):
                 execution_order.append(name)
                 return name
+
             return node
 
         dag.add_node("a", await make_node("a"))

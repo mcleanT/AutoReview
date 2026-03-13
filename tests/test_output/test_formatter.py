@@ -1,4 +1,5 @@
 """Tests for output formatting."""
+
 from __future__ import annotations
 
 import tempfile

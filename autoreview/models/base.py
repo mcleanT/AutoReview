@@ -26,6 +26,4 @@ class TimestampedModel(AutoReviewModel):
     """Base model with automatic ID generation and timestamp tracking."""
 
     id: str = Field(default_factory=lambda: uuid4().hex)
-    created_at: datetime = Field(
-        default_factory=lambda: datetime.now(UTC)
-    )
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

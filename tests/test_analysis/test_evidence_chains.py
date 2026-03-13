@@ -51,7 +51,8 @@ class TestComputeStrengthDistribution:
         }
         builder = EvidenceChainBuilder(llm=None)
         dist = builder.compute_strength_distribution(
-            ["p1", "p2", "p3", "p4"], extractions,
+            ["p1", "p2", "p3", "p4"],
+            extractions,
         )
 
         assert dist.strong == 1
@@ -83,24 +84,30 @@ class TestComputeStrengthDistribution:
         extractions = {"p1": _make_extraction("p1", strength="strong")}
         builder = EvidenceChainBuilder(llm=None)
         dist = builder.compute_strength_distribution(
-            ["p1", "nonexistent"], extractions,
+            ["p1", "nonexistent"],
+            extractions,
         )
         assert dist.strong == 1
 
 
 class TestDetectTemporalProgressions:
     def test_detect_progression_across_years(self):
-        extractions = {
-            f"p{i}": _make_extraction(f"p{i}", claim=f"Claim {i}")
-            for i in range(1, 9)
-        }
+        extractions = {f"p{i}": _make_extraction(f"p{i}", claim=f"Claim {i}") for i in range(1, 9)}
         paper_years = {
-            "p1": 2015, "p2": 2016, "p3": 2017, "p4": 2018,
-            "p5": 2020, "p6": 2021, "p7": 2022, "p8": 2023,
+            "p1": 2015,
+            "p2": 2016,
+            "p3": 2017,
+            "p4": 2018,
+            "p5": 2020,
+            "p6": 2021,
+            "p7": 2022,
+            "p8": 2023,
         }
         builder = EvidenceChainBuilder(llm=None)
         progs = builder.detect_temporal_progressions(
-            list(extractions.keys()), extractions, paper_years,
+            list(extractions.keys()),
+            extractions,
+            paper_years,
         )
 
         assert len(progs) == 1
@@ -117,7 +124,9 @@ class TestDetectTemporalProgressions:
         paper_years = {"p1": 2020, "p2": 2021}
         builder = EvidenceChainBuilder(llm=None)
         progs = builder.detect_temporal_progressions(
-            ["p1", "p2"], extractions, paper_years,
+            ["p1", "p2"],
+            extractions,
+            paper_years,
         )
         assert progs == []
 
@@ -126,7 +135,9 @@ class TestDetectTemporalProgressions:
         paper_years = {f"p{i}": 2023 for i in range(1, 6)}
         builder = EvidenceChainBuilder(llm=None)
         progs = builder.detect_temporal_progressions(
-            list(extractions.keys()), extractions, paper_years,
+            list(extractions.keys()),
+            extractions,
+            paper_years,
         )
         assert progs == []
 

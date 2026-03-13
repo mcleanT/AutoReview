@@ -28,9 +28,7 @@ def _format_findings_for_clustering(extractions: dict[str, PaperExtraction]) -> 
     """Format all findings into a text block for the clustering prompt."""
     blocks = []
     for paper_id, ext in extractions.items():
-        findings_text = "; ".join(
-            f"[{f.evidence_strength}] {f.claim}" for f in ext.key_findings
-        )
+        findings_text = "; ".join(f"[{f.evidence_strength}] {f.claim}" for f in ext.key_findings)
         blocks.append(f"Paper {paper_id[:8]}:\n  Findings: {findings_text}")
     return "\n\n".join(blocks)
 

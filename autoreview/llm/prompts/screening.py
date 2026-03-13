@@ -5,6 +5,7 @@ from autoreview.models.base import AutoReviewModel
 
 class ScreeningDecision(AutoReviewModel):
     """Decision for a single paper in a screening batch."""
+
     paper_index: int
     relevance_score: int  # 1-5
     rationale: str
@@ -12,6 +13,7 @@ class ScreeningDecision(AutoReviewModel):
 
 class ScreeningBatchResult(AutoReviewModel):
     """Result of screening a batch of papers."""
+
     decisions: list[ScreeningDecision]
 
 
@@ -38,11 +40,7 @@ def build_screening_prompt(
     paper_blocks = []
     for p in papers:
         abstract = p.get("abstract") or "(No abstract available)"
-        paper_blocks.append(
-            f"[Paper {p['index']}]\n"
-            f"Title: {p['title']}\n"
-            f"Abstract: {abstract}"
-        )
+        paper_blocks.append(f"[Paper {p['index']}]\nTitle: {p['title']}\nAbstract: {abstract}")
 
     return f"""\
 ## Review Scope

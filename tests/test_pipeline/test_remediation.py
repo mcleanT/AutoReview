@@ -1,4 +1,5 @@
 """Tests for remediation dispatcher."""
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
@@ -23,7 +24,10 @@ class TestRemediationDispatcher:
         return kb
 
     def _make_check(
-        self, action: str, params: dict | None = None, status: str = "warning",
+        self,
+        action: str,
+        params: dict | None = None,
+        status: str = "warning",
     ) -> ComprehensiveCheckResult:
         return ComprehensiveCheckResult(
             check_name="test_check",

@@ -38,8 +38,7 @@ def _format_evidence_summary(evidence_map: EvidenceMap) -> str:
         blocks.append("\n### Contradictions")
         for c in evidence_map.contradictions:
             blocks.append(
-                f"- {c.claim_a} vs {c.claim_b} "
-                f"(explanation: {c.possible_explanation or 'unknown'})"
+                f"- {c.claim_a} vs {c.claim_b} (explanation: {c.possible_explanation or 'unknown'})"
             )
 
     if evidence_map.gaps:
@@ -72,8 +71,11 @@ class OutlineGenerator:
         """
         if required_sections is None:
             required_sections = [
-                "Introduction", "Methods of Review", "Results",
-                "Discussion", "Future Directions",
+                "Introduction",
+                "Methods of Review",
+                "Results",
+                "Discussion",
+                "Future Directions",
             ]
 
         evidence_summary = _format_evidence_summary(evidence_map)

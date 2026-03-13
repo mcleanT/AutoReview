@@ -45,62 +45,281 @@ def _rubric(dimension: str, anchors: list[tuple[str, float, float, str]]) -> Dim
 # ---------------------------------------------------------------------------
 
 SECTION_RUBRICS: list[DimensionRubric] = [
-    _rubric("synthesis_quality", [
-        ("0.0-0.2", 0.0, 0.2, "Lists papers individually ('Study A found X. Study B found Y.') with no connecting threads."),
-        ("0.3-0.4", 0.3, 0.4, "Groups findings by topic but merely juxtaposes them without comparison or analysis."),
-        ("0.5-0.6", 0.5, 0.6, "Identifies patterns and makes some comparisons, but remains descriptive rather than analytical."),
-        ("0.7-0.8", 0.7, 0.8, "Builds narrative chains across papers, weights evidence by strength, and resolves contradictions with explanations."),
-        ("0.9-1.0", 0.9, 1.0, "Novel insights emerge from integration; reader gains understanding impossible from individual papers alone."),
-    ]),
-    _rubric("citation_accuracy", [
-        ("0.0-0.2", 0.0, 0.2, "Major claims are uncited or attributed to wrong papers; phantom citations present."),
-        ("0.3-0.4", 0.3, 0.4, "Most claims cited but several misattributions or missing citations for key assertions."),
-        ("0.5-0.6", 0.5, 0.6, "Citations generally correct but some claims lack attribution or cite tangentially relevant papers."),
-        ("0.7-0.8", 0.7, 0.8, "All substantive claims properly attributed; citations match the actual findings of referenced papers."),
-        ("0.9-1.0", 0.9, 1.0, "Precise attribution throughout; citations contextualize exactly which finding from each paper is being referenced."),
-    ]),
-    _rubric("coherence", [
-        ("0.0-0.2", 0.0, 0.2, "Paragraphs are disjointed; no logical thread connects successive ideas."),
-        ("0.3-0.4", 0.3, 0.4, "Some logical grouping but frequent non-sequiturs or abrupt topic shifts within the section."),
-        ("0.5-0.6", 0.5, 0.6, "Generally follows a logical order but transitions are weak or mechanical ('Furthermore...', 'Additionally...')."),
-        ("0.7-0.8", 0.7, 0.8, "Clear logical progression with substantive transitions that explain why one topic leads to the next."),
-        ("0.9-1.0", 0.9, 1.0, "Each paragraph flows inevitably into the next; the section reads as a sustained argument, not a collection of points."),
-    ]),
-    _rubric("connection_to_neighbors", [
-        ("0.0-0.2", 0.0, 0.2, "No reference to adjacent sections; section could be read entirely in isolation."),
-        ("0.3-0.4", 0.3, 0.4, "Perfunctory opening/closing sentences mention adjacent sections without substantive connection."),
-        ("0.5-0.6", 0.5, 0.6, "Opening transition from previous section present but closing connection to next section is weak or absent."),
-        ("0.7-0.8", 0.7, 0.8, "Both opening and closing transitions are substantive, connecting specific ideas across section boundaries."),
-        ("0.9-1.0", 0.9, 1.0, "Section explicitly builds on concepts from preceding section and sets up ideas that the following section develops."),
-    ]),
-    _rubric("completeness", [
-        ("0.0-0.2", 0.0, 0.2, "Major topics from the outline are missing; section is a stub."),
-        ("0.3-0.4", 0.3, 0.4, "Covers some outline topics but skips others; significant gaps in promised coverage."),
-        ("0.5-0.6", 0.5, 0.6, "All major outline topics mentioned but some treated superficially."),
-        ("0.7-0.8", 0.7, 0.8, "All outline topics covered with adequate depth; sub-topics addressed proportionally."),
-        ("0.9-1.0", 0.9, 1.0, "Comprehensive coverage exceeding outline expectations; identifies and addresses sub-topics the outline did not anticipate."),
-    ]),
-    _rubric("balance", [
-        ("0.0-0.2", 0.0, 0.2, "One-sided presentation; conflicting evidence ignored or dismissed without justification."),
-        ("0.3-0.4", 0.3, 0.4, "Conflicting findings mentioned but given disproportionate weight favoring one side."),
-        ("0.5-0.6", 0.5, 0.6, "Both sides of disagreements presented but without analysis of why results differ."),
-        ("0.7-0.8", 0.7, 0.8, "Conflicting findings presented fairly with analysis of methodological or contextual reasons for disagreement."),
-        ("0.9-1.0", 0.9, 1.0, "Nuanced treatment where contradictions become a source of insight; reader understands the state of debate and its implications."),
-    ]),
-    _rubric("structural_variety", [
-        ("0.0-0.2", 0.0, 0.2, "Rigid template: background then findings then limitations, regardless of content."),
-        ("0.3-0.4", 0.3, 0.4, "Mostly template-driven with occasional deviation; structure does not serve the evidence."),
-        ("0.5-0.6", 0.5, 0.6, "Some structural adaptation to content but defaults to familiar patterns when evidence would benefit from a different approach."),
-        ("0.7-0.8", 0.7, 0.8, "Structure clearly chosen to serve the evidence (comparative, chronological, argument-rebuttal, etc.) and is internally consistent."),
-        ("0.9-1.0", 0.9, 1.0, "Structure is invisible — the reader follows the argument without noticing the organizational scaffold; evidence dictates form."),
-    ]),
-    _rubric("paragraph_cohesion", [
-        ("0.0-0.2", 0.0, 0.2, "Paragraphs are lists of findings; no opening claim, no unifying idea."),
-        ("0.3-0.4", 0.3, 0.4, "Some paragraphs have topic sentences but many drift or pack multiple unrelated claims."),
-        ("0.5-0.6", 0.5, 0.6, "Most paragraphs open with a claim but supporting evidence is loosely organized within them."),
-        ("0.7-0.8", 0.7, 0.8, "Each paragraph opens with a clear claim and the body develops it with evidence, qualification, or contrast."),
-        ("0.9-1.0", 0.9, 1.0, "Every paragraph is a tight unit: claim, evidence, and implication, with no wasted sentences."),
-    ]),
+    _rubric(
+        "synthesis_quality",
+        [
+            (
+                "0.0-0.2",
+                0.0,
+                0.2,
+                "Lists papers individually ('Study A found X. Study B found Y.') with no connecting threads.",
+            ),
+            (
+                "0.3-0.4",
+                0.3,
+                0.4,
+                "Groups findings by topic but merely juxtaposes them without comparison or analysis.",
+            ),
+            (
+                "0.5-0.6",
+                0.5,
+                0.6,
+                "Identifies patterns and makes some comparisons, but remains descriptive rather than analytical.",
+            ),
+            (
+                "0.7-0.8",
+                0.7,
+                0.8,
+                "Builds narrative chains across papers, weights evidence by strength, and resolves contradictions with explanations.",
+            ),
+            (
+                "0.9-1.0",
+                0.9,
+                1.0,
+                "Novel insights emerge from integration; reader gains understanding impossible from individual papers alone.",
+            ),
+        ],
+    ),
+    _rubric(
+        "citation_accuracy",
+        [
+            (
+                "0.0-0.2",
+                0.0,
+                0.2,
+                "Major claims are uncited or attributed to wrong papers; phantom citations present.",
+            ),
+            (
+                "0.3-0.4",
+                0.3,
+                0.4,
+                "Most claims cited but several misattributions or missing citations for key assertions.",
+            ),
+            (
+                "0.5-0.6",
+                0.5,
+                0.6,
+                "Citations generally correct but some claims lack attribution or cite tangentially relevant papers.",
+            ),
+            (
+                "0.7-0.8",
+                0.7,
+                0.8,
+                "All substantive claims properly attributed; citations match the actual findings of referenced papers.",
+            ),
+            (
+                "0.9-1.0",
+                0.9,
+                1.0,
+                "Precise attribution throughout; citations contextualize exactly which finding from each paper is being referenced.",
+            ),
+        ],
+    ),
+    _rubric(
+        "coherence",
+        [
+            (
+                "0.0-0.2",
+                0.0,
+                0.2,
+                "Paragraphs are disjointed; no logical thread connects successive ideas.",
+            ),
+            (
+                "0.3-0.4",
+                0.3,
+                0.4,
+                "Some logical grouping but frequent non-sequiturs or abrupt topic shifts within the section.",
+            ),
+            (
+                "0.5-0.6",
+                0.5,
+                0.6,
+                "Generally follows a logical order but transitions are weak or mechanical ('Furthermore...', 'Additionally...').",
+            ),
+            (
+                "0.7-0.8",
+                0.7,
+                0.8,
+                "Clear logical progression with substantive transitions that explain why one topic leads to the next.",
+            ),
+            (
+                "0.9-1.0",
+                0.9,
+                1.0,
+                "Each paragraph flows inevitably into the next; the section reads as a sustained argument, not a collection of points.",
+            ),
+        ],
+    ),
+    _rubric(
+        "connection_to_neighbors",
+        [
+            (
+                "0.0-0.2",
+                0.0,
+                0.2,
+                "No reference to adjacent sections; section could be read entirely in isolation.",
+            ),
+            (
+                "0.3-0.4",
+                0.3,
+                0.4,
+                "Perfunctory opening/closing sentences mention adjacent sections without substantive connection.",
+            ),
+            (
+                "0.5-0.6",
+                0.5,
+                0.6,
+                "Opening transition from previous section present but closing connection to next section is weak or absent.",
+            ),
+            (
+                "0.7-0.8",
+                0.7,
+                0.8,
+                "Both opening and closing transitions are substantive, connecting specific ideas across section boundaries.",
+            ),
+            (
+                "0.9-1.0",
+                0.9,
+                1.0,
+                "Section explicitly builds on concepts from preceding section and sets up ideas that the following section develops.",
+            ),
+        ],
+    ),
+    _rubric(
+        "completeness",
+        [
+            ("0.0-0.2", 0.0, 0.2, "Major topics from the outline are missing; section is a stub."),
+            (
+                "0.3-0.4",
+                0.3,
+                0.4,
+                "Covers some outline topics but skips others; significant gaps in promised coverage.",
+            ),
+            (
+                "0.5-0.6",
+                0.5,
+                0.6,
+                "All major outline topics mentioned but some treated superficially.",
+            ),
+            (
+                "0.7-0.8",
+                0.7,
+                0.8,
+                "All outline topics covered with adequate depth; sub-topics addressed proportionally.",
+            ),
+            (
+                "0.9-1.0",
+                0.9,
+                1.0,
+                "Comprehensive coverage exceeding outline expectations; identifies and addresses sub-topics the outline did not anticipate.",
+            ),
+        ],
+    ),
+    _rubric(
+        "balance",
+        [
+            (
+                "0.0-0.2",
+                0.0,
+                0.2,
+                "One-sided presentation; conflicting evidence ignored or dismissed without justification.",
+            ),
+            (
+                "0.3-0.4",
+                0.3,
+                0.4,
+                "Conflicting findings mentioned but given disproportionate weight favoring one side.",
+            ),
+            (
+                "0.5-0.6",
+                0.5,
+                0.6,
+                "Both sides of disagreements presented but without analysis of why results differ.",
+            ),
+            (
+                "0.7-0.8",
+                0.7,
+                0.8,
+                "Conflicting findings presented fairly with analysis of methodological or contextual reasons for disagreement.",
+            ),
+            (
+                "0.9-1.0",
+                0.9,
+                1.0,
+                "Nuanced treatment where contradictions become a source of insight; reader understands the state of debate and its implications.",
+            ),
+        ],
+    ),
+    _rubric(
+        "structural_variety",
+        [
+            (
+                "0.0-0.2",
+                0.0,
+                0.2,
+                "Rigid template: background then findings then limitations, regardless of content.",
+            ),
+            (
+                "0.3-0.4",
+                0.3,
+                0.4,
+                "Mostly template-driven with occasional deviation; structure does not serve the evidence.",
+            ),
+            (
+                "0.5-0.6",
+                0.5,
+                0.6,
+                "Some structural adaptation to content but defaults to familiar patterns when evidence would benefit from a different approach.",
+            ),
+            (
+                "0.7-0.8",
+                0.7,
+                0.8,
+                "Structure clearly chosen to serve the evidence (comparative, chronological, argument-rebuttal, etc.) and is internally consistent.",
+            ),
+            (
+                "0.9-1.0",
+                0.9,
+                1.0,
+                "Structure is invisible — the reader follows the argument without noticing the organizational scaffold; evidence dictates form.",
+            ),
+        ],
+    ),
+    _rubric(
+        "paragraph_cohesion",
+        [
+            (
+                "0.0-0.2",
+                0.0,
+                0.2,
+                "Paragraphs are lists of findings; no opening claim, no unifying idea.",
+            ),
+            (
+                "0.3-0.4",
+                0.3,
+                0.4,
+                "Some paragraphs have topic sentences but many drift or pack multiple unrelated claims.",
+            ),
+            (
+                "0.5-0.6",
+                0.5,
+                0.6,
+                "Most paragraphs open with a claim but supporting evidence is loosely organized within them.",
+            ),
+            (
+                "0.7-0.8",
+                0.7,
+                0.8,
+                "Each paragraph opens with a clear claim and the body develops it with evidence, qualification, or contrast.",
+            ),
+            (
+                "0.9-1.0",
+                0.9,
+                1.0,
+                "Every paragraph is a tight unit: claim, evidence, and implication, with no wasted sentences.",
+            ),
+        ],
+    ),
 ]
 
 # ---------------------------------------------------------------------------
@@ -108,55 +327,241 @@ SECTION_RUBRICS: list[DimensionRubric] = [
 # ---------------------------------------------------------------------------
 
 HOLISTIC_RUBRICS: list[DimensionRubric] = [
-    _rubric("narrative_arc", [
-        ("0.0-0.2", 0.0, 0.2, "No discernible narrative; sections could be reordered without loss of meaning."),
-        ("0.3-0.4", 0.3, 0.4, "Sections follow a generic order (intro-body-conclusion) but no thread connects them."),
-        ("0.5-0.6", 0.5, 0.6, "A narrative thread is identifiable but weakens in the middle sections."),
-        ("0.7-0.8", 0.7, 0.8, "Clear narrative arc: introduction poses questions, body sections build toward answers, conclusion synthesizes."),
-        ("0.9-1.0", 0.9, 1.0, "Compelling intellectual journey; the reader's understanding evolves progressively from introduction to conclusion."),
-    ]),
-    _rubric("redundancy", [
-        ("0.0-0.2", 0.0, 0.2, "Multiple sections repeat the same claims with the same evidence; extensive duplication."),
-        ("0.3-0.4", 0.3, 0.4, "Some sections overlap significantly; the same studies discussed in substantially the same way."),
-        ("0.5-0.6", 0.5, 0.6, "Minor overlap between sections but each adds some new perspective; a few redundant sentences."),
-        ("0.7-0.8", 0.7, 0.8, "No redundancy; when a study appears in multiple sections, it serves a different analytical purpose each time."),
-        ("0.9-1.0", 0.9, 1.0, "Zero redundancy with masterful cross-referencing; each mention of shared evidence adds new insight."),
-    ]),
-    _rubric("transitions", [
-        ("0.0-0.2", 0.0, 0.2, "No transitions between sections; each section begins as if starting a new document."),
-        ("0.3-0.4", 0.3, 0.4, "Generic transitions ('In this section...', 'Next we discuss...') without substantive connection."),
-        ("0.5-0.6", 0.5, 0.6, "Transitions reference what came before but do not explain why the reader should care about what follows."),
-        ("0.7-0.8", 0.7, 0.8, "Transitions connect specific ideas from previous section to the focus of the next, creating logical bridges."),
-        ("0.9-1.0", 0.9, 1.0, "Seamless flow where the end of one section creates intellectual momentum that propels the reader into the next."),
-    ]),
-    _rubric("intro_conclusion_alignment", [
-        ("0.0-0.2", 0.0, 0.2, "Introduction and conclusion address different scopes or make contradictory claims."),
-        ("0.3-0.4", 0.3, 0.4, "General alignment but conclusion introduces claims not set up in the introduction."),
-        ("0.5-0.6", 0.5, 0.6, "Introduction and conclusion share scope but conclusion does not fully address questions posed in introduction."),
-        ("0.7-0.8", 0.7, 0.8, "Conclusion directly answers questions posed in introduction; scope is consistent throughout."),
-        ("0.9-1.0", 0.9, 1.0, "Conclusion transforms the introduction's questions into deeper understanding; the reader re-reads the introduction with new eyes."),
-    ]),
-    _rubric("balance", [
-        ("0.0-0.2", 0.0, 0.2, "Some topics get disproportionate coverage; key areas of the scope are barely mentioned."),
-        ("0.3-0.4", 0.3, 0.4, "Uneven coverage with one or two sections dominating the paper."),
-        ("0.5-0.6", 0.5, 0.6, "Reasonable coverage distribution but minor topics get either too much or too little space."),
-        ("0.7-0.8", 0.7, 0.8, "Coverage proportional to importance and evidence availability; no section feels rushed or bloated."),
-        ("0.9-1.0", 0.9, 1.0, "Perfect balance where depth of coverage reflects both the maturity and importance of each sub-topic."),
-    ]),
-    _rubric("completeness", [
-        ("0.0-0.2", 0.0, 0.2, "Major areas from the scope document are missing entirely."),
-        ("0.3-0.4", 0.3, 0.4, "Most scope areas covered but significant gaps in one or two critical areas."),
-        ("0.5-0.6", 0.5, 0.6, "All scope areas mentioned but some treated too superficially to be useful."),
-        ("0.7-0.8", 0.7, 0.8, "Full scope coverage with adequate depth; future directions and gaps clearly identified."),
-        ("0.9-1.0", 0.9, 1.0, "Exhaustive coverage that exceeds scope; identifies emerging areas and anticipates future developments."),
-    ]),
-    _rubric("prose_flow", [
-        ("0.0-0.2", 0.0, 0.2, "Choppy sentences; abrupt shifts between ideas; reads like a collection of notes."),
-        ("0.3-0.4", 0.3, 0.4, "Some sentences flow but frequent awkward transitions and weak connective tissue between paragraphs."),
-        ("0.5-0.6", 0.5, 0.6, "Generally readable but occasional jarring transitions or mechanical phrasing."),
-        ("0.7-0.8", 0.7, 0.8, "Smooth prose within and between paragraphs; varied sentence structure; natural reading rhythm."),
-        ("0.9-1.0", 0.9, 1.0, "Elegant academic prose; the writing itself enhances comprehension and engagement."),
-    ]),
+    _rubric(
+        "narrative_arc",
+        [
+            (
+                "0.0-0.2",
+                0.0,
+                0.2,
+                "No discernible narrative; sections could be reordered without loss of meaning.",
+            ),
+            (
+                "0.3-0.4",
+                0.3,
+                0.4,
+                "Sections follow a generic order (intro-body-conclusion) but no thread connects them.",
+            ),
+            (
+                "0.5-0.6",
+                0.5,
+                0.6,
+                "A narrative thread is identifiable but weakens in the middle sections.",
+            ),
+            (
+                "0.7-0.8",
+                0.7,
+                0.8,
+                "Clear narrative arc: introduction poses questions, body sections build toward answers, conclusion synthesizes.",
+            ),
+            (
+                "0.9-1.0",
+                0.9,
+                1.0,
+                "Compelling intellectual journey; the reader's understanding evolves progressively from introduction to conclusion.",
+            ),
+        ],
+    ),
+    _rubric(
+        "redundancy",
+        [
+            (
+                "0.0-0.2",
+                0.0,
+                0.2,
+                "Multiple sections repeat the same claims with the same evidence; extensive duplication.",
+            ),
+            (
+                "0.3-0.4",
+                0.3,
+                0.4,
+                "Some sections overlap significantly; the same studies discussed in substantially the same way.",
+            ),
+            (
+                "0.5-0.6",
+                0.5,
+                0.6,
+                "Minor overlap between sections but each adds some new perspective; a few redundant sentences.",
+            ),
+            (
+                "0.7-0.8",
+                0.7,
+                0.8,
+                "No redundancy; when a study appears in multiple sections, it serves a different analytical purpose each time.",
+            ),
+            (
+                "0.9-1.0",
+                0.9,
+                1.0,
+                "Zero redundancy with masterful cross-referencing; each mention of shared evidence adds new insight.",
+            ),
+        ],
+    ),
+    _rubric(
+        "transitions",
+        [
+            (
+                "0.0-0.2",
+                0.0,
+                0.2,
+                "No transitions between sections; each section begins as if starting a new document.",
+            ),
+            (
+                "0.3-0.4",
+                0.3,
+                0.4,
+                "Generic transitions ('In this section...', 'Next we discuss...') without substantive connection.",
+            ),
+            (
+                "0.5-0.6",
+                0.5,
+                0.6,
+                "Transitions reference what came before but do not explain why the reader should care about what follows.",
+            ),
+            (
+                "0.7-0.8",
+                0.7,
+                0.8,
+                "Transitions connect specific ideas from previous section to the focus of the next, creating logical bridges.",
+            ),
+            (
+                "0.9-1.0",
+                0.9,
+                1.0,
+                "Seamless flow where the end of one section creates intellectual momentum that propels the reader into the next.",
+            ),
+        ],
+    ),
+    _rubric(
+        "intro_conclusion_alignment",
+        [
+            (
+                "0.0-0.2",
+                0.0,
+                0.2,
+                "Introduction and conclusion address different scopes or make contradictory claims.",
+            ),
+            (
+                "0.3-0.4",
+                0.3,
+                0.4,
+                "General alignment but conclusion introduces claims not set up in the introduction.",
+            ),
+            (
+                "0.5-0.6",
+                0.5,
+                0.6,
+                "Introduction and conclusion share scope but conclusion does not fully address questions posed in introduction.",
+            ),
+            (
+                "0.7-0.8",
+                0.7,
+                0.8,
+                "Conclusion directly answers questions posed in introduction; scope is consistent throughout.",
+            ),
+            (
+                "0.9-1.0",
+                0.9,
+                1.0,
+                "Conclusion transforms the introduction's questions into deeper understanding; the reader re-reads the introduction with new eyes.",
+            ),
+        ],
+    ),
+    _rubric(
+        "balance",
+        [
+            (
+                "0.0-0.2",
+                0.0,
+                0.2,
+                "Some topics get disproportionate coverage; key areas of the scope are barely mentioned.",
+            ),
+            ("0.3-0.4", 0.3, 0.4, "Uneven coverage with one or two sections dominating the paper."),
+            (
+                "0.5-0.6",
+                0.5,
+                0.6,
+                "Reasonable coverage distribution but minor topics get either too much or too little space.",
+            ),
+            (
+                "0.7-0.8",
+                0.7,
+                0.8,
+                "Coverage proportional to importance and evidence availability; no section feels rushed or bloated.",
+            ),
+            (
+                "0.9-1.0",
+                0.9,
+                1.0,
+                "Perfect balance where depth of coverage reflects both the maturity and importance of each sub-topic.",
+            ),
+        ],
+    ),
+    _rubric(
+        "completeness",
+        [
+            ("0.0-0.2", 0.0, 0.2, "Major areas from the scope document are missing entirely."),
+            (
+                "0.3-0.4",
+                0.3,
+                0.4,
+                "Most scope areas covered but significant gaps in one or two critical areas.",
+            ),
+            (
+                "0.5-0.6",
+                0.5,
+                0.6,
+                "All scope areas mentioned but some treated too superficially to be useful.",
+            ),
+            (
+                "0.7-0.8",
+                0.7,
+                0.8,
+                "Full scope coverage with adequate depth; future directions and gaps clearly identified.",
+            ),
+            (
+                "0.9-1.0",
+                0.9,
+                1.0,
+                "Exhaustive coverage that exceeds scope; identifies emerging areas and anticipates future developments.",
+            ),
+        ],
+    ),
+    _rubric(
+        "prose_flow",
+        [
+            (
+                "0.0-0.2",
+                0.0,
+                0.2,
+                "Choppy sentences; abrupt shifts between ideas; reads like a collection of notes.",
+            ),
+            (
+                "0.3-0.4",
+                0.3,
+                0.4,
+                "Some sentences flow but frequent awkward transitions and weak connective tissue between paragraphs.",
+            ),
+            (
+                "0.5-0.6",
+                0.5,
+                0.6,
+                "Generally readable but occasional jarring transitions or mechanical phrasing.",
+            ),
+            (
+                "0.7-0.8",
+                0.7,
+                0.8,
+                "Smooth prose within and between paragraphs; varied sentence structure; natural reading rhythm.",
+            ),
+            (
+                "0.9-1.0",
+                0.9,
+                1.0,
+                "Elegant academic prose; the writing itself enhances comprehension and engagement.",
+            ),
+        ],
+    ),
 ]
 
 # Dimension name sets for validation

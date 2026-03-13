@@ -1,4 +1,5 @@
 """Prompt models and builders for passage-based evidence mining."""
+
 from __future__ import annotations
 
 from typing import Literal
@@ -10,6 +11,7 @@ from autoreview.models.base import AutoReviewModel
 
 class UndercitedClaim(AutoReviewModel):
     """A claim in a draft section that needs more supporting evidence."""
+
     text: str
     evidence_weakness: str
     current_citations: list[str] = Field(default_factory=list)
@@ -19,6 +21,7 @@ class UndercitedClaim(AutoReviewModel):
 
 class SectionMiningResult(AutoReviewModel):
     """Output of passage mining for a single section."""
+
     section_id: str
     undercited_claims: list[UndercitedClaim] = Field(default_factory=list)
     topic_expansions: list[str] = Field(default_factory=list)

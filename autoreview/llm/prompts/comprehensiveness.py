@@ -1,4 +1,5 @@
 """Prompts for comprehensiveness validation checks."""
+
 from __future__ import annotations
 
 from pydantic import Field
@@ -8,6 +9,7 @@ from autoreview.models.base import AutoReviewModel
 
 class SubTopicCoverage(AutoReviewModel):
     """Assessment of whether a sub-topic is covered by queries."""
+
     sub_topic: str
     covered: bool
     matching_queries: list[str] = Field(default_factory=list)
@@ -15,6 +17,7 @@ class SubTopicCoverage(AutoReviewModel):
 
 class QueryCoverageResult(AutoReviewModel):
     """Result of query coverage assessment."""
+
     sub_topic_assessments: list[SubTopicCoverage]
     overall_coverage_score: float = 0.0
 

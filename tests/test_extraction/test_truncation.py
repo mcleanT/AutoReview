@@ -67,12 +67,7 @@ class TestParseSections:
         assert sections == []
 
     def test_section_text_content(self):
-        text = (
-            "1. Introduction\n"
-            "Intro content here.\n"
-            "2. Results\n"
-            "Results content here.\n"
-        )
+        text = "1. Introduction\nIntro content here.\n2. Results\nResults content here.\n"
         sections = parse_sections(text)
         assert "Intro content" in sections[0].text
         assert "Results content" in sections[1].text
@@ -113,8 +108,7 @@ class TestSectionAwareTruncate:
             "Intro text is here.\n"
             "2. Results\n"
             "Results text is here.\n"
-            "3. References\n"
-            + ref_lines
+            "3. References\n" + ref_lines
         )
         result = section_aware_truncate(text, 100_000, config)
         assert "Intro text" in result
@@ -140,12 +134,7 @@ class TestSectionAwareTruncate:
     def test_caps_introduction(self):
         config = SectionTruncationConfig(intro_max_chars=50)
         long_intro = "a" * 200  # lowercase to avoid heading false-positives
-        text = (
-            "1. Introduction\n"
-            + long_intro + "\n"
-            "2. Results\n"
-            "Results text.\n"
-        )
+        text = "1. Introduction\n" + long_intro + "\n2. Results\nResults text.\n"
         result = section_aware_truncate(text, 100_000, config)
         assert "[...introduction truncated...]" in result
         assert "Results text" in result
@@ -156,8 +145,7 @@ class TestSectionAwareTruncate:
         text = (
             "1. Introduction\n"
             "Intro content.\n"
-            "2. Methods\n"
-            + long_methods + "\n"
+            "2. Methods\n" + long_methods + "\n"
             "3. Results\n"
             "Results content.\n"
         )
@@ -191,12 +179,7 @@ class TestSectionAwareTruncate:
         # Huge text with sections that are all kept
         long_intro = "i" * 50_000
         long_results = "r" * 50_000
-        text = (
-            "1. Introduction\n"
-            + long_intro + "\n"
-            "2. Results\n"
-            + long_results + "\n"
-        )
+        text = "1. Introduction\n" + long_intro + "\n2. Results\n" + long_results + "\n"
         result = section_aware_truncate(text, 10_000, config)
         # Should fall back to head/tail after section filtering is still too large
         assert len(result) <= 10_100

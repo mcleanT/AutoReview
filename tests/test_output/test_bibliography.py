@@ -1,4 +1,5 @@
 """Tests for bibliography formatting."""
+
 from __future__ import annotations
 
 import pytest

@@ -22,7 +22,12 @@ class MockEnrichmentLLM:
         self.calls: list[str] = []
 
     async def generate_structured(
-        self, prompt, response_model, system="", max_tokens=4096, temperature=0.0,
+        self,
+        prompt,
+        response_model,
+        system="",
+        max_tokens=4096,
+        temperature=0.0,
     ):
         self.calls.append(response_model.__name__)
 
@@ -79,7 +84,7 @@ class MockEnrichmentLLM:
             paper_count = prompt.count("### Paper ")
             extractions = [
                 ContextualExtractionResult(
-                    paper_id=f"enrich_{i+1}",
+                    paper_id=f"enrich_{i + 1}",
                     paper_title="Background on Neuroinflammation",
                     background_summary="Neuroinflammation involves activation of microglia.",
                     key_concepts=["microglia", "cytokines", "blood-brain barrier"],
@@ -103,12 +108,18 @@ def _make_outline() -> ReviewOutline:
         title="Test Review",
         sections=[
             OutlineSection(
-                id="1", title="Introduction", description="Overview of the topic",
-                paper_ids=["p1"], estimated_word_count=500,
+                id="1",
+                title="Introduction",
+                description="Overview of the topic",
+                paper_ids=["p1"],
+                estimated_word_count=500,
             ),
             OutlineSection(
-                id="2", title="Mechanisms", description="Mechanistic evidence",
-                paper_ids=["p1", "p2"], estimated_word_count=1000,
+                id="2",
+                title="Mechanisms",
+                description="Mechanistic evidence",
+                paper_ids=["p1", "p2"],
+                estimated_word_count=1000,
             ),
         ],
     )

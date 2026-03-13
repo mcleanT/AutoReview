@@ -1,4 +1,5 @@
 """Tests for OpenAlexSearch."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
@@ -314,9 +315,7 @@ class TestOpenAlexSearch:
 
     @patch("autoreview.search.openalex.OpenAlexSearch._sync_search_with_retry")
     async def test_search_respects_max_results(self, mock_sync_search):
-        mock_sync_search.return_value = [
-            _make_work(title=f"Paper {i}") for i in range(20)
-        ]
+        mock_sync_search.return_value = [_make_work(title=f"Paper {i}") for i in range(20)]
 
         search = OpenAlexSearch(email="test@test.com")
         papers = await search.search(["test"], max_results=5)
