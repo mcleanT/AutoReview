@@ -4,7 +4,7 @@ import re
 import statistics
 
 import structlog
-import textstat
+import textstat  # type: ignore[import-untyped]
 
 from autoreview.evaluation.models import StructuralMetrics
 

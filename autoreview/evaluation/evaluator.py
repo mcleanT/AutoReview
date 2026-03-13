@@ -30,7 +30,7 @@ async def run_evaluation(
     generated_path: Path,
     reference_path: Path,
     output_dir: Path,
-    judge_llm,
+    judge_llm: object,
 ) -> EvaluationResult:
     generated_text = generated_path.read_text(encoding="utf-8")
     reference_text = extract_text_from_pdf(reference_path)

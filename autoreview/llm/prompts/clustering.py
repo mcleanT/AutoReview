@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import Field
 
 from autoreview.models.base import AutoReviewModel
@@ -7,6 +9,7 @@ from autoreview.models.base import AutoReviewModel
 
 class ThemeCluster(AutoReviewModel):
     """A theme identified from clustering findings."""
+
     name: str
     description: str
     sub_themes: list[SubThemeCluster] = Field(default_factory=list)
@@ -16,6 +19,7 @@ class ThemeCluster(AutoReviewModel):
 
 class SubThemeCluster(AutoReviewModel):
     """A sub-theme within a broader theme."""
+
     name: str
     description: str
     paper_ids: list[str] = Field(default_factory=list)
@@ -28,17 +32,20 @@ ThemeCluster.model_rebuild()
 
 class ClusteringResult(AutoReviewModel):
     """Result of thematic clustering."""
+
     themes: list[ThemeCluster]
 
 
 class ContradictionResult(AutoReviewModel):
     """Contradictions identified within a theme."""
+
     consensus_claims: list[ConsensusClaimResult] = Field(default_factory=list)
     contradictions: list[ContradictionItem] = Field(default_factory=list)
 
 
 class ConsensusClaimResult(AutoReviewModel):
     """A consensus claim identified in the literature."""
+
     claim: str
     supporting_paper_ids: list[str]
     strength: str
@@ -47,6 +54,7 @@ class ConsensusClaimResult(AutoReviewModel):
 
 class ContradictionItem(AutoReviewModel):
     """A contradiction identified in the literature."""
+
     claim_a: str
     claim_b: str
     paper_ids_a: list[str]
@@ -60,12 +68,14 @@ ContradictionResult.model_rebuild()
 
 class GapAnalysisResult(AutoReviewModel):
     """Result of gap analysis."""
+
     gaps: list[GapItem] = Field(default_factory=list)
     coverage_score: float = 0.0
 
 
 class GapItem(AutoReviewModel):
     """An identified gap."""
+
     expected_topic: str
     current_coverage: str
     severity: str  # "major" or "minor"
@@ -149,7 +159,7 @@ alternative terminology, synonyms, broader formulations, and related concepts.
 
 
 def build_retry_gap_queries_prompt(
-    remaining_gaps: list[dict],
+    remaining_gaps: list[dict[str, Any]],
     previous_queries: list[str],
 ) -> str:
     """Build a prompt to generate retry queries for unfilled gaps."""

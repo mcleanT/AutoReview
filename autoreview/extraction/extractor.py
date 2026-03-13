@@ -198,7 +198,7 @@ class PaperExtractor:
 
         extractions: dict[str, PaperExtraction] = {}
         for pid, result in zip(paper_ids, results, strict=False):
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 logger.error("extraction.error", paper_id=pid, error=str(result))
                 continue
             extractions[pid] = result

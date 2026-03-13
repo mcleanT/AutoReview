@@ -27,6 +27,7 @@ from autoreview.llm.prompts.outline import ReviewOutline
 from autoreview.models.enrichment import CorpusExpansionResult, SectionEnrichment
 from autoreview.models.knowledge_base import KnowledgeBase, PipelinePhase
 from autoreview.models.paper import CandidatePaper
+from autoreview.search.base import SearchSource
 from autoreview.validation.citation_validator import CitationValidator
 from autoreview.writing.assembler import DraftAssembler
 from autoreview.writing.narrative_architect import NarrativeArchitect
@@ -167,7 +168,7 @@ class _GlobalTokenAccumulator:
                 self.budget,
             )
 
-    def token_summary(self) -> dict:
+    def token_summary(self) -> dict[str, Any]:
         """Return a structured summary of token usage, broken down by node and total."""
         return {
             "per_node": {name: dict(counts) for name, counts in self.per_node.items()},
@@ -262,7 +263,7 @@ class PipelineNodes:
         """Node: Execute multi-source search."""
         from autoreview.search.aggregator import SearchAggregator
 
-        sources = []
+        sources: list[SearchSource] = []
         all_dbs = (
             self.config.databases.get("primary", [])
             + self.config.databases.get("secondary", [])
@@ -560,7 +561,7 @@ class PipelineNodes:
         # Re-use search infrastructure
         from autoreview.search.aggregator import SearchAggregator
 
-        sources = []
+        sources: list[SearchSource] = []
         for db in gap_dbs:
             try:
                 if db == "semantic_scholar":
@@ -709,6 +710,7 @@ class PipelineNodes:
         outline = ReviewOutline.model_validate(kb.outline)
         architect = NarrativeArchitect(tracker)
 
+        assert kb.evidence_map is not None, "evidence_map must be built before narrative_planning"
         plan = await architect.plan(
             outline=outline,
             evidence_map=kb.evidence_map,
@@ -747,7 +749,7 @@ class PipelineNodes:
             + self.config.databases.get("secondary", [])
             + self.config.databases.get("discovery", [])
         )
-        sources = []
+        sources: list[SearchSource] = []
         for db in all_dbs:
             try:
                 if db == "pubmed":
@@ -951,7 +953,7 @@ class PipelineNodes:
             + self.config.databases.get("secondary", [])
             + self.config.databases.get("discovery", [])
         )
-        sources = []
+        sources: list[SearchSource] = []
         for db in all_dbs:
             try:
                 if db == "pubmed":
@@ -1081,6 +1083,7 @@ class PipelineNodes:
         writer = SectionWriter(tracker)
         critic = SectionCritic(tracker)
 
+        assert kb.evidence_map is not None, "evidence_map must be built before section writing"
         drafts = await writer.write_all_sections(
             outline,
             kb.extractions,
@@ -1153,7 +1156,7 @@ class PipelineNodes:
         queries_by_source: dict[str, list[str]] = {db: queries for db in all_dbs}
 
         # 4. Search across all databases
-        sources = []
+        sources: list[SearchSource] = []
         for db in all_dbs:
             try:
                 if db == "pubmed":

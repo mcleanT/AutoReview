@@ -9,6 +9,7 @@ import structlog
 from autoreview.analysis.comprehensiveness import ComprehensiveCheckResult
 from autoreview.config.models import DomainConfig
 from autoreview.models.knowledge_base import KnowledgeBase
+from autoreview.search.base import SearchSource
 
 logger = structlog.get_logger()
 
@@ -189,7 +190,7 @@ class RemediationDispatcher:
         gap_dbs = self.config.databases.get("primary", []) + self.config.databases.get(
             "secondary", []
         )
-        sources = []
+        sources: list[SearchSource] = []
         for db in gap_dbs:
             try:
                 if db == "semantic_scholar":

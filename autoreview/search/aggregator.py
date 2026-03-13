@@ -126,7 +126,7 @@ class SearchAggregator:
 
         all_papers: list[CandidatePaper] = []
         for name, result in zip(source_names, results, strict=False):
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 logger.error("aggregator.source_failed", source=name, error=str(result))
                 continue
             filtered = _filter_by_year(result, self._year_from, self._year_to)

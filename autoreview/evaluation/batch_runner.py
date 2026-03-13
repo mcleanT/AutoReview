@@ -19,7 +19,7 @@ logger = structlog.get_logger()
 
 async def _evaluate_single(
     topic: TopicConfig,
-    judge_llm,
+    judge_llm: object,
     rubrics: list[str],
     output_dir: Path,
 ) -> EvaluationResult:
@@ -45,7 +45,7 @@ async def _evaluate_single(
 
 async def run_batch_evaluation(
     config: BatchEvaluationConfig,
-    judge_llm,
+    judge_llm: object,
     output_dir: Path,
     max_concurrent: int = 3,
 ) -> list[EvaluationResult]:

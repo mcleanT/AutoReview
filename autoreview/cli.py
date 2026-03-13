@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
+from typing import Any
 
 import structlog
 import typer
@@ -95,7 +96,7 @@ def run(
     from autoreview.llm.factory import create_llm_provider
     from autoreview.models.knowledge_base import KnowledgeBase
 
-    overrides: dict = {}
+    overrides: dict[str, Any] = {}
     if model:
         overrides["llm"] = {"model": model}
     if provider:
@@ -262,7 +263,7 @@ def evaluate(
     from autoreview.evaluation.evaluator import run_evaluation
     from autoreview.llm.factory import create_llm_provider
 
-    overrides: dict = {}
+    overrides: dict[str, Any] = {}
     if model:
         overrides["llm"] = {"model": model}
     if provider:
@@ -326,7 +327,7 @@ def benchmark(
 
     from autoreview.benchmark.runner import run_benchmark
 
-    model_list = [m.strip() for m in models.split(",") if m.strip()]
+    model_list: list[str] = [m.strip() for m in models.split(",") if m.strip()]
     if not model_list:
         typer.echo("Error: provide at least one model via --models", err=True)
         raise typer.Exit(code=1)
@@ -361,7 +362,7 @@ def batch_evaluate(
     """Run batch evaluation across multiple topics from a YAML config."""
     from collections import defaultdict
 
-    import yaml
+    import yaml  # type: ignore[import-untyped]
 
     _setup_logging(verbose)
 
@@ -397,8 +398,8 @@ def batch_evaluate(
     agg = aggregate_results(results)
 
     # Group by model tier if available
-    by_tier: dict[str, list] = defaultdict(list)
-    by_domain: dict[str, list] = defaultdict(list)
+    by_tier: dict[str, list[Any]] = defaultdict(list)
+    by_domain: dict[str, list[Any]] = defaultdict(list)
     for topic_cfg, result in zip(batch_config.topics, results, strict=False):
         if topic_cfg.model_tier:
             by_tier[topic_cfg.model_tier].append(result)

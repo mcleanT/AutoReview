@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import TypeVar
+from typing import Any, TypeVar
 
 import anthropic
 import structlog
@@ -50,7 +50,7 @@ class ClaudeLLMProvider:
         """Generate free-form text response."""
         effective_model = model_override or self.model
         messages = [{"role": "user", "content": prompt}]
-        kwargs: dict = {
+        kwargs: dict[str, Any] = {
             "model": effective_model,
             "max_tokens": max_tokens if max_tokens is not None else self.max_tokens_generate,
             "messages": messages,
@@ -104,7 +104,7 @@ class ClaudeLLMProvider:
         """Generate structured output constrained to a Pydantic model schema."""
         effective_model = model_override or self.model
         messages = [{"role": "user", "content": prompt}]
-        kwargs: dict = {
+        kwargs: dict[str, Any] = {
             "model": effective_model,
             "max_tokens": max_tokens if max_tokens is not None else self.max_tokens_structured,
             "messages": messages,

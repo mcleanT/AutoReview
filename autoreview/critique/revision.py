@@ -73,11 +73,11 @@ def _format_issues(issues: list[CritiqueIssue]) -> str:
     return "\n".join(lines) if lines else "No specific issues identified."
 
 
-def _select_rubrics(critique: CritiqueReport) -> list:
+def _select_rubrics(critique: CritiqueReport) -> list[Any]:
     """Select the appropriate rubric set based on critique target."""
     from autoreview.critique.models import CritiqueTarget
 
-    if critique.target == CritiqueTarget.FULL_DRAFT or critique.target == "full_draft":
+    if critique.target == CritiqueTarget.FULL_DRAFT:
         return HOLISTIC_RUBRICS
     return SECTION_RUBRICS
 
@@ -109,7 +109,7 @@ async def revise_text(
         output_tokens=response.output_tokens,
     )
 
-    return response.content
+    return str(response.content)
 
 
 async def outline_critique_loop(
@@ -127,9 +127,7 @@ async def outline_critique_loop(
     Returns:
         Tuple of (final outline, list of critique reports).
     """
-    outline = await outline_generator.generate(
-        evidence_map, scope_document, required_sections
-    )
+    outline = await outline_generator.generate(evidence_map, scope_document, required_sections)
     critiques: list[CritiqueReport] = []
     scores: list[float] = []
 

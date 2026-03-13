@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import TypeVar
+from typing import Any, TypeVar, cast
 
 import httpx
 import structlog
@@ -37,7 +37,7 @@ def _is_thinking_model(model: str) -> bool:
 _MARKDOWN_FENCE_RE = re.compile(r"```(?:json)?\s*\n?(.*?)```", re.DOTALL)
 
 
-def _extract_json(raw: str, model: str = "") -> dict:
+def _extract_json(raw: str, model: str = "") -> dict[str, Any]:
     """Extract a JSON object from raw model output.
 
     Tries, in order:
@@ -49,7 +49,7 @@ def _extract_json(raw: str, model: str = "") -> dict:
 
     # 1. Direct parse
     try:
-        return json.loads(raw)
+        return cast(dict[str, Any], json.loads(raw))
     except json.JSONDecodeError:
         pass
 
@@ -57,7 +57,7 @@ def _extract_json(raw: str, model: str = "") -> dict:
     fence_match = _MARKDOWN_FENCE_RE.search(raw)
     if fence_match:
         try:
-            return json.loads(fence_match.group(1).strip())
+            return cast(dict[str, Any], json.loads(fence_match.group(1).strip()))
         except json.JSONDecodeError:
             pass
 
@@ -65,7 +65,7 @@ def _extract_json(raw: str, model: str = "") -> dict:
     obj_match = re.search(r"\{.*\}", raw, re.DOTALL)
     if obj_match:
         try:
-            return json.loads(obj_match.group())
+            return cast(dict[str, Any], json.loads(obj_match.group()))
         except json.JSONDecodeError:
             pass
 
@@ -131,21 +131,21 @@ class OllamaLLMProvider:
         """Generate free-form text response via Ollama /api/chat."""
         effective_model = model_override or self.model
         is_thinking = _is_thinking_model(effective_model)
-        messages: list[dict] = []
+        messages: list[dict[str, Any]] = []
         if system:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
 
         num_predict = max_tokens if max_tokens is not None else self.max_tokens_generate
 
-        options: dict = {
+        options: dict[str, Any] = {
             "temperature": temperature,
             "num_predict": num_predict,
         }
         if self.num_ctx is not None:
             options["num_ctx"] = self.num_ctx
 
-        payload: dict = {
+        payload: dict[str, Any] = {
             "model": effective_model,
             "messages": messages,
             "stream": False,
@@ -225,21 +225,21 @@ class OllamaLLMProvider:
             f"Return ONLY the JSON object, no other text."
         )
 
-        messages: list[dict] = []
+        messages: list[dict[str, Any]] = []
         if system:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt + schema_instruction})
 
         num_predict = max_tokens if max_tokens is not None else self.max_tokens_structured
 
-        options: dict = {
+        options: dict[str, Any] = {
             "temperature": temperature,
             "num_predict": num_predict,
         }
         if self.num_ctx is not None:
             options["num_ctx"] = self.num_ctx
 
-        payload: dict = {
+        payload: dict[str, Any] = {
             "model": effective_model,
             "messages": messages,
             "stream": False,

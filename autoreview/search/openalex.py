@@ -29,7 +29,8 @@ class OpenAlexSearch:
         return "openalex"
 
     def _setup_pyalex(self) -> None:
-        import pyalex
+        import pyalex  # type: ignore[import-untyped]
+
         if self._email:
             pyalex.config.email = self._email
 
@@ -38,6 +39,7 @@ class OpenAlexSearch:
             try:
                 self._setup_pyalex()
                 from pyalex import Works
+
                 results = []
                 for page in Works().search(query).paginate(per_page=min(200, max_results)):
                     results.extend(page)
@@ -48,12 +50,15 @@ class OpenAlexSearch:
                 if attempt < _MAX_RETRIES - 1:
                     logger.warning(
                         "openalex.search_retry",
-                        query=query[:80], attempt=attempt + 1, error=str(e),
+                        query=query[:80],
+                        attempt=attempt + 1,
+                        error=str(e),
                     )
                     time.sleep(_RETRY_BACKOFF[attempt])
                 else:
                     logger.error("openalex.search_failed", query=query[:80], error=str(e))
                     return []
+        return []
 
     def _parse_work(self, work: dict[str, Any]) -> CandidatePaper | None:
         try:
@@ -98,9 +103,12 @@ class OpenAlexSearch:
             journal = source.get("display_name")
 
             return CandidatePaper(
-                title=title, authors=authors,
+                title=title,
+                authors=authors,
                 year=work.get("publication_year"),
-                journal=journal, doi=doi, abstract=abstract,
+                journal=journal,
+                doi=doi,
+                abstract=abstract,
                 source_database="openalex",
                 external_ids=external_ids,
                 citation_count=work.get("cited_by_count"),
@@ -118,7 +126,8 @@ class OpenAlexSearch:
             await self._limiter.acquire()
             try:
                 works = await loop.run_in_executor(
-                    None, partial(self._sync_search_with_retry, query, per_query),
+                    None,
+                    partial(self._sync_search_with_retry, query, per_query),
                 )
             except Exception as e:
                 logger.warning("openalex.search_error", query=query[:80], error=str(e))
@@ -135,6 +144,7 @@ class OpenAlexSearch:
         try:
             self._setup_pyalex()
             from pyalex import Works
+
             work = await loop.run_in_executor(None, lambda: Works()[paper_id])
             return self._parse_work(work) if work else None
         except Exception as e:

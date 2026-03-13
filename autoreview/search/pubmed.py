@@ -38,9 +38,9 @@ class PubMedSearch:
     def _setup_entrez(self) -> Any:
         from Bio import Entrez
 
-        Entrez.email = self._email
+        Entrez.email = self._email  # type: ignore[assignment]
         if self._api_key:
-            Entrez.api_key = self._api_key
+            Entrez.api_key = self._api_key  # type: ignore[assignment]
         return Entrez
 
     def _sync_search_with_retry(self, query: str, max_results: int) -> list[str]:
@@ -52,7 +52,7 @@ class PubMedSearch:
                 )
                 results = entrez.read(handle)
                 handle.close()
-                return results.get("IdList", [])
+                return list(results.get("IdList", []))
             except Exception as e:
                 if attempt < _MAX_RETRIES - 1:
                     logger.warning(
@@ -65,6 +65,7 @@ class PubMedSearch:
                 else:
                     logger.error("pubmed.search_failed", query=query[:80], error=str(e))
                     return []
+        return []
 
     def _sync_fetch_with_retry(self, pmids: list[str]) -> list[dict[str, Any]]:
         if not pmids:

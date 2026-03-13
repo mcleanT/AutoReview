@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any  # noqa: F401
+
 import structlog
 
 from autoreview.evaluation.models import (
@@ -27,7 +29,7 @@ def _clamp(value: float) -> float:
 class ARISERubricScorer:
     """Score a review paper against the ARISE rubric using an LLM judge."""
 
-    def __init__(self, llm) -> None:
+    def __init__(self, llm: Any) -> None:
         self.llm = llm
 
     async def score(self, review_text: str) -> ARISERubricResult:
@@ -39,7 +41,7 @@ class ARISERubricScorer:
             system=ARISE_SYSTEM_PROMPT,
             temperature=0.0,
         )
-        raw: ARISERawResponse = resp.parsed  # type: ignore[assignment]
+        raw: ARISERawResponse = resp.parsed
 
         category_scores: list[ARISECategoryScore] = []
         for cat in raw.categories:

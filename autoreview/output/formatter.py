@@ -36,7 +36,7 @@ def _resolve_citations(
     cited_ids: list[str] = []
     citation_numbers: dict[str, int] = {}
 
-    def replace_citation(match: re.Match) -> str:
+    def replace_citation(match: re.Match[str]) -> str:
         pid = match.group(1)
         if pid not in citation_numbers:
             citation_numbers[pid] = len(citation_numbers) + 1
@@ -89,7 +89,7 @@ def _resolve_citations_latex(
     cited_ids: list[str] = []
     seen: set[str] = set()
 
-    def replace_citation(match: re.Match) -> str:
+    def replace_citation(match: re.Match[str]) -> str:
         pid = match.group(1)
         if pid not in seen:
             seen.add(pid)
@@ -107,8 +107,17 @@ def _resolve_citations_latex(
 
 def _latex_escape(text: str) -> str:
     """Escape special LaTeX characters."""
-    special = {"&": r"\&", "%": r"\%", "$": r"\$", "#": r"\#", "_": r"\_",
-               "{": r"\{", "}": r"\}", "~": r"\textasciitilde{}", "^": r"\^{}"}
+    special = {
+        "&": r"\&",
+        "%": r"\%",
+        "$": r"\$",
+        "#": r"\#",
+        "_": r"\_",
+        "{": r"\{",
+        "}": r"\}",
+        "~": r"\textasciitilde{}",
+        "^": r"\^{}",
+    }
     for char, replacement in special.items():
         text = text.replace(char, replacement)
     return text
@@ -147,7 +156,7 @@ def _markdown_to_latex(md: str) -> str:
     template with ``_markdown_body_to_latex`` for body conversion.
     """
     lines = md.split("\n")
-    result = [
+    result: list[str] = [
         r"\documentclass{article}",
         r"\usepackage[utf8]{inputenc}",
         r"\usepackage{hyperref}",
@@ -179,7 +188,7 @@ class OutputFormatter:
         self.style = style
 
     @staticmethod
-    def _collect_papers(kb: KnowledgeBase) -> list:
+    def _collect_papers(kb: KnowledgeBase) -> list[CandidatePaper]:
         """Collect papers preferring screened (enriched) metadata over raw candidates."""
         screened_ids = {sp.paper.id for sp in kb.screened_papers}
         return [sp.paper for sp in kb.screened_papers] + [
@@ -227,7 +236,7 @@ class OutputFormatter:
         latex_body = _markdown_body_to_latex(resolved)
 
         # Generate BibTeX entries for cited papers only
-        bibtex_entries = []
+        bibtex_entries: list[str] = []
         for pid in cited_ids:
             paper = unique_papers.get(pid)
             if not paper:
@@ -287,7 +296,8 @@ class OutputFormatter:
 
         if fmt in ("docx", "all"):
             try:
-                import pypandoc
+                import pypandoc  # type: ignore[import-untyped]
+
                 md_content = self.format_markdown(kb)
                 docx_path = out / "review.docx"
                 pypandoc.convert_text(md_content, "docx", format="md", outputfile=str(docx_path))

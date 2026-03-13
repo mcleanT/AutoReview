@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
@@ -40,7 +40,7 @@ class CostComparisonRow(AutoReviewModel):
     cost: CostSummary
 
 
-def compute_cost(token_usage: dict, model: str) -> CostSummary:
+def compute_cost(token_usage: dict[str, Any], model: str) -> CostSummary:
     """Compute cost from a token_usage dict (as written by runner) and model name."""
     total = token_usage.get("total", {})
     input_tokens = total.get("input_tokens", 0)

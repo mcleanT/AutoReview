@@ -19,7 +19,7 @@ def setup_logging(verbose: bool = False, json_output: bool = False) -> None:
     structlog.configure(
         processors=processors,
         wrapper_class=structlog.make_filtering_bound_logger(
-            structlog.processors._NAME_TO_LEVEL["debug" if verbose else "info"]
+            structlog.processors.NAME_TO_LEVEL["debug" if verbose else "info"]
         ),
         context_class=dict,
         logger_factory=structlog.PrintLoggerFactory(),

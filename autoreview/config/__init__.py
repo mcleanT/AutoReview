@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from autoreview.config.models import DomainConfig
 
@@ -40,7 +40,7 @@ def _apply_env_overrides(config: dict[str, Any], prefix: str = "AUTOREVIEW_") ->
     for key, value in os.environ.items():
         if not key.startswith(prefix):
             continue
-        parts = key[len(prefix):].lower().split("__")
+        parts = key[len(prefix) :].lower().split("__")
         current = result
         for part in parts[:-1]:
             if part not in current:

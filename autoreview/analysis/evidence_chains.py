@@ -121,8 +121,8 @@ class EvidenceChainBuilder:
 
         for theme in themes:
             # Collect findings with metadata for this theme
-            findings_with_meta: list[dict] = []
-            relationships: list[dict] = []
+            findings_with_meta: list[dict[str, Any]] = []
+            relationships: list[dict[str, Any]] = []
 
             for pid in theme.paper_ids:
                 ext = extractions.get(pid)
@@ -160,7 +160,7 @@ class EvidenceChainBuilder:
                 from autoreview.models.base import AutoReviewModel
 
                 class ChainResult(AutoReviewModel):
-                    chains: list[dict] = PydField(default_factory=list)
+                    chains: list[dict[str, Any]] = PydField(default_factory=list)
 
                 response = await self.llm.generate_structured(
                     prompt=prompt,
@@ -220,7 +220,7 @@ class EvidenceChainBuilder:
                     counts[strength] += 1
 
         total = sum(counts.values())
-        dominant = max(counts, key=counts.get) if total > 0 else ""
+        dominant = max(counts, key=lambda k: counts[k]) if total > 0 else ""
 
         guidance_map = {
             "strong": "Lead with confident assertions; most evidence is robust.",

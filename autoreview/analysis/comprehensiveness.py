@@ -359,7 +359,7 @@ class SemanticScholarBenchmarkClient:
         if self._api_key:
             self._headers["x-api-key"] = self._api_key
 
-    async def find_review(self, topic: str) -> dict | None:
+    async def find_review(self, topic: str) -> dict[str, Any] | None:
         """Find the most highly-cited review paper on a topic."""
         query = f"{topic} review"
         async with httpx.AsyncClient(timeout=30.0, headers=self._headers) as client:
@@ -393,7 +393,7 @@ class SemanticScholarBenchmarkClient:
             return None
 
         reviews.sort(key=lambda p: p.get("citationCount", 0), reverse=True)
-        return reviews[0]
+        return dict(reviews[0])
 
     async def get_references(self, paper_id: str) -> list[str]:
         """Get DOIs of all references of a paper."""

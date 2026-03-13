@@ -1,4 +1,5 @@
 """Tests for PubMedSearch."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
@@ -307,6 +308,7 @@ class TestPubMedInit:
         search = PubMedSearch(email="test@test.com", api_key="my-key")
         assert search._limiter.requests_per_second == 10.0
 
+    @patch.dict("os.environ", {}, clear=True)
     def test_rate_limit_without_api_key(self):
         search = PubMedSearch(email="test@test.com")
         assert search._limiter.requests_per_second == 3.0
@@ -316,6 +318,7 @@ class TestPubMedInit:
         search = PubMedSearch()
         assert search._email == "env@test.com"
 
+    @patch.dict("os.environ", {}, clear=True)
     def test_default_email(self):
         search = PubMedSearch()
         assert search._email == "autoreview@example.com"
@@ -363,9 +366,7 @@ class TestSyncFetch:
         mock_entrez = MagicMock()
         mock_handle = MagicMock()
         mock_entrez.efetch.return_value = mock_handle
-        mock_entrez.read.return_value = {
-            "PubmedArticle": [{"article": 1}, {"article": 2}]
-        }
+        mock_entrez.read.return_value = {"PubmedArticle": [{"article": 1}, {"article": 2}]}
         mock_setup.return_value = mock_entrez
 
         search = PubMedSearch(email="test@test.com")

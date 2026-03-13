@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 EVIDENCE_CHAIN_SYSTEM_PROMPT = """\
 You are an expert research analyst identifying evidence chains across papers. \
 An evidence chain traces how a line of inquiry developed: early exploratory work, \
@@ -25,8 +27,8 @@ the review writer can use to present this contradiction constructively.
 
 def build_evidence_chain_prompt(
     theme_name: str,
-    findings_with_metadata: list[dict],
-    relationships: list[dict],
+    findings_with_metadata: list[dict[str, Any]],
+    relationships: list[dict[str, Any]],
 ) -> str:
     """Build prompt for evidence chain identification within a theme.
 
@@ -39,10 +41,14 @@ def build_evidence_chain_prompt(
         f"- [@{f['paper_id']}] ({f.get('year', '?')}, {f.get('evidence_strength', '?')}): {f['claim']}"
         for f in findings_with_metadata
     )
-    rel_block = "\n".join(
-        f"- [@{r['source_paper_id']}] → [@{r['target_paper_id']}] ({r['relationship_type']}): {r['description']}"
-        for r in relationships
-    ) if relationships else "(No explicit relationships recorded)"
+    rel_block = (
+        "\n".join(
+            f"- [@{r['source_paper_id']}] → [@{r['target_paper_id']}] ({r['relationship_type']}): {r['description']}"
+            for r in relationships
+        )
+        if relationships
+        else "(No explicit relationships recorded)"
+    )
 
     return f"""\
 ## Theme: {theme_name}

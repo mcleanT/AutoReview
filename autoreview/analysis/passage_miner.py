@@ -1,4 +1,5 @@
 """Passage mining — identifies claims in draft sections that need more evidence."""
+
 from __future__ import annotations
 
 import asyncio
@@ -93,7 +94,7 @@ class PassageMiner:
         valid: list[SectionMiningResult] = []
         failed = 0
         for i, r in enumerate(raw):
-            if isinstance(r, Exception):
+            if isinstance(r, BaseException):
                 section_id = list(sections.keys())[i]
                 logger.warning("passage_miner.section_failed", section_id=section_id, error=str(r))
                 failed += 1

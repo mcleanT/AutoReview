@@ -56,7 +56,7 @@ class ContextualEnricher:
 
         sem = asyncio.Semaphore(3)
 
-        async def _generate_for_section(section):
+        async def _generate_for_section(section: Any) -> SectionEnrichmentQueries:
             async with sem:
                 prompt = build_enrichment_query_prompt(
                     section_id=section.id,
@@ -93,7 +93,7 @@ class ContextualEnricher:
         queries_map: dict[str, SectionEnrichmentQueries] = {}
         for i, r in enumerate(results):
             section = outline.sections[i]
-            if isinstance(r, Exception):
+            if isinstance(r, BaseException):
                 logger.warning(
                     "contextual_enricher.query_generation_failed",
                     section_id=section.id,
@@ -209,7 +209,7 @@ class ContextualEnricher:
         all_extractions: list[ContextualExtraction] = []
         failed = 0
         for r in results:
-            if isinstance(r, Exception):
+            if isinstance(r, BaseException):
                 logger.warning(
                     "contextual_enricher.batch_extraction_failed",
                     error=str(r),

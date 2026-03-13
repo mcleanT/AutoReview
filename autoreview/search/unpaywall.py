@@ -174,7 +174,7 @@ class UnpaywallClient:
 def _extract_text_from_pdf(pdf_bytes: bytes) -> str | None:
     """Extract text from PDF bytes using PyMuPDF."""
     try:
-        import fitz  # PyMuPDF
+        import fitz  # type: ignore[import-untyped]  # PyMuPDF
 
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
         text_parts = []

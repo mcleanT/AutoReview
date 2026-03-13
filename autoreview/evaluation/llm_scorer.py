@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any  # noqa: F401
+
 import structlog
 
 from autoreview.evaluation.models import SynthesisScore, TopicCoverageScore, WritingQualityScore
@@ -17,7 +19,7 @@ logger = structlog.get_logger()
 
 
 class LLMScorer:
-    def __init__(self, llm) -> None:
+    def __init__(self, llm: Any) -> None:
         self.llm = llm
 
     async def score_synthesis(self, generated_text: str, reference_text: str) -> SynthesisScore:
