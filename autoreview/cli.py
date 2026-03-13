@@ -69,6 +69,9 @@ def run(
     fresh: bool = typer.Option(
         False, "--fresh", help="Clear all previous snapshots and outputs before running"
     ),
+    date_range: str | None = typer.Option(
+        None, "--date-range", help="Year range filter, e.g. '2015-2020', '-2019', '2020-'"
+    ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
 ) -> None:
     """Run the full AutoReview pipeline to generate a review paper."""
@@ -99,6 +102,9 @@ def run(
         overrides.setdefault("llm", {})["provider"] = provider
 
     config = load_config(domain=domain, overrides=overrides or None)
+
+    if date_range is not None:
+        config.search.date_range = date_range
 
     kb = KnowledgeBase(
         topic=topic,
@@ -150,6 +156,9 @@ def resume(
     provider: str | None = typer.Option(
         None, "--provider", "-p", help="LLM provider (claude, ollama). Auto-detected if omitted."
     ),
+    date_range: str | None = typer.Option(
+        None, "--date-range", help="Year range filter, e.g. '2015-2020', '-2019', '2020-'"
+    ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
 ) -> None:
     """Resume pipeline from a saved snapshot."""
@@ -168,6 +177,10 @@ def resume(
     from autoreview.pipeline.runner import run_pipeline
 
     config = load_config(domain=kb.domain)
+
+    if date_range is not None:
+        config.search.date_range = date_range
+
     if model:
         config.llm.model = model
 
@@ -229,12 +242,23 @@ def evaluate(
     provider: str | None = typer.Option(
         None, "--provider", "-p", help="LLM provider (claude, ollama). Auto-detected if omitted."
     ),
+    judge_model: str | None = typer.Option(
+        None,
+        "--judge-model",
+        help="Override LLM model used for judging (defaults to --model if omitted).",
+    ),
+    judge_provider: str | None = typer.Option(
+        None,
+        "--judge-provider",
+        help="LLM provider for judging (defaults to --provider if omitted).",
+    ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
 ) -> None:
     """Evaluate a generated review against a published reference PDF."""
     _setup_logging(verbose)
 
     from autoreview.config import load_config
+    from autoreview.config.models import LLMConfig
     from autoreview.evaluation.evaluator import run_evaluation
     from autoreview.llm.factory import create_llm_provider
 
@@ -252,6 +276,16 @@ def evaluate(
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
 
+    if judge_model:
+        try:
+            judge_config = LLMConfig(model=judge_model, api_key=config.llm.api_key)
+            judge_llm = create_llm_provider(judge_config, provider=judge_provider or provider)
+        except ValueError as e:
+            typer.echo(f"Error: {e}", err=True)
+            raise typer.Exit(code=1)
+    else:
+        judge_llm = llm
+
     typer.echo(f"Evaluating: {generated}")
     typer.echo(f"Against: {reference}")
 
@@ -260,7 +294,7 @@ def evaluate(
             generated_path=Path(generated),
             reference_path=Path(reference),
             output_dir=Path(output_dir),
-            llm=llm,
+            judge_llm=judge_llm,
         )
     )
 
@@ -303,6 +337,94 @@ def benchmark(
     except Exception as e:
         typer.echo(f"Benchmark failed: {e}", err=True)
         raise typer.Exit(code=1)
+
+
+@app.command(name="batch-evaluate")
+def batch_evaluate(
+    config_path: str = typer.Argument(..., help="Path to batch evaluation YAML config"),
+    output_dir: str = typer.Option(
+        "output/batch_eval", "--output-dir", "-o", help="Directory for batch evaluation outputs"
+    ),
+    judge_model: str = typer.Option(
+        "claude-sonnet-4-6", "--judge-model", "-j", help="Model to use for evaluation judging"
+    ),
+    judge_provider: str | None = typer.Option(
+        None, "--judge-provider", help="LLM provider for judge (claude, ollama)"
+    ),
+    max_concurrent: int = typer.Option(
+        3, "--max-concurrent", "-c", help="Max concurrent evaluations"
+    ),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
+) -> None:
+    """Run batch evaluation across multiple topics from a YAML config."""
+    from collections import defaultdict
+
+    import yaml
+
+    _setup_logging(verbose)
+
+    from autoreview.evaluation.models import BatchEvaluationConfig
+
+    config_data = yaml.safe_load(Path(config_path).read_text())
+    batch_config = BatchEvaluationConfig(**config_data)
+
+    # Override judge model if specified via CLI
+    batch_config.judge_model = judge_model
+
+    # Create judge LLM
+    from autoreview.config.models import LLMConfig
+    from autoreview.llm.factory import create_llm_provider
+
+    judge_config = LLMConfig(model=judge_model)
+    judge_llm = create_llm_provider(judge_config, provider=judge_provider)
+
+    out = Path(output_dir)
+    out.mkdir(parents=True, exist_ok=True)
+
+    from autoreview.evaluation.aggregator import aggregate_results
+    from autoreview.evaluation.batch_runner import run_batch_evaluation
+
+    results = asyncio.run(run_batch_evaluation(batch_config, judge_llm, out, max_concurrent))
+
+    # Save per-topic results
+    for i, r in enumerate(results):
+        topic_json = out / f"topic_{i:03d}.json"
+        topic_json.write_text(r.model_dump_json(indent=2))
+
+    # Aggregate
+    agg = aggregate_results(results)
+
+    # Group by model tier if available
+    by_tier: dict[str, list] = defaultdict(list)
+    by_domain: dict[str, list] = defaultdict(list)
+    for topic_cfg, result in zip(batch_config.topics, results):
+        if topic_cfg.model_tier:
+            by_tier[topic_cfg.model_tier].append(result)
+        by_domain[topic_cfg.domain].append(result)
+
+    if by_tier:
+        agg.by_model_tier = {k: aggregate_results(v) for k, v in by_tier.items()}
+    if by_domain:
+        agg.by_domain = {k: aggregate_results(v) for k, v in by_domain.items()}
+
+    # Save aggregated results
+    agg_path = out / "aggregated.json"
+    agg_path.write_text(agg.model_dump_json(indent=2))
+
+    # Print summary
+    print(f"\nBatch Evaluation Complete: {agg.n_topics} topics evaluated")
+    print(f"  Overall score:      {agg.overall_score.mean:.3f} ± {agg.overall_score.std:.3f}")
+    print(f"  Citation recall:    {agg.citation_recall.mean:.3f} ± {agg.citation_recall.std:.3f}")
+    print(
+        f"  Citation precision: {agg.citation_precision.mean:.3f} ± {agg.citation_precision.std:.3f}"
+    )
+    print(f"  Citation F1:        {agg.citation_f1.mean:.3f} ± {agg.citation_f1.std:.3f}")
+    print(f"  Synthesis:          {agg.synthesis_score.mean:.2f}/5 ± {agg.synthesis_score.std:.2f}")
+    print(f"  Topic coverage:     {agg.topic_coverage.mean:.3f} ± {agg.topic_coverage.std:.3f}")
+    print(f"  Writing quality:    {agg.writing_quality.mean:.2f}/5 ± {agg.writing_quality.std:.2f}")
+    if agg.arise_total:
+        print(f"  ARISE total:        {agg.arise_total.mean:.1f}/100 ± {agg.arise_total.std:.1f}")
+    print(f"\nResults saved to: {out}")
 
 
 if __name__ == "__main__":

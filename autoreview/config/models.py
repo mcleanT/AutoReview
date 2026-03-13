@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+import re
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class SearchConfig(BaseModel):
     """Configuration for literature search."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
     date_range: str = "2015-2025"
     max_results_per_source: int = 500
@@ -15,6 +17,27 @@ class SearchConfig(BaseModel):
     max_query_expansion_rounds: int = 2
     max_gap_search_rounds: int = 2
     min_coverage_threshold: float = 0.75
+
+    @field_validator("date_range", mode="before")
+    @classmethod
+    def validate_date_range(cls, v: str | None) -> str:
+        if v is None:
+            return ""
+        v = re.sub(r"\s+", "", str(v))  # strip all whitespace
+        if not v:
+            return ""
+        m = re.fullmatch(r"(\d{4})?-(\d{4})?", v)
+        if not m or v == "-":
+            raise ValueError(
+                f"date_range must be 'YYYY-YYYY', '-YYYY', 'YYYY-', or empty; got '{v}'"
+            )
+        year_from_str, year_to_str = m.group(1), m.group(2)
+        if year_from_str and year_to_str:
+            if int(year_from_str) > int(year_to_str):
+                raise ValueError(
+                    f"date_range start ({year_from_str}) must be <= end ({year_to_str})"
+                )
+        return v
 
 
 class TieredModelConfig(BaseModel):

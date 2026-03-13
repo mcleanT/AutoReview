@@ -54,13 +54,15 @@ class _TokenAccumulator:
     node finishes, read ``usage`` to get the aggregate totals.
 
     When ``global_accumulator`` is set, token counts are also added to it
-    so that a pipeline-wide budget can be enforced.
+    so that a pipeline-wide budget can be enforced.  When ``node_name`` is
+    also provided, per-node breakdowns are tracked in the global accumulator.
     """
 
     def __init__(
         self,
         llm: Any,
         global_accumulator: _GlobalTokenAccumulator | None = None,
+        node_name: str | None = None,
     ) -> None:
         self._llm = llm
         self.input_tokens: int = 0
@@ -68,14 +70,28 @@ class _TokenAccumulator:
         self.cache_creation_input_tokens: int = 0
         self.cache_read_input_tokens: int = 0
         self._global = global_accumulator
+        self._node_name = node_name
 
     def _track(self, response: Any) -> None:
-        self.input_tokens += response.input_tokens
-        self.output_tokens += response.output_tokens
-        self.cache_creation_input_tokens += getattr(response, "cache_creation_input_tokens", 0)
-        self.cache_read_input_tokens += getattr(response, "cache_read_input_tokens", 0)
+        inp = response.input_tokens
+        out = response.output_tokens
+        cache_read = getattr(response, "cache_read_input_tokens", 0)
+        cache_creation = getattr(response, "cache_creation_input_tokens", 0)
+        self.input_tokens += inp
+        self.output_tokens += out
+        self.cache_creation_input_tokens += cache_creation
+        self.cache_read_input_tokens += cache_read
         if self._global:
-            self._global.add(response.input_tokens, response.output_tokens)
+            if self._node_name:
+                self._global.add_node(
+                    self._node_name,
+                    inp,
+                    out,
+                    cache_read=cache_read,
+                    cache_creation=cache_creation,
+                )
+            else:
+                self._global.add(inp, out)
 
     async def generate(self, *args: Any, **kwargs: Any) -> Any:
         response = await self._llm.generate(*args, **kwargs)
@@ -98,14 +114,18 @@ class _TokenAccumulator:
 
 
 class _GlobalTokenAccumulator:
-    """Pipeline-wide token counter for budget enforcement."""
+    """Pipeline-wide token counter for budget enforcement and per-node tracking."""
 
     def __init__(self, budget: int | None = None) -> None:
         self.total_input: int = 0
         self.total_output: int = 0
+        self.total_cache_read: int = 0
+        self.total_cache_creation: int = 0
         self.budget = budget
+        self.per_node: dict[str, dict[str, int]] = {}
 
     def add(self, input_tokens: int, output_tokens: int) -> None:
+        """Add tokens without node attribution (legacy / budget-only path)."""
         self.total_input += input_tokens
         self.total_output += output_tokens
         if self.budget and (self.total_input + self.total_output) > self.budget:
@@ -113,6 +133,51 @@ class _GlobalTokenAccumulator:
                 self.total_input + self.total_output,
                 self.budget,
             )
+
+    def add_node(
+        self,
+        node_name: str,
+        input_tokens: int,
+        output_tokens: int,
+        cache_read: int = 0,
+        cache_creation: int = 0,
+    ) -> None:
+        """Add tokens with node attribution, updating both totals and per-node tracking."""
+        self.total_input += input_tokens
+        self.total_output += output_tokens
+        self.total_cache_read += cache_read
+        self.total_cache_creation += cache_creation
+
+        if node_name not in self.per_node:
+            self.per_node[node_name] = {
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "cache_read": 0,
+                "cache_creation": 0,
+            }
+        node = self.per_node[node_name]
+        node["input_tokens"] += input_tokens
+        node["output_tokens"] += output_tokens
+        node["cache_read"] += cache_read
+        node["cache_creation"] += cache_creation
+
+        if self.budget and (self.total_input + self.total_output) > self.budget:
+            raise TokenBudgetExceeded(
+                self.total_input + self.total_output,
+                self.budget,
+            )
+
+    def token_summary(self) -> dict:
+        """Return a structured summary of token usage, broken down by node and total."""
+        return {
+            "per_node": {name: dict(counts) for name, counts in self.per_node.items()},
+            "total": {
+                "input_tokens": self.total_input,
+                "output_tokens": self.total_output,
+                "cache_read": self.total_cache_read,
+                "cache_creation": self.total_cache_creation,
+            },
+        }
 
     @property
     def total(self) -> int:
@@ -222,7 +287,7 @@ class PipelineNodes:
             except Exception as e:
                 logger.warning("search.source_init_failed", source=db, error=str(e))
 
-        agg = SearchAggregator(sources=sources)
+        agg = SearchAggregator(sources=sources, date_range=self.config.search.date_range)
         kb.candidate_papers = await agg.search(
             kb.search_queries,
             max_results_per_source=self.config.search.max_results_per_source,
@@ -232,7 +297,7 @@ class PipelineNodes:
 
     async def screening(self, kb: KnowledgeBase) -> None:
         """Node: Screen papers for relevance."""
-        tracker = _TokenAccumulator(self.llm, self._global_tokens)
+        tracker = _TokenAccumulator(self.llm, self._global_tokens, node_name="screening")
         screener = PaperScreener(tracker, batch_size=self.config.search.screening_batch_size)
         kb.screened_papers = await screener.screen(
             kb.candidate_papers,
@@ -356,7 +421,7 @@ class PipelineNodes:
 
     async def extraction(self, kb: KnowledgeBase) -> None:
         """Node: Extract structured information from papers in batches."""
-        tracker = _TokenAccumulator(self.llm, self._global_tokens)
+        tracker = _TokenAccumulator(self.llm, self._global_tokens, node_name="extraction")
         extractor = PaperExtractor(
             tracker,
             domain_fields=self.config.extraction.domain_fields,
@@ -394,7 +459,7 @@ class PipelineNodes:
         """Node: Thematic clustering + contradiction detection + gap analysis + evidence chains."""
         from autoreview.analysis.evidence_chains import EvidenceChainBuilder
 
-        tracker = _TokenAccumulator(self.llm, self._global_tokens)
+        tracker = _TokenAccumulator(self.llm, self._global_tokens, node_name="clustering")
         clusterer = ThematicClusterer(tracker)
         gap_detector = GapDetector(tracker)
 
@@ -449,7 +514,7 @@ class PipelineNodes:
 
     async def gap_search(self, kb: KnowledgeBase) -> None:
         """Node: Gap-aware supplementary search (conditional)."""
-        tracker = _TokenAccumulator(self.llm, self._global_tokens)
+        tracker = _TokenAccumulator(self.llm, self._global_tokens, node_name="gap_search")
         # Store pre-gap state for revalidation
         pre_gaps = list(kb.evidence_map.gaps) if kb.evidence_map and kb.evidence_map.gaps else []
         pre_coverage = kb.evidence_map.coverage_score if kb.evidence_map else 0.0
@@ -514,7 +579,7 @@ class PipelineNodes:
             await self._run_benchmark_validation(kb)
             return
 
-        agg = SearchAggregator(sources=sources)
+        agg = SearchAggregator(sources=sources, date_range=self.config.search.date_range)
         new_papers = await agg.search(gap_queries, max_results_per_source=200)
 
         # Deduplicate by DOI against existing corpus
@@ -610,7 +675,7 @@ class PipelineNodes:
 
     async def outline(self, kb: KnowledgeBase) -> None:
         """Node: Generate and critique the outline."""
-        tracker = _TokenAccumulator(self.llm, self._global_tokens)
+        tracker = _TokenAccumulator(self.llm, self._global_tokens, node_name="outline")
         generator = OutlineGenerator(tracker)
         critic = OutlineCritic(tracker)
 
@@ -637,7 +702,7 @@ class PipelineNodes:
 
     async def narrative_planning(self, kb: KnowledgeBase) -> None:
         """Node: Plan narrative architecture before section writing."""
-        tracker = _TokenAccumulator(self.llm, self._global_tokens)
+        tracker = _TokenAccumulator(self.llm, self._global_tokens, node_name="narrative_planning")
         outline = ReviewOutline.model_validate(kb.outline)
         architect = NarrativeArchitect(tracker)
 
@@ -658,7 +723,9 @@ class PipelineNodes:
 
     async def contextual_enrichment(self, kb: KnowledgeBase) -> None:
         """Node: Retrieve adjacent contextual material to broaden sections."""
-        tracker = _TokenAccumulator(self.llm, self._global_tokens)
+        tracker = _TokenAccumulator(
+            self.llm, self._global_tokens, node_name="contextual_enrichment"
+        )
         outline = ReviewOutline.model_validate(kb.outline)
         enricher = ContextualEnricher(tracker)
 
@@ -730,7 +797,7 @@ class PipelineNodes:
             query_strings = [q.query for q in section_queries.queries]
             queries_by_source: dict[str, list[str]] = {db: query_strings for db in all_dbs}
 
-            agg = SearchAggregator(sources=sources)
+            agg = SearchAggregator(sources=sources, date_range=self.config.search.date_range)
             new_papers = await agg.search(queries_by_source, max_results_per_source=50)
 
             # Deduplicate against existing corpus
@@ -808,7 +875,7 @@ class PipelineNodes:
         )
         from autoreview.search.aggregator import SearchAggregator
 
-        tracker = _TokenAccumulator(self.llm, self._global_tokens)
+        tracker = _TokenAccumulator(self.llm, self._global_tokens, node_name="corpus_expansion")
         outline = ReviewOutline.model_validate(kb.outline)
 
         # 1. Collect insights and generate queries per section
@@ -911,7 +978,7 @@ class PipelineNodes:
         unique_queries = list(dict.fromkeys(all_queries))
         queries_by_source: dict[str, list[str]] = {db: unique_queries for db in all_dbs}
 
-        agg = SearchAggregator(sources=sources)
+        agg = SearchAggregator(sources=sources, date_range=self.config.search.date_range)
         new_papers = await agg.search(queries_by_source, max_results_per_source=30)
 
         # 3. Deduplicate against existing corpus by DOI
@@ -1005,7 +1072,7 @@ class PipelineNodes:
 
     async def section_writing(self, kb: KnowledgeBase) -> None:
         """Node: Write and critique all sections."""
-        tracker = _TokenAccumulator(self.llm, self._global_tokens)
+        tracker = _TokenAccumulator(self.llm, self._global_tokens, node_name="section_writing")
         outline = ReviewOutline.model_validate(kb.outline)
         writer = SectionWriter(tracker)
         critic = SectionCritic(tracker)
@@ -1060,7 +1127,7 @@ class PipelineNodes:
         from autoreview.analysis.passage_miner import PassageMiner
         from autoreview.search.aggregator import SearchAggregator
 
-        tracker = _TokenAccumulator(self.llm, self._global_tokens)
+        tracker = _TokenAccumulator(self.llm, self._global_tokens, node_name="passage_search")
 
         # 1. Mine sections for undercited claims
         miner = PassageMiner(tracker)
@@ -1106,7 +1173,7 @@ class PipelineNodes:
 
         new_papers: list[CandidatePaper] = []
         if sources:
-            agg = SearchAggregator(sources=sources)
+            agg = SearchAggregator(sources=sources, date_range=self.config.search.date_range)
             new_papers = await agg.search(queries_by_source, max_results_per_source=50)
 
         # 5. Citation snowballing from top-10 most-cited S2 papers in corpus
@@ -1209,7 +1276,7 @@ class PipelineNodes:
 
     async def assembly(self, kb: KnowledgeBase) -> None:
         """Node: Assemble draft and run holistic critique."""
-        tracker = _TokenAccumulator(self.llm, self._global_tokens)
+        tracker = _TokenAccumulator(self.llm, self._global_tokens, node_name="assembly")
         outline = ReviewOutline.model_validate(kb.outline)
         from autoreview.writing.section_writer import SectionDraft
 
@@ -1255,7 +1322,8 @@ class PipelineNodes:
         if not kb.full_draft:
             return
 
-        response = await self.llm.generate(
+        tracker = _TokenAccumulator(self.llm, self._global_tokens, node_name="final_polish")
+        response = await tracker.generate(
             prompt=f"Polish this review paper for language, terminology consistency, and flow. "
             f"Maintain all citation markers [@paper_id]. Do not change the structure.\n\n"
             f"{kb.full_draft}",
@@ -1268,8 +1336,5 @@ class PipelineNodes:
         kb.add_audit_entry(
             "final_polish",
             "complete",
-            token_usage={
-                "input_tokens": response.input_tokens,
-                "output_tokens": response.output_tokens,
-            },
+            token_usage=tracker.usage,
         )
