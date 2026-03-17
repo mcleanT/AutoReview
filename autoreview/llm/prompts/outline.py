@@ -2,7 +2,23 @@ from __future__ import annotations
 
 from pydantic import Field
 
+from autoreview.config.models import DepthLevel
 from autoreview.models.base import AutoReviewModel
+
+_OUTLINE_DEPTH_GUIDANCE: dict[DepthLevel, str] = {
+    DepthLevel.LOW: (
+        "\n## DEPTH GUIDANCE\n\n"
+        "This is a concise review. Section descriptions should emphasize key findings "
+        "and critical takeaways only. Focus on the most impactful points.\n"
+    ),
+    DepthLevel.MEDIUM: "",
+    DepthLevel.DEEP: (
+        "\n## DEPTH GUIDANCE\n\n"
+        "This is an exhaustive, in-depth review. Section descriptions should request "
+        "comprehensive coverage: trace methodological evolution, compare conflicting "
+        "findings, discuss edge cases, and explore secondary implications.\n"
+    ),
+}
 
 
 class OutlineSection(AutoReviewModel):
@@ -72,8 +88,12 @@ def build_outline_prompt(
     scope_document: str,
     evidence_summary: str,
     required_sections: list[str],
+    depth: DepthLevel | None = None,
 ) -> str:
     req = "\n".join(f"- {s}" for s in required_sections)
+    depth_block = ""
+    if depth and depth in _OUTLINE_DEPTH_GUIDANCE:
+        depth_block = _OUTLINE_DEPTH_GUIDANCE[depth]
     return f"""\
 ## Review Scope
 {scope_document}
@@ -83,7 +103,7 @@ def build_outline_prompt(
 
 ## Required Sections
 {req}
-
+{depth_block}
 Generate a hierarchical outline for this review paper. Each section needs:
 - A unique ID (e.g., "1", "1.1", "1.1.1")
 - A descriptive title
