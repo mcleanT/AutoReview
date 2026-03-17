@@ -73,6 +73,7 @@ def run(
     date_range: str | None = typer.Option(
         None, "--date-range", help="Year range filter, e.g. '2015-2020', '-2019', '2020-'"
     ),
+    depth: str = typer.Option("medium", "--depth", help="Review depth: low, medium, or deep"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
 ) -> None:
     """Run the full AutoReview pipeline to generate a review paper."""
@@ -93,6 +94,7 @@ def run(
     )
 
     from autoreview.config import load_config
+    from autoreview.config.models import DepthLevel
     from autoreview.llm.factory import create_llm_provider
     from autoreview.models.knowledge_base import KnowledgeBase
 
@@ -106,6 +108,12 @@ def run(
 
     if date_range is not None:
         config.search.date_range = date_range
+
+    config.writing.depth = DepthLevel(depth)
+    if config.writing.depth == DepthLevel.DEEP:
+        typer.echo(
+            "Note: deep mode generates significantly longer output — expect higher token costs."
+        )
 
     kb = KnowledgeBase(
         topic=topic,
@@ -160,6 +168,9 @@ def resume(
     date_range: str | None = typer.Option(
         None, "--date-range", help="Year range filter, e.g. '2015-2020', '-2019', '2020-'"
     ),
+    depth: str | None = typer.Option(
+        None, "--depth", help="Override review depth: low, medium, or deep"
+    ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
 ) -> None:
     """Resume pipeline from a saved snapshot."""
@@ -184,6 +195,25 @@ def resume(
 
     if model:
         config.llm.model = model
+
+    if depth:
+        from autoreview.config.models import DepthLevel
+
+        new_depth = DepthLevel(depth)
+        if new_depth != config.writing.depth:
+            # Nodes after "outline" rely on pre-computed word counts — warn if resuming past it
+            _POST_OUTLINE_NODES = {"draft", "critique", "revise", "format", "render"}
+            resume_node = start_from or ""
+            if resume_node.lower() in _POST_OUTLINE_NODES or not resume_node:
+                typer.echo(
+                    "Warning: --depth changed but outline word counts are from original run. "
+                    "Re-run from 'outline' for full depth recalculation."
+                )
+        config.writing.depth = new_depth
+        if new_depth == DepthLevel.DEEP:
+            typer.echo(
+                "Note: deep mode generates significantly longer output — expect higher token costs."
+            )
 
     try:
         llm = create_llm_provider(config.llm, provider=provider)
