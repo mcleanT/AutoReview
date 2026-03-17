@@ -7,6 +7,7 @@ from typing import Any
 import structlog
 
 from autoreview.analysis.evidence_map import EvidenceMap
+from autoreview.config.models import DepthLevel
 from autoreview.llm.prompts.narrative import (
     NARRATIVE_ARCHITECT_SYSTEM_PROMPT,
     build_narrative_planning_prompt,
@@ -34,6 +35,7 @@ class NarrativeArchitect:
         outline: ReviewOutline,
         evidence_map: EvidenceMap,
         scope_document: str,
+        depth: DepthLevel | None = None,
     ) -> NarrativePlan:
         """Generate a narrative plan for the review paper.
 
@@ -41,11 +43,12 @@ class NarrativeArchitect:
             outline: The validated review outline.
             evidence_map: The full evidence map from clustering.
             scope_document: The scope document from query expansion.
+            depth: Optional depth level controlling narrative detail.
 
         Returns:
             A NarrativePlan with directives for all outline sections.
         """
-        prompt = build_narrative_planning_prompt(outline, evidence_map, scope_document)
+        prompt = build_narrative_planning_prompt(outline, evidence_map, scope_document, depth=depth)
 
         response = await self.llm.generate_structured(
             prompt=prompt,
