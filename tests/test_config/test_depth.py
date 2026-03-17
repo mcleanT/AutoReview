@@ -1,4 +1,9 @@
-from autoreview.config.depth import DepthProfile, get_depth_instructions, get_depth_profile
+from autoreview.config.depth import (
+    DepthProfile,
+    classify_section_type,
+    get_depth_instructions,
+    get_depth_profile,
+)
 from autoreview.config.models import DepthLevel, WritingConfig
 
 
@@ -91,3 +96,27 @@ def test_depth_instructions_deep():
     text = get_depth_instructions(DepthLevel.DEEP, 2000)
     assert "exhaustive" in text.lower()
     assert "2000" in text
+
+
+def test_classify_introduction():
+    assert classify_section_type("Introduction") == "introduction"
+    assert classify_section_type("Background and Introduction") == "introduction"
+    assert classify_section_type("1. Background") == "introduction"
+
+
+def test_classify_conclusion():
+    assert classify_section_type("Conclusion") == "conclusion"
+    assert classify_section_type("Concluding Remarks") == "conclusion"
+    assert classify_section_type("Summary and Conclusions") == "conclusion"
+
+
+def test_classify_methods():
+    assert classify_section_type("Methods of Review") == "methods"
+    assert classify_section_type("Search Strategy") == "methods"
+    assert classify_section_type("Review Methodology") == "methods"
+
+
+def test_classify_body_default():
+    assert classify_section_type("Deep Learning Architectures") == "body"
+    assert classify_section_type("Results and Discussion") == "body"
+    assert classify_section_type("Future Directions") == "body"

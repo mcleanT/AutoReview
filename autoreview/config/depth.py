@@ -94,3 +94,19 @@ _DEPTH_INSTRUCTIONS: dict[DepthLevel, str] = {
 def get_depth_instructions(depth: DepthLevel, target_word_count: int) -> str:
     """Return depth-specific prose instructions for the section writer."""
     return _DEPTH_INSTRUCTIONS[depth].format(target_word_count=target_word_count)
+
+
+def classify_section_type(title: str) -> str:
+    """Classify a section title into a type for dampening lookup.
+
+    Uses fuzzy substring matching against known section categories.
+    Returns one of: "introduction", "conclusion", "methods", "body".
+    """
+    lower = title.lower()
+    if "introduction" in lower or "background" in lower:
+        return "introduction"
+    if "conclusion" in lower or "concluding" in lower:
+        return "conclusion"
+    if "method" in lower or "search strategy" in lower or "review methodology" in lower:
+        return "methods"
+    return "body"
