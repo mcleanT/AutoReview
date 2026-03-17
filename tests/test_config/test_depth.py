@@ -1,4 +1,4 @@
-from autoreview.config.depth import DepthProfile, get_depth_profile
+from autoreview.config.depth import DepthProfile, get_depth_instructions, get_depth_profile
 from autoreview.config.models import DepthLevel, WritingConfig
 
 
@@ -73,3 +73,21 @@ def test_all_profiles_have_body_dampening_of_one():
     for level in DepthLevel:
         p = get_depth_profile(level)
         assert p.section_type_dampening["body"] == 1.0
+
+
+def test_depth_instructions_low():
+    text = get_depth_instructions(DepthLevel.LOW, 300)
+    assert "critical findings" in text.lower()
+    assert "300" in text
+
+
+def test_depth_instructions_medium():
+    text = get_depth_instructions(DepthLevel.MEDIUM, 800)
+    assert "thoroughness" in text.lower() or "readability" in text.lower()
+    assert "800" in text
+
+
+def test_depth_instructions_deep():
+    text = get_depth_instructions(DepthLevel.DEEP, 2000)
+    assert "exhaustive" in text.lower()
+    assert "2000" in text
