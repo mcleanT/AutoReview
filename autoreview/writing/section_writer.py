@@ -6,6 +6,7 @@ from typing import Any
 import structlog
 
 from autoreview.analysis.evidence_map import EvidenceMap
+from autoreview.config.models import DepthLevel
 from autoreview.extraction.models import PaperExtraction
 from autoreview.llm.prompts.outline import OutlineSection, ReviewOutline
 from autoreview.llm.prompts.writing import (
@@ -240,6 +241,7 @@ class SectionWriter:
         following_text: str = "",
         directive: SectionNarrativeDirective | None = None,
         enrichment: SectionEnrichment | None = None,
+        depth: DepthLevel | None = None,
     ) -> SectionDraft:
         """Write a single section with full context."""
         outline_context = _format_outline_context(outline, current_section_id=section.id)
@@ -273,6 +275,15 @@ class SectionWriter:
         if enrichment:
             enrichment_text = _format_contextual_enrichment(enrichment)
 
+        target_word_count = section.estimated_word_count if depth else None
+        depth_instructions_text = ""
+        max_tokens_override = None
+        if depth:
+            from autoreview.config.depth import get_depth_instructions, get_depth_profile
+
+            depth_instructions_text = get_depth_instructions(depth, section.estimated_word_count)
+            max_tokens_override = get_depth_profile(depth).max_tokens_override
+
         prompt = build_section_writing_prompt(
             section_id=section.id,
             section_title=section.title,
@@ -283,13 +294,18 @@ class SectionWriter:
             adjacent_text=adjacent,
             narrative_guidance=narrative_guidance,
             contextual_enrichment=enrichment_text,
+            target_word_count=target_word_count,
+            depth_instructions=depth_instructions_text,
         )
 
-        response = await self.llm.generate(
+        generate_kwargs: dict = dict(
             prompt=prompt,
             system=SECTION_WRITING_SYSTEM_PROMPT,
             temperature=0.55,
         )
+        if max_tokens_override is not None:
+            generate_kwargs["max_tokens"] = max_tokens_override
+        response = await self.llm.generate(**generate_kwargs)
 
         citations = _extract_citations(response.content)
 
