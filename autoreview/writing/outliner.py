@@ -5,6 +5,7 @@ from typing import Any
 import structlog
 
 from autoreview.analysis.evidence_map import EvidenceMap
+from autoreview.config.models import DepthLevel
 from autoreview.critique.models import CritiqueReport
 from autoreview.llm.prompts.outline import (
     OUTLINE_REVISION_SYSTEM_PROMPT,
@@ -62,6 +63,7 @@ class OutlineGenerator:
         required_sections: list[str] | None = None,
         previous_outline: ReviewOutline | None = None,
         critique_report: CritiqueReport | None = None,
+        depth: DepthLevel | None = None,
     ) -> ReviewOutline:
         """Generate or revise a review outline from the evidence map.
 
@@ -105,7 +107,9 @@ class OutlineGenerator:
             )
         else:
             # Fresh generation mode
-            prompt = build_outline_prompt(scope_document, evidence_summary, required_sections)
+            prompt = build_outline_prompt(
+                scope_document, evidence_summary, required_sections, depth=depth
+            )
             system_prompt = OUTLINE_SYSTEM_PROMPT
 
         response = await self.llm.generate_structured(
