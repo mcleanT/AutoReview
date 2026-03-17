@@ -307,3 +307,139 @@ topics:
       pdf_path: "paper/references/aimeur_2023.pdf"
     conditions: [end_to_end]
     ablation: false
+
+  # ==========================================================================
+  # ARISE BENCHMARK: Head-to-head comparison on ARISE's own benchmark topics
+  # Analysis 11 — compare AutoReview scores against ARISE's published scores
+  # No date_range, no ablation, end_to_end only, no reference PDFs needed
+  # ==========================================================================
+
+  - id: "arise_llm_reasoning"
+    title: "LLM reasoning and replication studies"
+    domain: cs_ai
+    tier: ARISE
+    reference:
+      doi: "10.48550/arXiv.2505.00551"
+      title: "100 Days After DeepSeek-R1: A Survey on Replication Studies"
+      year: 2025
+      citation_count: 50
+      pdf_path: ""
+    conditions: [end_to_end]
+    ablation: false
+
+  - id: "arise_llm_evaluation"
+    title: "Evaluation of large language models"
+    domain: cs_ai
+    tier: ARISE
+    reference:
+      doi: "10.48550/arXiv.2307.03109"
+      title: "A Survey on Evaluation of Large Language Models"
+      year: 2023
+      citation_count: 500
+      pdf_path: ""
+    conditions: [end_to_end]
+    ablation: false
+
+  - id: "arise_rag"
+    title: "Retrieval-augmented generation for large language models"
+    domain: cs_ai
+    tier: ARISE
+    reference:
+      doi: "10.48550/arXiv.2312.10997"
+      title: "Retrieval-Augmented Generation for Large Language Models: A Survey"
+      year: 2024
+      citation_count: 1500
+      pdf_path: ""
+    conditions: [end_to_end]
+    ablation: false
+
+  - id: "arise_multimodal_llm"
+    title: "Multimodal large language models"
+    domain: cs_ai
+    tier: ARISE
+    reference:
+      doi: "10.1093/nsr/nwae403"
+      title: "A Survey on Multimodal Large Language Models"
+      year: 2024
+      citation_count: 300
+      pdf_path: ""
+    conditions: [end_to_end]
+    ablation: false
+
+  - id: "arise_time_series"
+    title: "Time-series large language models"
+    domain: cs_ai
+    tier: ARISE
+    reference:
+      doi: "10.1109/ACCESS.2025.XXXXXXX"
+      title: "Time-Series Large Language Models: A Systematic Review"
+      year: 2025
+      citation_count: 30
+      pdf_path: ""
+    conditions: [end_to_end]
+    ablation: false
+
+  - id: "arise_genai_manufacturing"
+    title: "Generative machine learning in adaptive control of dynamic manufacturing"
+    domain: cs_ai
+    tier: ARISE
+    reference:
+      doi: "10.48550/arXiv.2505.00210"
+      title: "Generative Machine Learning in Adaptive Control of Dynamic Manufacturing Processes: A Review"
+      year: 2025
+      citation_count: 20
+      pdf_path: ""
+    conditions: [end_to_end]
+    ablation: false
+
+  - id: "arise_fractal_squares"
+    title: "Topology of fractal squares"
+    domain: cs_ai
+    tier: ARISE
+    reference:
+      doi: "10.48550/arXiv.2505.00309"
+      title: "A Survey on the Topology of Fractal Squares"
+      year: 2025
+      citation_count: 10
+      pdf_path: ""
+    conditions: [end_to_end]
+    ablation: false
+
+  - id: "arise_human_agent"
+    title: "Humanizing LLMs psychological measurements tools datasets and applications"
+    domain: cs_ai
+    tier: ARISE
+    reference:
+      doi: "10.48550/arXiv.2505.00049"
+      title: "Humanizing LLMs: A Survey of Psychological Measurements with Tools, Datasets, and Human-Agent Applications"
+      year: 2025
+      citation_count: 20
+      pdf_path: ""
+    conditions: [end_to_end]
+    ablation: false
+
+  - id: "arise_disease_detection"
+    title: "Parkinson's disease detection across diverse data modalities"
+    domain: biomedical
+    tier: ARISE
+    reference:
+      doi: "10.48550/arXiv.2505.00525"
+      title: "A Methodological and Structural Review of Parkinson's Disease Detection Across Diverse Data Modalities"
+      year: 2025
+      citation_count: 10
+      pdf_path: ""
+    conditions: [end_to_end]
+    ablation: false
+
+  - id: "arise_genai_mobile"
+    title: "Generative AI in mobile networks"
+    domain: cs_ai
+    tier: ARISE
+    reference:
+      doi: "10.1016/j.anntele.2024.XXXXXX"
+      title: "Generative AI in Mobile Networks: A Survey"
+      year: 2024
+      citation_count: 50
+      pdf_path: ""
+    conditions: [end_to_end]
+    ablation: false

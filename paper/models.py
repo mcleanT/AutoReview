@@ -45,7 +45,7 @@ class TopicEntry(AutoReviewModel):
     id: str
     title: str
     domain: str
-    tier: Literal["A", "B"]
+    tier: Literal["A", "B", "ARISE"]
     reference: ReferenceInfo
     conditions: list[str]
     date_range: str | None = None
@@ -192,6 +192,12 @@ def expand_run_matrix(
             result.append(key)
 
     for topic in topics:
+        # ARISE benchmark topics: Sonnet only, medium, end_to_end — no depth/ablation/multi-model
+        if topic.tier == "ARISE":
+            if SONNET_MODEL in models:
+                _add((topic.id, SONNET_MODEL, "medium", "end_to_end"))
+            continue
+
         for model in models:
             for condition in topic.conditions:
                 _add((topic.id, model, "medium", condition))

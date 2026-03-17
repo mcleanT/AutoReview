@@ -442,6 +442,7 @@ async def _run_analyses(
         8: ("cost_analysis", None),
         9: ("contamination_analysis", None),
         10: ("depth_comparison", None),
+        11: ("arise_comparison", None),
     }
 
     to_run = which or list(analysis_map.keys())
