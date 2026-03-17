@@ -99,7 +99,7 @@ All inter-stage communication uses Pydantic v2 models. These are the foundation 
 ### 6. Outline Generation + Critique
 **Input**: EvidenceMap + scope document
 **Output**: Validated hierarchical outline
-**Logic**: LLM generates a section outline from the evidence map. A separate critique step evaluates completeness, logical ordering, and granularity. Up to 2 revision cycles.
+**Logic**: LLM generates a section outline from the evidence map with depth-appropriate section descriptions. The `EvidenceWeightedAllocator` then distributes word budgets based on evidence density. A separate critique step evaluates completeness, logical ordering, and granularity. Up to 2 revision cycles.
 
 ### 7. Gap-Aware Supplementary Search (Conditional)
 **Input**: IdentifiedGaps from evidence map
@@ -109,7 +109,7 @@ All inter-stage communication uses Pydantic v2 models. These are the foundation 
 ### 8. Section Writing
 **Input**: Outline + relevant extractions per section + full outline context
 **Output**: Draft sections
-**Logic**: Each section written with: its assigned findings, the full outline (for cross-section awareness), and explicit synthesis directives. The writer is instructed to synthesize, not summarize — to trace patterns, weigh contradictions, and build narrative.
+**Logic**: Each section written with: its assigned findings, the full outline (for cross-section awareness), explicit synthesis directives, and depth-specific instructions (word count target + guidance ranging from "critical findings only" to "exhaustive evidence chains"). The writer is instructed to synthesize, not summarize — to trace patterns, weigh contradictions, and build narrative.
 
 ### 9. Per-Section Critique + Revision
 **Input**: Each draft section
@@ -219,6 +219,7 @@ critique:
 writing:
   style: academic_biomedical
   citation_format: vancouver
+  depth: medium  # low | medium | deep
 outline:
   required_sections:
     - Introduction
@@ -229,6 +230,45 @@ outline:
 ```
 
 Default domain configs ship for: `biomedical`, `cs_ai`, `chemistry`. Additional domains are added by creating a new YAML file.
+
+---
+
+## Review Depth
+
+The pipeline supports three depth levels that control review granularity without changing the outline structure.
+
+### Configuration (`config/depth.py`)
+
+- **`DepthLevel`** enum: `low`, `medium`, `deep` — stored on `WritingConfig.depth`
+- **`DepthProfile`** frozen dataclass: deterministic parameter set per depth level (word budget, key insights range, section dampening, max_tokens override)
+- **`EvidenceWeightedAllocator`**: distributes the total word budget across sections proportionally by evidence density
+
+### Evidence Density Formula
+
+```
+density(section) = papers_assigned + unique_findings + overlapping_evidence_chains
+```
+
+Sections with zero evidence receive a fixed allocation of `base_word_multiplier × 500` words.
+
+### Injection Points
+
+Depth flows into the pipeline at three reinforcing points:
+
+1. **Outline generation** — depth-specific guidance in section descriptions (concise vs. exhaustive)
+2. **Narrative planning** — key insights range bounded by depth profile (2-3 / 3-5 / 7-10)
+3. **Section writing** — explicit word count targets + depth-specific prose instructions
+
+The `EvidenceWeightedAllocator` runs as a post-processing step inside the outline node (no new DAG node). The critique system remains depth-unaware.
+
+### Depth Profiles
+
+| Parameter | Low | Medium | Deep |
+|-----------|-----|--------|------|
+| Word budget | ~4,000 | ~8,000 | ~25,000 |
+| Key insights | 2-3 | 3-5 | 7-10 |
+| Section min words | 200 | 400 | 600 |
+| max_tokens override | default | default | 16384 |
 
 ---
 

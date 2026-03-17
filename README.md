@@ -10,6 +10,7 @@ Fully autonomous pipeline for generating publication-ready scientific review pap
 - **Evidence synthesis** — thematic clustering, contradiction detection, consensus identification, gap analysis
 - **Three-level self-critique** — outline, per-section, and holistic review with configurable rubrics
 - **Domain-agnostic** — ships with biomedical, CS/AI, and chemistry presets; add new domains via YAML
+- **Review depth control** — three depth levels (low/medium/deep) with evidence-weighted word allocation for concise summaries to exhaustive reviews
 - **Crash recovery** — pipeline state saved after every stage; resume from any snapshot
 
 ## Architecture
@@ -69,6 +70,7 @@ Run the full pipeline to generate a review paper.
 ```bash
 autoreview run "your research topic" \
   --domain biomedical \
+  --depth deep \
   --format markdown \
   --output-dir output/ \
   --model claude-sonnet-4-20250514 \
@@ -85,6 +87,8 @@ autoreview run "your research topic" \
 | `--provider`, `-p` | LLM provider (`claude`, `ollama`) | auto-detect |
 | `--fresh` | Clear previous outputs before running | `false` |
 | `--verbose`, `-v` | Enable verbose logging | `false` |
+| `--date-range` | Year range filter (e.g., `2015-2020`, `-2019`, `2020-`) | config default |
+| `--depth` | Review depth: `low`, `medium`, or `deep` | `medium` |
 
 ### `autoreview resume`
 
@@ -132,6 +136,29 @@ Each preset configures:
 - Required outline sections
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for details on adding new domains.
+
+## Review Depth
+
+Control the granularity and length of generated reviews with `--depth`:
+
+| Level | Behavior | Approximate Length |
+|-------|----------|-------------------|
+| `low` | Critical findings only. Distilled, high-impact. | ~4,000 words |
+| `medium` | Standard academic review depth. Major findings with supporting context. | ~8,000 words |
+| `deep` | Exhaustive. Evidence chains, contradictions, methodological comparisons. | ~25,000+ words |
+
+Word budgets are distributed across sections proportionally based on evidence density — sections with more papers, findings, and evidence chains get proportionally more words. Introduction, Conclusion, and Methods sections are automatically dampened relative to body sections.
+
+```bash
+# Concise highlights review
+autoreview run "CRISPR delivery mechanisms" --depth low
+
+# Standard review (default)
+autoreview run "CRISPR delivery mechanisms"
+
+# Book-chapter depth
+autoreview run "CRISPR delivery mechanisms" --depth deep
+```
 
 ## MCP Server
 

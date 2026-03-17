@@ -24,6 +24,13 @@ Fully autonomous pipeline for generating publication-ready scientific review pap
 - Graceful degradation: if a search source fails, continue with remaining sources
 - Pipeline state snapshots enable restart from last successful node
 
+### Review Depth
+- Three depth levels: `low` (~4K words), `medium` (~8K, default), `deep` (~25K+)
+- Depth config lives in `config/depth.py` — `DepthProfile`, `EvidenceWeightedAllocator`, `classify_section_type`
+- Depth flows through: outline prompt → narrative prompt → section writing prompt
+- `EvidenceWeightedAllocator` runs inside the outline node (no separate DAG node)
+- Critique system is depth-unaware — same rubric regardless of depth
+
 ---
 
 ## Living Repository Protocol
