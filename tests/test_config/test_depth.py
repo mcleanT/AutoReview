@@ -1,3 +1,4 @@
+from autoreview.config.depth import DepthProfile, get_depth_profile
 from autoreview.config.models import DepthLevel, WritingConfig
 
 
@@ -24,3 +25,51 @@ def test_writing_config_depth_serialization():
     assert dumped["depth"] == "low"
     restored = WritingConfig.model_validate(dumped)
     assert restored.depth == DepthLevel.LOW
+
+
+def test_get_depth_profile_returns_profile():
+    profile = get_depth_profile(DepthLevel.LOW)
+    assert isinstance(profile, DepthProfile)
+
+
+def test_low_profile_values():
+    p = get_depth_profile(DepthLevel.LOW)
+    assert p.base_word_multiplier == 0.6
+    assert p.key_insights_range == (2, 3)
+    assert p.evidence_chain_detail == "critical_only"
+    assert p.total_word_budget == 4000
+    assert p.min_section_words == 200
+    assert p.max_tokens_override is None
+
+
+def test_medium_profile_values():
+    p = get_depth_profile(DepthLevel.MEDIUM)
+    assert p.base_word_multiplier == 1.0
+    assert p.key_insights_range == (3, 5)
+    assert p.evidence_chain_detail == "standard"
+    assert p.total_word_budget == 8000
+    assert p.min_section_words == 400
+    assert p.max_tokens_override is None
+
+
+def test_deep_profile_values():
+    p = get_depth_profile(DepthLevel.DEEP)
+    assert p.base_word_multiplier == 2.5
+    assert p.key_insights_range == (7, 10)
+    assert p.evidence_chain_detail == "exhaustive"
+    assert p.total_word_budget == 25000
+    assert p.min_section_words == 600
+    assert p.max_tokens_override == 16384
+
+
+def test_deep_profile_has_higher_dampening_than_low():
+    low = get_depth_profile(DepthLevel.LOW)
+    deep = get_depth_profile(DepthLevel.DEEP)
+    assert deep.section_type_dampening["introduction"] > low.section_type_dampening["introduction"]
+    assert deep.section_type_dampening["conclusion"] > low.section_type_dampening["conclusion"]
+
+
+def test_all_profiles_have_body_dampening_of_one():
+    for level in DepthLevel:
+        p = get_depth_profile(level)
+        assert p.section_type_dampening["body"] == 1.0
