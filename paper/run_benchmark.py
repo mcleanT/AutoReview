@@ -139,7 +139,7 @@ def generate_matrix(
     """Show the full run matrix with dedup and cost estimate."""
     config = load_topics(topics_path)
     model_list = [m.strip() for m in models.split(",")]
-    matrix = expand_run_matrix(config.topics, model_list)
+    matrix = expand_run_matrix(config.topics, model_list, include_depth=True)
     registry = RunRegistry.load(results_dir / "run_registry.json")
 
     typer.echo(_format_matrix_summary(matrix, registry))
@@ -161,7 +161,7 @@ def run(
     _setup_logging(verbose)
     config = load_topics(topics_path)
     model_list = [m.strip() for m in models.split(",")]
-    matrix = expand_run_matrix(config.topics, model_list)
+    matrix = expand_run_matrix(config.topics, model_list, include_depth=True)
     registry = RunRegistry.load(results_dir / "run_registry.json")
 
     topic_lookup = {t.id: t for t in config.topics}
@@ -518,13 +518,25 @@ def full(
         results_dir=results_dir,
         models=models,
         max_concurrent=max_concurrent,
+        batch_filter=None,
+        dry_run=False,
         verbose=verbose,
     )
     typer.echo("\n=== Phase 2: Evaluations ===")
-    evaluate(topics_path=topics_path, results_dir=results_dir, max_concurrent=5, verbose=verbose)
+    evaluate(
+        topics_path=topics_path,
+        results_dir=results_dir,
+        max_concurrent=5,
+        judge_model="claude-sonnet-4-6",
+        verbose=verbose,
+    )
     typer.echo("\n=== Phase 3: Analyses ===")
     analyze(
-        topics_path=topics_path, results_dir=results_dir, output_dir=output_dir, verbose=verbose
+        topics_path=topics_path,
+        results_dir=results_dir,
+        output_dir=output_dir,
+        analyses=None,
+        verbose=verbose,
     )
 
 

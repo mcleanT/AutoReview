@@ -116,20 +116,17 @@ async def main(results_dir: Path, output_dir: Path, df: pd.DataFrame) -> None:
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Analysis 8: Cost-quality tradeoff")
     parser.add_argument("--results-dir", type=Path, required=True)
-    parser.add_argument(
-        "--output-dir", type=Path, default=Path("paper/output/cost_analysis")
-    )
+    parser.add_argument("--output-dir", type=Path, default=Path("paper/output/cost_analysis"))
     return parser.parse_args(argv)
 
 
 if __name__ == "__main__":
     import asyncio
 
-    _args = parse_args()
-    # When run standalone, load evaluations via common utility
     from paper.analysis.common import load_all_evaluations
-    from paper.models import TopicsConfig
+    from paper.models import load_topics
 
-    _topics = TopicsConfig.load(_args.results_dir / "../topics.yaml")
+    _args = parse_args()
+    _topics = load_topics(Path("paper/topics.yaml"))
     _df = load_all_evaluations(_args.results_dir, _topics)
     asyncio.run(main(_args.results_dir, _args.output_dir, _df))

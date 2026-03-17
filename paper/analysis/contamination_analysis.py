@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+from typing import Any
 
 import matplotlib
 
@@ -71,95 +72,73 @@ def compute_all_overlaps(
     df: pd.DataFrame,
     ns: list[int] | None = None,
 ) -> pd.DataFrame:
-    """Compute n-gram overlaps for all runs in df that have review_path set.
+    """Compute n-gram overlaps between generated reviews and reference PDFs.
 
-    For each row, reads the generated review markdown and attempts to load
-    the reference text via extract_text_from_pdf(). Missing files are skipped
-    with a warning.
+    Looks up review paths from the run registry and reference PDF paths from
+    topics.yaml (via the topic_id column in df). Deduplicates by topic to
+    avoid computing overlaps for every model/depth variant of the same topic.
 
     Args:
-        results_dir: Base directory for resolving relative paths.
-        df: DataFrame with at minimum columns: topic_id, tier, review_path (optional).
+        results_dir: Results directory containing run_registry.json.
+        df: DataFrame with at minimum columns: topic_id, tier.
         ns: List of n values to compute. Defaults to [1, 2, 3, 4, 5].
 
     Returns:
         DataFrame with columns: topic_id, tier, n, overlap.
     """
+    from paper.models import RunRegistry, load_topics, parse_run_key
+
     if ns is None:
         ns = [1, 2, 3, 4, 5]
 
-    rows: list[dict] = []
+    # Load registry for review paths
+    registry = RunRegistry.load(results_dir / "run_registry.json")
 
-    for _, run in df.iterrows():
-        topic_id = run.get("topic_id", "unknown")
-        tier = run.get("tier", "unknown")
+    # Load topics for reference PDF paths
+    topics_path = results_dir.parent / "topics.yaml"
+    if not topics_path.exists():
+        topics_path = Path("paper/topics.yaml")
+    topic_lookup: dict[str, Any] = {}
+    if topics_path.exists():
+        topics_config = load_topics(topics_path)
+        topic_lookup = {t.id: t for t in topics_config.topics}
 
-        # Load generated review text
-        review_path = run.get("review_path") or run.get("generated_path")
-        if not review_path:
-            logger.warning(
-                "contamination.no_review_path",
-                topic_id=topic_id,
-            )
+    # Build a map: topic_id -> (review_path, reference_pdf_path, tier)
+    # Use the first completed Sonnet/medium/end_to_end run per topic
+    topic_paths: dict[str, tuple[Path, Path, str]] = {}
+    for key, entry in registry.runs.items():
+        if entry.status != "completed" or not entry.review_path:
+            continue
+        topic_id, _model, _depth, condition = parse_run_key(key)
+        if topic_id in topic_paths or condition != "end_to_end":
             continue
 
-        review_file = Path(review_path)
-        if not review_file.is_absolute():
-            review_file = results_dir / review_file
-
-        if not review_file.exists():
-            logger.warning(
-                "contamination.missing_review_file",
-                topic_id=topic_id,
-                path=str(review_file),
-            )
+        topic_info = topic_lookup.get(topic_id)
+        if not topic_info:
             continue
 
+        review_file = Path(entry.review_path)
+        ref_file = Path(topic_info.reference.pdf_path)
+
+        if review_file.exists() and ref_file.exists():
+            tier = topic_info.tier
+            topic_paths[topic_id] = (review_file, ref_file, tier)
+
+    rows: list[dict[str, Any]] = []
+    for topic_id, (review_file, ref_file, tier) in topic_paths.items():
         generated_text = review_file.read_text(encoding="utf-8", errors="replace")
-
-        # Load reference text from PDF
-        reference_pdf = run.get("reference_path") or run.get("reference_pdf_path")
-        if not reference_pdf:
-            logger.warning(
-                "contamination.no_reference_path",
-                topic_id=topic_id,
-            )
-            continue
-
-        ref_file = Path(reference_pdf)
-        if not ref_file.is_absolute():
-            ref_file = results_dir / ref_file
-
-        if not ref_file.exists():
-            logger.warning(
-                "contamination.missing_reference_file",
-                topic_id=topic_id,
-                path=str(ref_file),
-            )
-            continue
 
         try:
             from autoreview.evaluation.pdf_extractor import extract_text_from_pdf
 
             reference_text = extract_text_from_pdf(ref_file)
         except Exception as exc:
-            logger.warning(
-                "contamination.pdf_extract_failed",
-                topic_id=topic_id,
-                error=str(exc),
-            )
+            logger.warning("contamination.pdf_extract_failed", topic_id=topic_id, error=str(exc))
             continue
 
         for n_val in ns:
             overlap = compute_ngram_overlap(generated_text, reference_text, n=n_val)
-            rows.append(
-                {
-                    "topic_id": topic_id,
-                    "tier": tier,
-                    "n": n_val,
-                    "overlap": overlap,
-                }
-            )
+            rows.append({"topic_id": topic_id, "tier": tier, "n": n_val, "overlap": overlap})
 
     return pd.DataFrame(rows)
 
@@ -278,10 +257,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 if __name__ == "__main__":
     import asyncio
 
-    _args = parse_args()
     from paper.analysis.common import load_all_evaluations
-    from paper.models import TopicsConfig
+    from paper.models import load_topics
 
-    _topics = TopicsConfig.load(_args.results_dir / "../topics.yaml")
+    _args = parse_args()
+    _topics = load_topics(Path("paper/topics.yaml"))
     _df = load_all_evaluations(_args.results_dir, _topics)
     asyncio.run(main(_args.results_dir, _args.output_dir, _df))

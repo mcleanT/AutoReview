@@ -261,9 +261,9 @@ if __name__ == "__main__":
     import asyncio
 
     from paper.analysis.common import load_all_evaluations
-    from paper.models import TopicsConfig
+    from paper.models import load_topics
 
     _args = parse_args()
-    _topics = TopicsConfig.load(_args.results_dir.parent / "paper/topics.yaml")
+    _topics = load_topics(Path("paper/topics.yaml"))
     _df = load_all_evaluations(_args.results_dir, _topics)
     asyncio.run(main(_args.results_dir, _args.output_dir, _df))
