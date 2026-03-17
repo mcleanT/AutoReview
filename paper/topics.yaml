@@ -1,29 +1,169 @@
 # paper/topics.yaml
 # Benchmark evaluation topics for the AutoReview paper.
-# Populate with full set from benchmark_candidates.md before running.
+# 21 papers: 7 Tier A (landmark, 2015-2019) + 14 Tier B (contemporary, 2023-2024)
+# Source: Paper Idea/benchmark_candidates.md (curated 2026-03-13)
 
 metadata:
   created: "2026-03-17"
   description: "Benchmark evaluation topics for AutoReview paper"
+  n_tier_a: 7
+  n_tier_b: 14
 
 topics:
-  # --- Tier A: Landmark Reviews (500+ citations, 2015-2019) ---
-  - id: "microglia_homeostasis"
-    title: "Microglia homeostasis, neuroinflammation, and neurodegeneration"
+  # ==========================================================================
+  # TIER A: Landmark Reviews (500+ citations, 2015-2019)
+  # Time-gated comparison + retrieval-controlled condition
+  # ==========================================================================
+
+  # --- Biomedical ---
+  - id: "microglia_cns"
+    title: "Microglia function in the central nervous system during health and neurodegeneration"
     domain: biomedical
     tier: A
     reference:
-      doi: "10.1016/j.immuni.2017.08.008"
-      title: "Microglia in Neurodegeneration"
+      doi: "10.1146/annurev-immunol-051116-052358"
+      title: "Microglia Function in the Central Nervous System During Health and Neurodegeneration"
       year: 2017
-      citation_count: 2800
+      citation_count: 1500
       pdf_path: "paper/references/colonna_2017.pdf"
     conditions: [end_to_end, retrieval_controlled]
     date_range: "-2017"
     ablation: true
 
-  # --- Tier B: Contemporary Reviews (50-200 citations, 2023-2024) ---
-  - id: "rag_architectures"
+  - id: "cancer_immunoediting"
+    title: "Cancer immunoediting and resistance to T cell-based immunotherapy"
+    domain: biomedical
+    tier: A
+    reference:
+      doi: "10.1038/s41571-019-0210-z"
+      title: "Cancer Immunoediting and Resistance to T Cell-Based Immunotherapy"
+      year: 2019
+      citation_count: 1200
+      pdf_path: "paper/references/odonnell_2019.pdf"
+    conditions: [end_to_end, retrieval_controlled]
+    date_range: "-2019"
+    ablation: true
+
+  # --- CS/AI ---
+  - id: "deep_learning_medical_imaging"
+    title: "Deep learning in medical image analysis"
+    domain: cs_ai
+    tier: A
+    reference:
+      doi: "10.1016/j.media.2017.07.005"
+      title: "A Survey on Deep Learning in Medical Image Analysis"
+      year: 2017
+      citation_count: 14000
+      pdf_path: "paper/references/litjens_2017.pdf"
+    conditions: [end_to_end, retrieval_controlled]
+    date_range: "-2017"
+    ablation: true
+
+  - id: "federated_learning"
+    title: "Federated machine learning concepts and applications"
+    domain: cs_ai
+    tier: A
+    reference:
+      doi: "10.1145/3298981"
+      title: "Federated Machine Learning: Concept and Applications"
+      year: 2019
+      citation_count: 6000
+      pdf_path: "paper/references/yang_2019.pdf"
+    conditions: [end_to_end, retrieval_controlled]
+    date_range: "-2019"
+    ablation: true
+
+  # --- Materials Science ---
+  - id: "perovskite_photovoltaics"
+    title: "Halide perovskite photovoltaics background status and future prospects"
+    domain: materials
+    tier: A
+    reference:
+      doi: "10.1021/acs.chemrev.8b00539"
+      title: "Halide Perovskite Photovoltaics: Background, Status, and Future Prospects"
+      year: 2019
+      citation_count: 4000
+      pdf_path: "paper/references/jena_2019.pdf"
+    conditions: [end_to_end, retrieval_controlled]
+    date_range: "-2019"
+    ablation: true
+
+  - id: "solid_state_ion_conductors"
+    title: "Inorganic solid state ion conductors for solid-state batteries"
+    domain: materials
+    tier: A
+    reference:
+      doi: "10.1039/C7EE03364H"
+      title: "New Horizons for Inorganic Solid State Ion Conductors"
+      year: 2018
+      citation_count: 1500
+      pdf_path: "paper/references/zhang_2018.pdf"
+    conditions: [end_to_end, retrieval_controlled]
+    date_range: "-2018"
+    ablation: false
+
+  # --- Social Science ---
+  - id: "social_media_adolescent_mental_health"
+    title: "Influence of social media on depression anxiety and psychological distress in adolescents"
+    domain: social_science
+    tier: A
+    reference:
+      doi: "10.1016/j.adolescence.2019.10.011"
+      title: "A Systematic Review: The Influence of Social Media on Depression, Anxiety and Psychological Distress in Adolescents"
+      year: 2019
+      citation_count: 800
+      pdf_path: "paper/references/keles_2019.pdf"
+    conditions: [end_to_end, retrieval_controlled]
+    date_range: "-2019"
+    ablation: true
+
+  # ==========================================================================
+  # TIER B: Contemporary Reviews (50-200+ citations, 2023-2024)
+  # End-to-end evaluation on active frontiers, no time-gating
+  # ==========================================================================
+
+  # --- Biomedical ---
+  - id: "long_covid_mechanisms"
+    title: "Mechanisms of long COVID and the path toward therapeutics"
+    domain: biomedical
+    tier: B
+    reference:
+      doi: "10.1016/j.cell.2023.11.024"
+      title: "Mechanisms of Long COVID and the Path Toward Therapeutics"
+      year: 2024
+      citation_count: 200
+      pdf_path: "paper/references/peluso_2024.pdf"
+    conditions: [end_to_end]
+    ablation: false
+
+  - id: "glp1_cardiovascular"
+    title: "GLP-1 receptor agonists cardiovascular benefits and mechanisms of action"
+    domain: biomedical
+    tier: B
+    reference:
+      doi: "10.1038/s41569-023-00849-3"
+      title: "GLP-1 Receptor Agonists: Cardiovascular Benefits and Mechanisms of Action"
+      year: 2023
+      citation_count: 150
+      pdf_path: "paper/references/ussher_2023.pdf"
+    conditions: [end_to_end]
+    ablation: false
+
+  - id: "gut_brain_neurodegeneration"
+    title: "Microbiota-gut-brain axis and its therapeutic applications in neurodegenerative diseases"
+    domain: biomedical
+    tier: B
+    reference:
+      doi: "10.1038/s41392-024-01743-1"
+      title: "Microbiota-Gut-Brain Axis and Its Therapeutic Applications in Neurodegenerative Diseases"
+      year: 2024
+      citation_count: 120
+      pdf_path: "paper/references/loh_2024.pdf"
+    conditions: [end_to_end]
+    ablation: false
+
+  # --- CS/AI ---
+  - id: "rag_llm_survey"
     title: "Retrieval-augmented generation for large language models"
     domain: cs_ai
     tier: B
@@ -31,7 +171,139 @@ topics:
       doi: "10.48550/arXiv.2312.10997"
       title: "Retrieval-Augmented Generation for Large Language Models: A Survey"
       year: 2023
-      citation_count: 180
+      citation_count: 1500
       pdf_path: "paper/references/gao_2023.pdf"
+    conditions: [end_to_end]
+    ablation: true
+
+  - id: "llm_hallucination"
+    title: "Hallucination in large language models taxonomy and mitigation"
+    domain: cs_ai
+    tier: B
+    reference:
+      doi: "10.1162/coli_a_00502"
+      title: "Siren's Song in the AI Ocean: A Survey on Hallucination in Large Language Models"
+      year: 2023
+      citation_count: 500
+      pdf_path: "paper/references/zhang_2023_hallucination.pdf"
+    conditions: [end_to_end]
+    ablation: true
+
+  - id: "diffusion_models_survey"
+    title: "Text-to-image diffusion models in generative AI"
+    domain: cs_ai
+    tier: B
+    reference:
+      doi: "10.48550/arXiv.2303.07909"
+      title: "Text-to-Image Diffusion Models in Generative AI: A Survey"
+      year: 2023
+      citation_count: 200
+      pdf_path: "paper/references/zhang_2023_diffusion.pdf"
+    conditions: [end_to_end]
+    ablation: false
+
+  - id: "prompting_methods_nlp"
+    title: "Pre-train prompt and predict prompting methods in natural language processing"
+    domain: cs_ai
+    tier: B
+    reference:
+      doi: "10.1145/3560815"
+      title: "Pre-train, Prompt, and Predict: A Systematic Survey of Prompting Methods in NLP"
+      year: 2023
+      citation_count: 3000
+      pdf_path: "paper/references/liu_2023.pdf"
+    conditions: [end_to_end]
+    ablation: false
+
+  # --- Materials Science ---
+  - id: "perovskite_stability"
+    title: "Chemical stability of lead halide perovskite solar cells"
+    domain: materials
+    tier: B
+    reference:
+      doi: "10.1007/s40820-023-01046-0"
+      title: "Chemical Stability of Lead Halide Perovskite Solar Cells"
+      year: 2023
+      citation_count: 100
+      pdf_path: "paper/references/zhuang_2023.pdf"
+    conditions: [end_to_end]
+    ablation: false
+
+  - id: "biodegradable_polymers"
+    title: "Biodegradable polymers in biomedical applications"
+    domain: materials
+    tier: B
+    reference:
+      doi: "10.3390/ijms24087473"
+      title: "Biodegradable Polymers in Biomedical Applications: A Review"
+      year: 2023
+      citation_count: 100
+      pdf_path: "paper/references/kurowiak_2023.pdf"
+    conditions: [end_to_end]
+    ablation: false
+
+  - id: "mofs_heavy_metal_removal"
+    title: "Metal-organic frameworks for heavy metal removal from water"
+    domain: materials
+    tier: B
+    reference:
+      doi: "10.1016/j.cej.2022.139535"
+      title: "MOFs for Heavy Metal Removal: Synthesis, Applications and Mechanism"
+      year: 2023
+      citation_count: 120
+      pdf_path: "paper/references/lin_2023.pdf"
+    conditions: [end_to_end]
+    ablation: false
+
+  # --- Social Science ---
+  - id: "misinformation_psychology"
+    title: "Psychological drivers of misinformation belief and resistance to correction"
+    domain: social_science
+    tier: B
+    reference:
+      doi: "10.1038/s44159-021-00006-y"
+      title: "The Psychological Drivers of Misinformation Belief and Its Resistance to Correction"
+      year: 2022
+      citation_count: 400
+      pdf_path: "paper/references/ecker_2022.pdf"
+    conditions: [end_to_end]
+    ablation: false
+
+  - id: "covid_mental_health_europe"
+    title: "Mental health in Europe during the COVID-19 pandemic"
+    domain: social_science
+    tier: B
+    reference:
+      doi: "10.1016/S2215-0366(23)00113-X"
+      title: "Mental Health in Europe During the COVID-19 Pandemic: A Systematic Review"
+      year: 2023
+      citation_count: 200
+      pdf_path: "paper/references/ahmed_2023.pdf"
+    conditions: [end_to_end]
+    ablation: true
+
+  - id: "vaccine_hesitancy_umbrella"
+    title: "COVID-19 vaccine hesitancy umbrella review of systematic reviews"
+    domain: social_science
+    tier: B
+    reference:
+      doi: "10.2196/48837"
+      title: "COVID-19 Vaccine Hesitancy: Umbrella Review of Systematic Reviews and Meta-Analysis"
+      year: 2024
+      citation_count: 100
+      pdf_path: "paper/references/alrahbeni_2024.pdf"
+    conditions: [end_to_end]
+    ablation: false
+
+  - id: "fake_news_detection"
+    title: "Fake news disinformation and misinformation detection in social media"
+    domain: social_science
+    tier: B
+    reference:
+      doi: "10.1007/s13278-023-01028-5"
+      title: "Fake News, Disinformation and Misinformation in Social Media: A Review"
+      year: 2023
+      citation_count: 150
+      pdf_path: "paper/references/aimeur_2023.pdf"
     conditions: [end_to_end]
     ablation: false
