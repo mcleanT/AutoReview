@@ -43,3 +43,4 @@ htmlcov/
 
 # UV
 .python-version
+.Rhistory
