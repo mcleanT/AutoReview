@@ -133,6 +133,7 @@ class WritingConfig(BaseModel):
     writing_temperature: float = 0.3
     analysis_temperature: float = 0.0
     depth: DepthLevel = DepthLevel.MEDIUM
+    evidence_chains: bool = True
 
 
 class OutlineConfig(BaseModel):

@@ -138,6 +138,7 @@ class DAGRunner:
         on_node_complete: Callable[[str, Any], Coroutine[Any, Any, None]] | None = None,
         on_node_error: Callable[[str, Exception], Coroutine[Any, Any, None]] | None = None,
         on_node_start: Callable[[str], Coroutine[Any, Any, None]] | None = None,
+        skip_nodes: set[str] | None = None,
     ) -> dict[str, Any]:
         """Execute the DAG.
 
@@ -149,6 +150,8 @@ class DAGRunner:
             on_node_complete: Optional async callback after each node completes.
             on_node_error: Optional async callback when a node fails.
             on_node_start: Optional async callback before each node starts.
+            skip_nodes: Optional set of node names to skip (bypass execution).
+                        Skipped nodes are not executed but their dependents still run.
 
         Returns:
             Dict mapping node names to their return values.
@@ -172,6 +175,10 @@ class DAGRunner:
                 nonlocal completed
                 node = self.nodes[name]
                 start_time = time.monotonic()
+
+                if name in (skip_nodes or set()):
+                    logger.warning("dag.node.skipped", node=name)
+                    return
 
                 if on_node_start:
                     await on_node_start(name)

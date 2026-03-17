@@ -128,6 +128,7 @@ async def run_pipeline(
     config: DomainConfig,
     kb: KnowledgeBase,
     start_from: str | None = None,
+    skip_nodes: set[str] | None = None,
 ) -> KnowledgeBase:
     """Execute the full pipeline.
 
@@ -136,6 +137,7 @@ async def run_pipeline(
         config: Domain configuration.
         kb: KnowledgeBase (initial or restored from snapshot).
         start_from: Optional node name to resume from.
+        skip_nodes: Optional set of node names to bypass execution.
 
     Returns:
         Updated KnowledgeBase with all results.
@@ -190,6 +192,7 @@ async def run_pipeline(
             on_node_complete=on_node_complete,
             on_node_error=on_node_error,
             on_node_start=on_node_start,
+            skip_nodes=skip_nodes,
         )
         kb.current_phase = PipelinePhase.COMPLETE
         kb.save_snapshot("complete")
