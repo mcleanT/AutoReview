@@ -2,8 +2,13 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from autoreview.analysis.evidence_map import EvidenceMap
 from autoreview.llm.prompts.outline import ReviewOutline
+
+if TYPE_CHECKING:
+    from autoreview.config.models import DepthLevel
 
 NARRATIVE_ARCHITECT_SYSTEM_PROMPT = """\
 You are a scientific editor planning the narrative architecture of a review paper.
@@ -25,13 +30,22 @@ def build_narrative_planning_prompt(
     outline: ReviewOutline,
     evidence_map: EvidenceMap,
     scope_document: str,
+    depth: DepthLevel | None = None,
 ) -> str:
     """Build the narrative planning prompt for the NarrativeArchitect."""
+    from autoreview.config.depth import get_depth_profile
+
+    if depth is not None:
+        lo, hi = get_depth_profile(depth).key_insights_range
+    else:
+        lo, hi = 3, 5
+    insights_range = f"{lo}\u2013{hi}"
+
     # Flatten outline to a readable list
     outline_lines = []
     for s in outline.flatten():
-        depth = s.id.count(".") + 1
-        indent = "  " * (depth - 1)
+        section_depth = s.id.count(".") + 1
+        indent = "  " * (section_depth - 1)
         outline_lines.append(f"{indent}{s.id}. {s.title}: {s.description}")
     outline_text = "\n".join(outline_lines)
 
@@ -100,7 +114,7 @@ each specifying:
    - **central_claim**: The thesis or claim the section should establish
    - **structural_suggestion**: Which evidence-appropriate structure to use \
 (comparative / problem-solution / chronological / argument-rebuttal / or other)
-   - **key_insights**: 3–5 analytical insights the evidence supports (not paper IDs)
+   - **key_insights**: {insights_range} analytical insights the evidence supports (not paper IDs)
    - **transition_from_prev**: A hint for how to open, connecting from the previous section
    - **transition_to_next**: A hint for how to close, setting up the next section
 
