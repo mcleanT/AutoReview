@@ -234,8 +234,9 @@ def run(
         k
         for k in matrix
         if not registry.is_completed(make_run_key(*k))
-        and registry.runs.get(make_run_key(*k), type("E", (), {"status": "pending"})()).status
-        != "permanently_failed"
+        and not (
+            (entry := registry.runs.get(make_run_key(*k))) and entry.status == "permanently_failed"
+        )
     ]
 
     # Apply batch filter if specified
@@ -396,7 +397,20 @@ async def _execute_runs(
     if corpus_runs:
         logger.info("benchmark.phase1.start", n_corpus=len(corpus_runs))
         await asyncio.gather(*[_run_single(k) for k in corpus_runs], return_exceptions=True)
-        logger.info("benchmark.phase1.complete")
+        # Log Phase 1 summary
+        corpus_completed = sum(1 for k in corpus_runs if registry.is_completed(make_run_key(*k)))
+        corpus_failed = len(corpus_runs) - corpus_completed
+        logger.info(
+            "benchmark.phase1.complete",
+            completed=corpus_completed,
+            failed=corpus_failed,
+        )
+        if corpus_failed:
+            logger.warning(
+                "benchmark.phase1.some_failed",
+                n_failed=corpus_failed,
+                msg="Some writing runs may fall back to full pipeline",
+            )
 
     if writing_runs:
         logger.info("benchmark.phase2.start", n_writing=len(writing_runs))

@@ -3,7 +3,9 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -15,7 +17,7 @@ from paper.models import (
     expand_run_matrix,
     make_run_key,
 )
-from paper.run_benchmark import _find_corpus_snapshot, _is_corpus_run
+from paper.run_benchmark import _execute_runs, _find_corpus_snapshot, _is_corpus_run
 
 
 @pytest.fixture()
@@ -208,3 +210,179 @@ class TestSharedCorpusCostEstimate:
         assert estimate_cost(corpus_only, shared_corpus=True) == estimate_cost(
             corpus_only, shared_corpus=False
         )
+
+
+class TestForkLogic:
+    """Integration tests for the shared-corpus fork path in _execute_runs."""
+
+    def _make_registry_with_corpus(self, tmp_path: Path, topic_id: str = "topic_a") -> RunRegistry:
+        """Create a registry with a completed Sonnet corpus run and snapshot files."""
+        registry = RunRegistry()
+        output_dir = str(tmp_path / topic_id / "claude-sonnet-4-6_medium_end_to_end")
+        registry.register_complete(
+            make_run_key(topic_id, "claude-sonnet-4-6", "medium", "end_to_end"),
+            output_dir=output_dir,
+            review_path=str(tmp_path / topic_id / "review.md"),
+        )
+        # Create snapshot files
+        snap_dir = Path(output_dir) / "snapshots"
+        snap_dir.mkdir(parents=True)
+        # Write minimal valid KB JSON for load_snapshot
+        minimal_kb = (
+            '{"topic": "Test Topic", "domain": "general", "output_dir": "' + output_dir + '"}'
+        )
+        (snap_dir / "20260317T120000_clustering.json").write_text(minimal_kb)
+        (snap_dir / "20260317T120100_gap_search.json").write_text(minimal_kb)
+        return registry
+
+    @patch("autoreview.pipeline.runner.run_pipeline", new_callable=AsyncMock)
+    @patch("autoreview.llm.factory.create_llm_provider")
+    @patch("autoreview.config.load_config")
+    @patch("autoreview.models.knowledge_base.KnowledgeBase.load_snapshot")
+    def test_opus_e2e_forks_from_corpus_snapshot(
+        self,
+        mock_load_snapshot: MagicMock,
+        mock_load_config: MagicMock,
+        mock_create_llm: MagicMock,
+        mock_run_pipeline: AsyncMock,
+        tmp_path: Path,
+    ) -> None:
+        """An Opus e2e run should fork from the Sonnet corpus gap_search snapshot."""
+
+        registry = self._make_registry_with_corpus(tmp_path)
+
+        # Mock config
+        mock_config = MagicMock()
+        mock_config.writing.depth = "medium"
+        mock_load_config.return_value = mock_config
+
+        # Mock load_snapshot to return a KB mock
+        output_dir = tmp_path / "topic_a" / "claude-opus-4-6_medium_end_to_end"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        (output_dir / "review.md").write_text("# Review")
+
+        mock_kb = MagicMock()
+        mock_kb.total_tokens.return_value = {"input_tokens": 100, "output_tokens": 50}
+        mock_kb.output_dir = str(output_dir)
+        mock_load_snapshot.return_value = mock_kb
+        mock_run_pipeline.return_value = mock_kb
+
+        topic_lookup = {
+            "topic_a": MagicMock(
+                id="topic_a",
+                title="Test Topic",
+                domain="general",
+                date_range=None,
+                reference=MagicMock(pdf_path="ref.pdf"),
+            ),
+        }
+
+        runs = [("topic_a", "claude-opus-4-6", "medium", "end_to_end")]
+
+        asyncio.run(_execute_runs(runs, topic_lookup, registry, tmp_path, max_concurrent=2))
+
+        # Verify run_pipeline was called with start_from="outline"
+        mock_run_pipeline.assert_called_once()
+        call_kwargs = mock_run_pipeline.call_args
+        assert call_kwargs.kwargs.get("start_from") == "outline" or (
+            len(call_kwargs.args) >= 4 and call_kwargs.args[3] == "outline"
+        )
+
+    @patch("autoreview.pipeline.runner.run_pipeline", new_callable=AsyncMock)
+    @patch("autoreview.llm.factory.create_llm_provider")
+    @patch("autoreview.config.load_config")
+    @patch("autoreview.models.knowledge_base.KnowledgeBase.load_snapshot")
+    def test_no_passage_mining_passes_skip_nodes(
+        self,
+        mock_load_snapshot: MagicMock,
+        mock_load_config: MagicMock,
+        mock_create_llm: MagicMock,
+        mock_run_pipeline: AsyncMock,
+        tmp_path: Path,
+    ) -> None:
+        """no_passage_mining fork should pass skip_nodes={'passage_search'}."""
+
+        registry = self._make_registry_with_corpus(tmp_path)
+
+        mock_config = MagicMock()
+        mock_config.writing.depth = "medium"
+        mock_load_config.return_value = mock_config
+
+        output_dir = tmp_path / "topic_a" / "claude-sonnet-4-6_medium_no_passage_mining"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        (output_dir / "review.md").write_text("# Review")
+
+        mock_kb = MagicMock()
+        mock_kb.total_tokens.return_value = {"input_tokens": 100, "output_tokens": 50}
+        mock_kb.output_dir = str(output_dir)
+        mock_load_snapshot.return_value = mock_kb
+        mock_run_pipeline.return_value = mock_kb
+
+        topic_lookup = {
+            "topic_a": MagicMock(
+                id="topic_a",
+                title="Test Topic",
+                domain="general",
+                date_range=None,
+                reference=MagicMock(pdf_path="ref.pdf"),
+            ),
+        }
+
+        runs = [("topic_a", "claude-sonnet-4-6", "medium", "no_passage_mining")]
+
+        asyncio.run(_execute_runs(runs, topic_lookup, registry, tmp_path, max_concurrent=2))
+
+        mock_run_pipeline.assert_called_once()
+        call_kwargs = mock_run_pipeline.call_args
+        # Check skip_nodes contains passage_search
+        skip_nodes = call_kwargs.kwargs.get("skip_nodes") or (
+            call_kwargs.args[4] if len(call_kwargs.args) > 4 else None
+        )
+        assert skip_nodes == {"passage_search"}
+
+    @patch("autoreview.pipeline.runner.run_pipeline", new_callable=AsyncMock)
+    @patch("autoreview.llm.factory.create_llm_provider")
+    @patch("autoreview.config.load_config")
+    def test_no_corpus_falls_back_to_full_pipeline(
+        self,
+        mock_load_config: MagicMock,
+        mock_create_llm: MagicMock,
+        mock_run_pipeline: AsyncMock,
+        tmp_path: Path,
+    ) -> None:
+        """When no corpus snapshot exists, should fall back to full pipeline."""
+
+        registry = RunRegistry()  # Empty — no corpus runs
+
+        mock_config = MagicMock()
+        mock_config.writing.depth = "medium"
+        mock_load_config.return_value = mock_config
+
+        output_dir = tmp_path / "topic_a" / "claude-opus-4-6_medium_end_to_end"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        (output_dir / "review.md").write_text("# Review")
+
+        mock_kb = MagicMock()
+        mock_kb.total_tokens.return_value = {"input_tokens": 100, "output_tokens": 50}
+        mock_kb.output_dir = str(output_dir)
+        mock_run_pipeline.return_value = mock_kb
+
+        topic_lookup = {
+            "topic_a": MagicMock(
+                id="topic_a",
+                title="Test Topic",
+                domain="general",
+                date_range=None,
+                reference=MagicMock(pdf_path="ref.pdf"),
+            ),
+        }
+
+        runs = [("topic_a", "claude-opus-4-6", "medium", "end_to_end")]
+
+        asyncio.run(_execute_runs(runs, topic_lookup, registry, tmp_path, max_concurrent=2))
+
+        # Should NOT have start_from="outline" — full pipeline
+        mock_run_pipeline.assert_called_once()
+        call_kwargs = mock_run_pipeline.call_args
+        start_from = call_kwargs.kwargs.get("start_from")
+        assert start_from is None  # Full pipeline, no start_from
