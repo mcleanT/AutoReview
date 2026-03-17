@@ -1,10 +1,15 @@
+from unittest.mock import MagicMock
+
+from autoreview.analysis.evidence_map import EvidenceMap
 from autoreview.config.depth import (
     DepthProfile,
+    EvidenceWeightedAllocator,
     classify_section_type,
     get_depth_instructions,
     get_depth_profile,
 )
 from autoreview.config.models import DepthLevel, WritingConfig
+from autoreview.llm.prompts.outline import OutlineSection, ReviewOutline
 
 
 def test_depth_level_values():
@@ -120,3 +125,132 @@ def test_classify_body_default():
     assert classify_section_type("Deep Learning Architectures") == "body"
     assert classify_section_type("Results and Discussion") == "body"
     assert classify_section_type("Future Directions") == "body"
+
+
+# ---------------------------------------------------------------------------
+# EvidenceWeightedAllocator tests
+# ---------------------------------------------------------------------------
+
+
+def _make_outline(sections: list[dict]) -> ReviewOutline:
+    outline_sections = []
+    for s in sections:
+        outline_sections.append(
+            OutlineSection(
+                id=s["id"],
+                title=s["title"],
+                description=s.get("description", "Test section"),
+                paper_ids=s.get("paper_ids", []),
+                theme_refs=s.get("theme_refs", []),
+            )
+        )
+    return ReviewOutline(title="Test Review", sections=outline_sections)
+
+
+def _make_evidence_map(chains: list[dict] | None = None) -> EvidenceMap:
+    em = EvidenceMap(themes=[], consensus_claims=[], contradictions=[], gaps=[])
+    em.evidence_chains = chains or []
+    return em
+
+
+def _make_extractions(paper_findings: dict[str, int]) -> dict:
+    extractions = {}
+    for pid, n_findings in paper_findings.items():
+        mock = MagicMock()
+        mock.key_findings = [f"finding_{i}" for i in range(n_findings)]
+        extractions[pid] = mock
+    return extractions
+
+
+def test_allocator_basic_proportional():
+    outline = _make_outline(
+        [
+            {"id": "s1", "title": "Topic A", "paper_ids": ["p1"]},
+            {"id": "s2", "title": "Topic B", "paper_ids": ["p1", "p2", "p3"]},
+        ]
+    )
+    extractions = _make_extractions({"p1": 2, "p2": 3, "p3": 1})
+    evidence_map = _make_evidence_map()
+    profile = get_depth_profile(DepthLevel.MEDIUM)
+    allocator = EvidenceWeightedAllocator(profile)
+    allocator.allocate(outline, evidence_map, extractions)
+    assert outline.sections[1].estimated_word_count > outline.sections[0].estimated_word_count
+
+
+def test_allocator_respects_floor():
+    outline = _make_outline(
+        [
+            {"id": "s1", "title": "Tiny Topic", "paper_ids": ["p1"]},
+            {"id": "s2", "title": "Big Topic", "paper_ids": ["p1", "p2", "p3", "p4", "p5"]},
+        ]
+    )
+    extractions = _make_extractions({"p1": 1, "p2": 5, "p3": 5, "p4": 5, "p5": 5})
+    evidence_map = _make_evidence_map()
+    profile = get_depth_profile(DepthLevel.MEDIUM)
+    allocator = EvidenceWeightedAllocator(profile)
+    allocator.allocate(outline, evidence_map, extractions)
+    assert outline.sections[0].estimated_word_count >= profile.min_section_words
+
+
+def test_allocator_dampens_introduction():
+    outline = _make_outline(
+        [
+            {"id": "s1", "title": "Introduction", "paper_ids": ["p1", "p2"]},
+            {"id": "s2", "title": "Core Topic", "paper_ids": ["p1", "p2"]},
+        ]
+    )
+    extractions = _make_extractions({"p1": 3, "p2": 3})
+    evidence_map = _make_evidence_map()
+    profile = get_depth_profile(DepthLevel.MEDIUM)
+    allocator = EvidenceWeightedAllocator(profile)
+    allocator.allocate(outline, evidence_map, extractions)
+    assert outline.sections[0].estimated_word_count < outline.sections[1].estimated_word_count
+
+
+def test_allocator_zero_evidence_section_gets_fixed_allocation():
+    extractions = _make_extractions({"p1": 3, "p2": 3})
+    evidence_map = _make_evidence_map()
+    for level in DepthLevel:
+        outline_copy = _make_outline(
+            [
+                {"id": "s1", "title": "Core Topic", "paper_ids": ["p1", "p2"]},
+                {"id": "s2", "title": "Future Directions", "paper_ids": []},
+            ]
+        )
+        profile = get_depth_profile(level)
+        allocator = EvidenceWeightedAllocator(profile)
+        allocator.allocate(outline_copy, evidence_map, extractions)
+        expected_fixed = int(profile.base_word_multiplier * 500)
+        assert outline_copy.sections[1].estimated_word_count == expected_fixed
+
+
+def test_allocator_evidence_chains_increase_density():
+    outline = _make_outline(
+        [
+            {"id": "s1", "title": "Topic A", "paper_ids": ["p1"]},
+            {"id": "s2", "title": "Topic B", "paper_ids": ["p2"]},
+        ]
+    )
+    extractions = _make_extractions({"p1": 2, "p2": 2})
+    chains = [{"paper_ids": ["p2", "p3"], "chain_id": "c1"}]
+    evidence_map = _make_evidence_map(chains=chains)
+    profile = get_depth_profile(DepthLevel.MEDIUM)
+    allocator = EvidenceWeightedAllocator(profile)
+    allocator.allocate(outline, evidence_map, extractions)
+    assert outline.sections[1].estimated_word_count > outline.sections[0].estimated_word_count
+
+
+def test_allocator_depth_scales_output():
+    outline_low = _make_outline([{"id": "s1", "title": "Topic", "paper_ids": ["p1", "p2"]}])
+    outline_deep = _make_outline([{"id": "s1", "title": "Topic", "paper_ids": ["p1", "p2"]}])
+    extractions = _make_extractions({"p1": 3, "p2": 3})
+    evidence_map = _make_evidence_map()
+    EvidenceWeightedAllocator(get_depth_profile(DepthLevel.LOW)).allocate(
+        outline_low, evidence_map, extractions
+    )
+    EvidenceWeightedAllocator(get_depth_profile(DepthLevel.DEEP)).allocate(
+        outline_deep, evidence_map, extractions
+    )
+    assert (
+        outline_deep.sections[0].estimated_word_count > outline_low.sections[0].estimated_word_count
+    )

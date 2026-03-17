@@ -3,8 +3,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+import structlog
 
 from autoreview.config.models import DepthLevel
+
+if TYPE_CHECKING:
+    from autoreview.analysis.evidence_map import EvidenceMap  # noqa: F401
+    from autoreview.llm.prompts.outline import OutlineSection, ReviewOutline  # noqa: F401
+
+logger = structlog.get_logger()
 
 
 @dataclass(frozen=True)
@@ -110,3 +119,92 @@ def classify_section_type(title: str) -> str:
     if "method" in lower or "search strategy" in lower or "review methodology" in lower:
         return "methods"
     return "body"
+
+
+class EvidenceWeightedAllocator:
+    """Distributes word budget across sections based on evidence density."""
+
+    def __init__(self, profile: DepthProfile) -> None:
+        self.profile = profile
+
+    def allocate(
+        self,
+        outline: ReviewOutline,
+        evidence_map: EvidenceMap,
+        extractions: dict,
+    ) -> None:
+        """Mutate outline sections' estimated_word_count in place."""
+        sections = outline.sections
+        if not sections:
+            return
+
+        evidence_sections: list[tuple[int, OutlineSection, float]] = []
+        fixed_total = 0
+
+        for i, section in enumerate(sections):
+            density = self._compute_density(section, extractions, evidence_map)
+            if density == 0.0:
+                fixed_alloc = int(self.profile.base_word_multiplier * 500)
+                section.estimated_word_count = fixed_alloc
+                fixed_total += fixed_alloc
+            else:
+                evidence_sections.append((i, section, density))
+
+        if not evidence_sections:
+            return
+
+        remaining_budget = self.profile.total_word_budget - fixed_total
+        total_density = sum(d for _, _, d in evidence_sections)
+
+        for idx, section, density in evidence_sections:
+            share = density / total_density
+            raw = share * remaining_budget
+            dampening = self.profile.section_type_dampening.get(
+                classify_section_type(section.title), 1.0
+            )
+            adjusted = raw * dampening
+            section.estimated_word_count = max(int(adjusted), self.profile.min_section_words)
+
+        current_total = sum(s.estimated_word_count for s in sections)
+        body_sections = [
+            (i, s, d) for i, s, d in evidence_sections if classify_section_type(s.title) == "body"
+        ]
+
+        if body_sections and current_total != self.profile.total_word_budget:
+            delta = self.profile.total_word_budget - current_total
+            body_density_total = sum(d for _, _, d in body_sections)
+            if body_density_total > 0:
+                for _, section, density in body_sections:
+                    adjustment = int(delta * (density / body_density_total))
+                    new_count = section.estimated_word_count + adjustment
+                    section.estimated_word_count = max(new_count, self.profile.min_section_words)
+
+        logger.info(
+            "depth_allocation_complete",
+            depth=self.profile.evidence_chain_detail,
+            budget=self.profile.total_word_budget,
+            actual=sum(s.estimated_word_count for s in sections),
+            sections={s.id: s.estimated_word_count for s in sections},
+        )
+
+    def _compute_density(
+        self,
+        section: OutlineSection,
+        extractions: dict,
+        evidence_map: EvidenceMap,
+    ) -> float:
+        n_papers = len(section.paper_ids)
+        n_findings = sum(
+            len(extractions[pid].key_findings) for pid in section.paper_ids if pid in extractions
+        )
+        section_pids = set(section.paper_ids)
+        n_chains = 0
+        for chain in evidence_map.evidence_chains:
+            chain_pids = (
+                chain.get("paper_ids", [])
+                if isinstance(chain, dict)
+                else getattr(chain, "paper_ids", [])
+            )
+            if set(chain_pids) & section_pids:
+                n_chains += 1
+        return float(n_papers + n_findings + n_chains)
