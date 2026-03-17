@@ -1,0 +1,37 @@
+# paper/topics.yaml
+# Benchmark evaluation topics for the AutoReview paper.
+# Populate with full set from benchmark_candidates.md before running.
+
+metadata:
+  created: "2026-03-17"
+  description: "Benchmark evaluation topics for AutoReview paper"
+
+topics:
+  # --- Tier A: Landmark Reviews (500+ citations, 2015-2019) ---
+  - id: "microglia_homeostasis"
+    title: "Microglia homeostasis, neuroinflammation, and neurodegeneration"
+    domain: biomedical
+    tier: A
+    reference:
+      doi: "10.1016/j.immuni.2017.08.008"
+      title: "Microglia in Neurodegeneration"
+      year: 2017
+      citation_count: 2800
+      pdf_path: "paper/references/colonna_2017.pdf"
+    conditions: [end_to_end, retrieval_controlled]
+    date_range: "-2017"
+    ablation: true
+
+  # --- Tier B: Contemporary Reviews (50-200 citations, 2023-2024) ---
+  - id: "rag_architectures"
+    title: "Retrieval-augmented generation for large language models"
+    domain: cs_ai
+    tier: B
+    reference:
+      doi: "10.48550/arXiv.2312.10997"
+      title: "Retrieval-Augmented Generation for Large Language Models: A Survey"
+      year: 2023
+      citation_count: 180
+      pdf_path: "paper/references/gao_2023.pdf"
+    conditions: [end_to_end]
+    ablation: false
