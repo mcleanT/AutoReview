@@ -49,6 +49,19 @@ _COST_ESTIMATES: dict[tuple[str, str], float] = {
     ("haiku", "deep"): 0.50,
 }
 
+# Writing-only cost estimates (stages 8-15 only, ~50-55% of full cost)
+_WRITING_COST_ESTIMATES: dict[tuple[str, str], float] = {
+    ("opus", "medium"): 8.50,
+    ("opus", "low"): 3.50,
+    ("opus", "deep"): 20.0,
+    ("sonnet", "medium"): 1.00,
+    ("sonnet", "low"): 0.40,
+    ("sonnet", "deep"): 2.50,
+    ("haiku", "medium"): 0.10,
+    ("haiku", "low"): 0.04,
+    ("haiku", "deep"): 0.25,
+}
+
 
 def _model_tier(model: str) -> str:
     if "opus" in model:
@@ -58,12 +71,21 @@ def _model_tier(model: str) -> str:
     return "sonnet"
 
 
-def estimate_cost(matrix: list[RunKey]) -> float:
-    """Estimate total API cost for the run matrix."""
+def estimate_cost(matrix: list[RunKey], *, shared_corpus: bool = True) -> float:
+    """Estimate total API cost for the run matrix.
+
+    Args:
+        matrix: List of run keys.
+        shared_corpus: If True, non-corpus runs use writing-only cost estimates.
+    """
     total = 0.0
-    for _, model, depth, _ in matrix:
+    for key in matrix:
+        _, model, depth, _ = key
         tier = _model_tier(model)
-        total += _COST_ESTIMATES.get((tier, depth), 2.0)
+        if shared_corpus and not _is_corpus_run(key):
+            total += _WRITING_COST_ESTIMATES.get((tier, depth), 1.0)
+        else:
+            total += _COST_ESTIMATES.get((tier, depth), 2.0)
     return total
 
 
@@ -79,6 +101,12 @@ def _format_matrix_summary(matrix: list[RunKey], registry: RunRegistry) -> str:
     lines.append(
         f"  Estimated cost (remaining): ${estimate_cost([k for k in matrix if not registry.is_completed(make_run_key(*k))]):.0f}"
     )
+
+    # Corpus vs writing breakdown
+    corpus_count = sum(1 for k in matrix if _is_corpus_run(k))
+    writing_count = len(matrix) - corpus_count
+    lines.append(f"  Corpus (full Sonnet): {corpus_count}")
+    lines.append(f"  Writing-only: {writing_count}")
 
     # Breakdown by batch
     batch_counts: dict[str, int] = {}
@@ -122,6 +150,41 @@ def _classify_batch(key: RunKey) -> str:
     # Distinguish 3a (Tier B) from 3b (Tier A) would require topic lookup;
     # for filtering purposes, both are "3ab"
     return "3ab"
+
+
+def _is_corpus_run(key: RunKey) -> bool:
+    """Check if a run is a corpus-producing run (Sonnet e2e or RC, medium depth)."""
+    _, model, depth, condition = key
+    return (
+        model == SONNET_MODEL
+        and depth == "medium"
+        and condition in ("end_to_end", "retrieval_controlled")
+    )
+
+
+def _find_corpus_snapshot(
+    registry: RunRegistry,
+    topic_id: str,
+    condition: str,
+) -> Path | None:
+    """Find the corpus snapshot path for a writing-only run."""
+    corpus_condition = (
+        "retrieval_controlled" if condition == "retrieval_controlled" else "end_to_end"
+    )
+    corpus_key = make_run_key(topic_id, SONNET_MODEL, "medium", corpus_condition)
+
+    entry = registry.runs.get(corpus_key)
+    if not entry or entry.status != "completed":
+        return None
+
+    snapshot_node = "clustering" if condition == "no_comprehensiveness" else "gap_search"
+
+    snapshots_dir = Path(entry.output_dir) / "snapshots"
+    if not snapshots_dir.exists():
+        return None
+
+    matches = sorted(snapshots_dir.glob(f"*_{snapshot_node}.json"))
+    return matches[-1] if matches else None
 
 
 @app.command(name="generate-matrix")
@@ -195,7 +258,12 @@ async def _execute_runs(
     results_dir: Path,
     max_concurrent: int,
 ) -> None:
-    """Execute pipeline runs with semaphore concurrency."""
+    """Execute pipeline runs with shared-corpus optimization.
+
+    Phase 1: Sonnet corpus runs (e2e + RC) — full pipeline producing snapshots.
+    Phase 2: All other runs — fork from corpus snapshots when available,
+             falling back to full pipeline if no snapshot exists.
+    """
     from autoreview.config import load_config
     from autoreview.config.models import DepthLevel
     from autoreview.llm.factory import create_llm_provider
@@ -226,17 +294,44 @@ async def _execute_runs(
                 if topic.date_range:
                     config.search.date_range = topic.date_range
 
-                # Ablation config
+                # Ablation config flags
                 if condition == "no_critique_loops":
                     config.critique.max_revision_cycles = 0
                 if condition == "no_evidence_chains":
                     config.writing.evidence_chains = False
 
-                kb = KnowledgeBase(topic=topic.title, domain=topic.domain, output_dir=output_dir)
                 llm = create_llm_provider(config.llm)
 
-                if condition == "retrieval_controlled":
-                    # Bibliography injection + resume from full_text_retrieval
+                # --- Shared-corpus fork logic ---
+                snapshot_path = None
+                if not _is_corpus_run(key):
+                    snapshot_path = _find_corpus_snapshot(registry, topic_id, condition)
+
+                if snapshot_path:
+                    # Phase 2: Fork from corpus snapshot — writing stages only
+                    logger.info(
+                        "benchmark.run.fork",
+                        key=run_key_str,
+                        snapshot=str(snapshot_path),
+                    )
+                    kb = KnowledgeBase.load_snapshot(str(snapshot_path))
+                    kb.output_dir = output_dir
+                    Path(output_dir).mkdir(parents=True, exist_ok=True)
+
+                    skip_nodes: set[str] | None = None
+                    if condition == "no_passage_mining":
+                        skip_nodes = {"passage_search"}
+
+                    kb = await run_pipeline(
+                        llm=llm,
+                        config=config,
+                        kb=kb,
+                        start_from="outline",
+                        skip_nodes=skip_nodes,
+                    )
+
+                elif condition == "retrieval_controlled":
+                    # Full retrieval-controlled pipeline
                     from paper.analysis.inject_bibliography import inject_bibliography
 
                     kb = await inject_bibliography(
@@ -249,21 +344,31 @@ async def _execute_runs(
                     kb = await run_pipeline(
                         llm=llm, config=config, kb=kb, start_from="full_text_retrieval"
                     )
+
                 else:
-                    skip_nodes: list[str] = []
+                    # Full pipeline (corpus run or fallback when no snapshot)
+                    if not _is_corpus_run(key):
+                        logger.warning(
+                            "benchmark.run.no_corpus_snapshot",
+                            key=run_key_str,
+                            msg="Falling back to full pipeline",
+                        )
+                    kb = KnowledgeBase(
+                        topic=topic.title, domain=topic.domain, output_dir=output_dir
+                    )
+                    skip_list: list[str] = []
                     if condition == "no_passage_mining":
-                        skip_nodes.append("passage_search")
+                        skip_list.append("passage_search")
                     elif condition == "no_comprehensiveness":
-                        skip_nodes.append("gap_search")
-                    # Note: no_evidence_chains handled via config flag (prerequisite task)
+                        skip_list.append("gap_search")
                     kb = await run_pipeline(
                         llm=llm,
                         config=config,
                         kb=kb,
-                        skip_nodes=set(skip_nodes) if skip_nodes else None,
+                        skip_nodes=set(skip_list) if skip_list else None,
                     )
 
-                # Find generated review
+                # Register completion
                 review_path = next(Path(output_dir).glob("*.md"), Path(output_dir) / "review.md")
                 tokens = kb.total_tokens()
 
@@ -271,7 +376,7 @@ async def _execute_runs(
                     run_key_str,
                     output_dir=output_dir,
                     review_path=str(review_path),
-                    cost_usd=0.0,  # Computed from tokens post-hoc
+                    cost_usd=0.0,
                     tokens_input=tokens.get("input_tokens", 0),
                     tokens_output=tokens.get("output_tokens", 0),
                 )
@@ -284,7 +389,19 @@ async def _execute_runs(
             finally:
                 registry.save(results_dir / "run_registry.json")
 
-    await asyncio.gather(*[_run_single(k) for k in runs], return_exceptions=True)
+    # Split into corpus (Phase 1) and writing (Phase 2) runs
+    corpus_runs = [k for k in runs if _is_corpus_run(k)]
+    writing_runs = [k for k in runs if not _is_corpus_run(k)]
+
+    if corpus_runs:
+        logger.info("benchmark.phase1.start", n_corpus=len(corpus_runs))
+        await asyncio.gather(*[_run_single(k) for k in corpus_runs], return_exceptions=True)
+        logger.info("benchmark.phase1.complete")
+
+    if writing_runs:
+        logger.info("benchmark.phase2.start", n_writing=len(writing_runs))
+        await asyncio.gather(*[_run_single(k) for k in writing_runs], return_exceptions=True)
+        logger.info("benchmark.phase2.complete")
 
 
 @app.command()
