@@ -62,7 +62,9 @@ and let the user respond. Use defaults for anything not explicitly overridden.
 
 | Setting | Question | Default |
 |---------|----------|---------|
-| **Subagent model** | Which model for subagent work? | `sonnet` |
+| **Provider** | LLM provider for subagent dispatch: `claude` or `ollama`? | `claude` |
+| **Subagent model** | Which model for subagent work? (per-stage defaults below) | `sonnet` |
+| **Tiered extraction** | Use different models for high vs. moderate relevance papers? | No |
 | **Start from** | Resume from a specific stage? (or run full pipeline) | Full pipeline |
 | **Verbose** | Enable detailed logging? | No |
 
@@ -79,7 +81,9 @@ Present a summary table of all settings. Wait for user confirmation before proce
 │ Depth        │ {depth}                      │
 │ Date range   │ {date_range}                 │
 │ Output       │ {output_dir} ({format})      │
+│ Provider     │ {provider}                   │
 │ Model        │ {model}                      │
+│ Tiered extr. │ {yes/no}                     │
 │ Start from   │ {start_from or "beginning"}  │
 │ Fresh        │ {yes/no}                     │
 │ Verbose      │ {yes/no}                     │
@@ -222,6 +226,9 @@ Even if no full texts are found, this stage must run and report results.
 
 Process papers in batches of 5-10 to manage context.
 
+If **tiered extraction** is enabled, use different models for high-relevance vs.
+moderate-relevance papers (configured via `TieredModelConfig`).
+
 **Validation gate**:
 - Every screened paper has an extraction
 - Each extraction has ≥1 key finding
@@ -239,16 +246,23 @@ Process papers in batches of 5-10 to manage context.
 **What to do**: Analyze all extractions to produce an EvidenceMap:
 - Thematic clusters with sub-themes
 - Consensus claims (supported by ≥3 papers)
-- Contradictions (with possible explanations)
-- Evidence chains (linked findings across papers)
+- Contradictions with enriched analysis (methodological differences, framing strategies)
+- Evidence chains (linked findings across papers — progressive, replication, methodological escalation, contradiction resolution)
+- Temporal progressions (how research focus shifted over time)
+- Evidence strength distributions per theme
 - Gaps (expected sub-topics from scope document with insufficient evidence)
+
+Also runs **comprehensiveness checks** (5 checker types: CoverageAnomalyChecker,
+QueryCoverageChecker, BorderlineRescreener, PostGapRevalidator, BenchmarkValidator)
+to assess whether the corpus adequately covers the scope.
 
 **Validation gate**:
 - ≥3 themes identified
 - Gaps list present (may be empty)
 - Each theme has ≥2 papers assigned
+- Comprehensiveness check results logged
 
-**Output**: `evidence_map` with themes, contradictions, gaps, evidence chains
+**Output**: `evidence_map` with themes, contradictions, gaps, evidence chains, temporal progressions
 
 ---
 
@@ -260,12 +274,18 @@ Process papers in batches of 5-10 to manage context.
 **What to do**: If gaps were identified in clustering, generate targeted queries and
 search for papers to fill them. Screen and extract new papers. Integrate into evidence map.
 
+The **remediation dispatcher** may also trigger during this stage — it can:
+- Expand queries (if comprehensiveness checks flagged under-coverage)
+- Retry gap search with relaxed thresholds
+- Lower screening threshold for borderline papers
+
 Skip search ONLY if: no gaps exist AND coverage ≥ threshold. The stage itself must still
 run (to evaluate whether search is needed).
 
 **Validation gate**:
 - Stage executed
 - If gaps existed: ≥1 targeted search performed
+- Remediation actions (if any) logged
 - Updated evidence map produced
 
 **Output**: Updated evidence map with any new papers integrated
@@ -372,14 +392,19 @@ screen, extract, and integrate new papers.
 
 CRITICAL: Synthesize across papers — do NOT summarize paper-by-paper.
 
-Run per-section critique loop (up to max cycles). Critique evaluates: citation accuracy,
-synthesis quality, coherence, connection to adjacent sections.
+For deep mode, `max_tokens` is automatically set to 16384 for section generation calls.
+
+Run per-section critique loop (up to max cycles). Before each critique, run
+**citation validation** (`CitationValidator`) to check: valid citations, invalid
+citations, uncited papers, suspicious attributions. Validation issues are passed
+as extra issues to the critique.
 
 **Validation gate**:
 - Every outline section has a draft
 - Each draft uses [@paper_id] citation markers
 - Word counts approximately match allocator targets (±30%)
 - No section is pure paper-by-paper summary
+- Citation validation results logged
 
 **Output**: `section_drafts` dict (section_id → text)
 
@@ -391,8 +416,8 @@ synthesis quality, coherence, connection to adjacent sections.
 **Tools**: `search_pubmed`, `search_semantic_scholar`, `search_openalex`
 
 **What to do**: Mine written sections for undercited claims. For high/medium priority
-claims, generate targeted queries and search for supporting papers. Also perform
-citation snowballing from top-cited papers in the corpus.
+claims, generate targeted queries and search for supporting papers. Also identifies
+topic expansion opportunities from section content.
 
 **Validation gate**:
 - Stage executed
@@ -506,13 +531,17 @@ asyncio.run(run())
 
 ---
 
-## Snapshot & Resume
+## Snapshot, Resume & Token Tracking
 
 After each stage, save the pipeline state to `{output_dir}/snapshots/{stage_name}.json`.
 This enables resuming from any stage if the session is interrupted.
 
 To resume: re-invoke this skill with `start_from` set to the desired stage. The skill
 will load the most recent snapshot and continue from there.
+
+**Token tracking**: Log token usage per stage (input tokens, output tokens) and save
+cumulative totals to `{output_dir}/token_usage.json`. This helps monitor costs,
+especially for deep-mode runs which consume significantly more tokens.
 
 ---
 
