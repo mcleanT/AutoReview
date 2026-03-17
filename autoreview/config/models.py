@@ -1,8 +1,15 @@
 from __future__ import annotations
 
 import re
+from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+class DepthLevel(str, Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    DEEP = "deep"
 
 
 class SearchConfig(BaseModel):
@@ -125,6 +132,7 @@ class WritingConfig(BaseModel):
     citation_format: str = "apa"
     writing_temperature: float = 0.3
     analysis_temperature: float = 0.0
+    depth: DepthLevel = DepthLevel.MEDIUM
 
 
 class OutlineConfig(BaseModel):
