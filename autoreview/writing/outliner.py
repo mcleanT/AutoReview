@@ -97,6 +97,7 @@ class OutlineGenerator:
                 previous_outline_text=previous_outline_text,
                 critique_issues_text=critique_issues_text,
                 critique_score=critique_report.overall_score,
+                depth=depth,
             )
             system_prompt = OUTLINE_REVISION_SYSTEM_PROMPT
 

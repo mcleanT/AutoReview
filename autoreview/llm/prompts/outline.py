@@ -141,6 +141,7 @@ def build_outline_revision_prompt(
     previous_outline_text: str,
     critique_issues_text: str,
     critique_score: float,
+    depth: DepthLevel | None = None,
 ) -> str:
     """Build a prompt that revises an existing outline based on critique feedback.
 
@@ -149,6 +150,9 @@ def build_outline_revision_prompt(
     can make targeted improvements.
     """
     req = "\n".join(f"- {s}" for s in required_sections)
+    depth_block = ""
+    if depth and depth in _OUTLINE_DEPTH_GUIDANCE:
+        depth_block = _OUTLINE_DEPTH_GUIDANCE[depth]
     return f"""\
 ## Review Scope
 {scope_document}
@@ -158,7 +162,7 @@ def build_outline_revision_prompt(
 
 ## Required Sections
 {req}
-
+{depth_block}
 ## Previous Outline
 {previous_outline_text}
 

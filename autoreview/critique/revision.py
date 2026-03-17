@@ -4,6 +4,7 @@ from typing import Any
 
 import structlog
 
+from autoreview.config.models import DepthLevel
 from autoreview.critique.models import CritiqueIssue, CritiqueReport, CritiqueSeverity
 from autoreview.critique.rubrics import (
     HOLISTIC_RUBRICS,
@@ -121,7 +122,7 @@ async def outline_critique_loop(
     required_sections: list[str] | None = None,
     max_cycles: int = 2,
     threshold: float = 0.80,
-    depth: Any | None = None,
+    depth: DepthLevel | None = None,
 ) -> tuple[ReviewOutline, list[CritiqueReport]]:
     """Run the outline generation → critique → revision loop.
 

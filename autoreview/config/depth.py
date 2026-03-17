@@ -156,7 +156,7 @@ class EvidenceWeightedAllocator:
         remaining_budget = self.profile.total_word_budget - fixed_total
         total_density = sum(d for _, _, d in evidence_sections)
 
-        for idx, section, density in evidence_sections:
+        for _, section, density in evidence_sections:
             share = density / total_density
             raw = share * remaining_budget
             dampening = self.profile.section_type_dampening.get(

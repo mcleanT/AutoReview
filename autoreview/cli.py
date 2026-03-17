@@ -202,9 +202,17 @@ def resume(
         new_depth = DepthLevel(depth)
         if new_depth != config.writing.depth:
             # Nodes after "outline" rely on pre-computed word counts — warn if resuming past it
-            _POST_OUTLINE_NODES = {"draft", "critique", "revise", "format", "render"}
+            post_outline_nodes = {
+                "narrative_planning",
+                "contextual_enrichment",
+                "corpus_expansion",
+                "section_writing",
+                "passage_search",
+                "assembly",
+                "final_polish",
+            }
             resume_node = start_from or ""
-            if resume_node.lower() in _POST_OUTLINE_NODES or not resume_node:
+            if resume_node.lower() in post_outline_nodes or not resume_node:
                 typer.echo(
                     "Warning: --depth changed but outline word counts are from original run. "
                     "Re-run from 'outline' for full depth recalculation."
