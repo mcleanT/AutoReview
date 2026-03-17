@@ -1,7 +1,7 @@
 # Design Spec: Review Depth Control
 
 **Date**: 2026-03-16
-**Status**: Draft
+**Status**: Approved
 **Author**: Claude + MST
 
 ---
@@ -63,27 +63,57 @@ A deterministic lookup keyed by `DepthLevel`. No LLM involved.
 
 #### `EvidenceWeightedAllocator`
 
-Takes a `DepthProfile`, the `ReviewOutline`, and the `EvidenceMap`. Distributes the word budget across sections proportionally based on evidence density.
+Takes a `DepthProfile`, the `ReviewOutline`, the `EvidenceMap`, and the extractions dict (`dict[str, PaperExtraction]`). Distributes the word budget across sections proportionally based on evidence density.
 
-**Evidence density per section** is computed as:
+**Evidence density per section** is computed from the pipeline's existing data structures:
 
+```python
+def _compute_density(
+    section: OutlineSection,
+    extractions: dict[str, PaperExtraction],
+    evidence_map: EvidenceMap,
+) -> float:
+    # Count of papers assigned to this section
+    n_papers = len(section.paper_ids)
+
+    # Count unique findings by summing len(extractions[pid].key_findings)
+    # for each pid in section.paper_ids (skip missing extractions gracefully)
+    n_findings = sum(
+        len(extractions[pid].key_findings)
+        for pid in section.paper_ids
+        if pid in extractions
+    )
+
+    # Count evidence chains that overlap with this section's papers
+    section_pids = set(section.paper_ids)
+    n_chains = sum(
+        1 for chain in evidence_map.evidence_chains
+        if set(chain.paper_ids) & section_pids
+    )
+
+    return float(n_papers + n_findings + n_chains)
 ```
-density(section) = (
-    count(assigned_papers)
-    + count(unique_findings)
-    + count(evidence_chains_touching_section)
-)
-```
+
+**Section-type classification** is determined by fuzzy title matching against known categories. A helper function normalizes the section title to lowercase and checks for substring membership:
+
+- **Introduction**: title contains "introduction" or "background"
+- **Conclusion**: title contains "conclusion" or "concluding"
+- **Methods of Review**: title contains "method" or "search strategy" or "review methodology"
+- **Body** (default): anything not matching the above
+
+This avoids brittle exact-match comparisons against LLM-generated titles.
 
 **Allocation algorithm:**
 
-1. Compute `density(s)` for each section `s`
-2. Compute proportional share: `share(s) = density(s) / sum(all densities)`
-3. Allocate: `raw_words(s) = share(s) * total_word_budget`
+1. Compute `density(s)` for each section `s`. Sections with zero evidence (e.g., "Future Directions") receive a fixed allocation of `base_word_multiplier * 500` words (depth-scaled but evidence-independent), and are excluded from proportional allocation.
+2. Compute proportional share: `share(s) = density(s) / sum(all densities)` (over evidence-bearing sections only)
+3. Allocate: `raw_words(s) = share(s) * remaining_budget` (where `remaining_budget = total_word_budget - sum(fixed allocations)`)
 4. Apply section-type dampening: `adjusted_words(s) = raw_words(s) * dampening(section_type(s))`
 5. Enforce floor: `final_words(s) = max(adjusted_words(s), min_section_words)`
-6. Redistribute surplus from dampened/floored sections proportionally to body sections
+6. If `sum(all final_words) > total_word_budget`: scale body sections down proportionally to fit. If `sum(all final_words) < total_word_budget`: distribute surplus to body sections proportionally by density.
 7. Write `final_words(s)` into `OutlineSection.estimated_word_count`
+
+**Budget overflow edge case**: When many sections hit the `min_section_words` floor (especially in low-depth mode with many sections), the sum may exceed `total_word_budget`. In this case, the budget is treated as a **soft target** — floors are never violated. The `total_word_budget` values are approximate guidance, not hard caps.
 
 This is a **deterministic computation** — no LLM calls, runs in microseconds.
 
@@ -110,6 +140,8 @@ After the outline LLM call returns, the `EvidenceWeightedAllocator` **overwrites
 - **Deep**: 7-10 insights, including secondary evidence chains, contradictions, and methodological nuances
 
 The narrative prompt receives both the `DepthLevel` and the allocator's `target_word_count` for the section, allowing it to calibrate how many narrative threads to plan.
+
+**Bounding mechanism**: The depth-specific insight range is injected into the narrative prompt text itself (replacing the current hardcoded "3-5" in the system prompt with the depth profile's `key_insights_range`). The LLM is instructed to generate within the specified range. No post-processing truncation is applied — the prompt guides the output directly.
 
 #### 3. Section Writing Prompt
 
@@ -146,7 +178,17 @@ Default is `medium`, preserving current behavior for all existing runs.
 
 The `EvidenceWeightedAllocator` runs as a **post-processing step inside the outline node**, not as a separate DAG node. After the outline LLM call completes and the outline is parsed, the allocator adjusts word counts before the node returns its result. This avoids DAG changes, new snapshot stages, and resume complexity.
 
-The allocator needs access to the `EvidenceMap` which is produced by the `clustering` node. Since `outline` already depends on `gap_search` (which depends on `clustering`), the evidence map is available in the pipeline state when the outline node runs.
+The allocator needs access to the `EvidenceMap` (from `clustering`) and the extractions dict (`kb.extractions`, from `extraction`). Both are available in the pipeline state when the outline node runs, since `outline` depends on `gap_search` which depends on `clustering` which depends on `extraction`.
+
+**`max_tokens_generate` adjustment**: The current `LLMConfig.max_tokens_generate` default is 4096, which is sufficient for low and medium depth but will truncate deep-mode sections (which may target 3,000+ words ≈ 4,000+ tokens). The depth feature adds a `max_tokens_override` lookup to `DepthProfile`:
+
+| Depth | `max_tokens_override` |
+|-------|----------------------|
+| Low | `None` (use default 4096) |
+| Medium | `None` (use default 4096) |
+| Deep | 16384 |
+
+The section writer passes this override to `self.llm.generate(max_tokens=...)` when present, bypassing the global default for that call only.
 
 #### CLI
 
@@ -159,6 +201,8 @@ autoreview resume <snapshot> --depth low|medium|deep
 
 Default: `medium`. Stored in the pipeline snapshot so `resume` preserves the depth setting from the original run.
 
+**Resume semantics**: If `--depth` is passed to `resume`, it is only effective when resuming from the `outline` node or earlier (since the allocator runs inside the outline node). If resuming from a later node (e.g., `section_writing`), a changed `--depth` flag will update prompt-level instructions (depth_instructions, key_insights_range) but will **not** re-run the allocator — the word counts baked into the outline remain from the original run. The CLI emits a warning in this case: `"Warning: --depth changed but outline word counts are from original run. Re-run from 'outline' for full depth recalculation."`
+
 ### What Does NOT Change
 
 - **Search/retrieval pipeline** — depth affects writing, not what papers are found
@@ -170,18 +214,19 @@ Default: `medium`. Stored in the pipeline snapshot so `resume` preserves the dep
 
 ## File Changes Summary
 
+All paths are relative to `autoreview/`. The pipeline nodes live in a single file (`pipeline/nodes.py`) as methods on the `PipelineNodes` class.
+
 | File | Change |
 |------|--------|
-| `config/models.py` | Add `DepthLevel` enum, `depth` field to `WritingConfig` |
+| `config/models.py` | Add `DepthLevel` enum, `depth` field to `WritingConfig`. Note: `WritingConfig` uses `extra="forbid"`, so `DepthLevel(str, Enum)` serialization must be verified. |
 | `config/depth.py` (new) | `DepthProfile` dataclass, `DEPTH_PROFILES` lookup, `EvidenceWeightedAllocator` |
 | `llm/prompts/outline.py` | Pass `DepthLevel` into outline system prompt for description guidance |
-| `llm/prompts/narrative.py` | Pass `DepthLevel` + `target_word_count` to bound `key_insights` range |
+| `llm/prompts/narrative.py` | Pass `DepthLevel` + `target_word_count` to bound `key_insights` range (replace hardcoded "3-5") |
 | `llm/prompts/writing.py` | Add `target_word_count` and `depth_instructions` parameters to `build_section_writing_prompt()` |
-| `writing/section_writer.py` | Pass depth config and allocated word count through to prompt builder |
-| `pipeline/nodes/outline.py` | Call `EvidenceWeightedAllocator.allocate()` after outline generation |
-| `pipeline/nodes/narrative_planning.py` | Forward depth config to narrative prompt builder |
-| `pipeline/nodes/section_writing.py` | Forward depth config + word counts to section writer |
-| `cli.py` | Add `--depth` flag to `run` and `resume` commands |
+| `writing/section_writer.py` | Pass depth config, allocated word count, and `max_tokens_override` through to prompt builder and `self.llm.generate()` |
+| `writing/narrative_architect.py` | Update `NarrativeArchitect.plan()` signature to accept `DepthLevel` and per-section word counts, forward to prompt builder |
+| `pipeline/nodes.py` | In `outline` method (~line 680): call `EvidenceWeightedAllocator.allocate()` after outline generation, passing `kb.extractions` and `evidence_map`. In `narrative_planning` method (~line 707): forward depth config. In `section_writing` method (~line 1079): forward depth config + word counts. |
+| `cli.py` | Add `--depth` flag to `run` and `resume` commands, with resume warning for post-outline depth changes |
 | Domain YAML configs | No changes — depth is orthogonal to domain |
 
 ## Testing Strategy
@@ -192,8 +237,8 @@ Default: `medium`. Stored in the pipeline snapshot so `resume` preserves the dep
 - **Integration test**: run a small fixture topic at all three depth levels, verify output length ordering (low < medium < deep)
 - **No changes to critique tests** — critique is depth-unaware
 
-## Open Questions
+## Resolved Design Questions
 
-1. **Tuning the word budgets** — the 4K / 8K / 25K targets are initial estimates. May need adjustment after empirical runs.
-2. **Deep mode token costs** — a 25K+ word review requires significantly more LLM output tokens. Should there be a cost warning in the CLI for deep mode?
-3. **Evidence density edge case** — if a section has zero assigned papers (e.g., a "Future Directions" section), the allocator gives it `min_section_words`. Is this the right behavior, or should such sections get a fixed allocation independent of evidence?
+1. **Tuning the word budgets** — the 4K / 8K / 25K targets are initial estimates and soft targets. The allocator will never violate `min_section_words` floors even if that exceeds the budget. Empirical tuning is expected after initial runs.
+2. **Deep mode token costs** — deep mode automatically increases `max_tokens_generate` to 16384 for section writing calls (see `max_tokens_override` in Pipeline Integration). The CLI prints an informational message: `"Note: deep mode generates significantly longer output — expect higher token costs."` This is informational, not a confirmation prompt.
+3. **Zero-evidence sections** — sections with zero assigned papers (e.g., "Future Directions") receive a fixed allocation of `base_word_multiplier * 500` words, scaled by depth but independent of evidence density. They are excluded from proportional allocation. This ensures these sections scale with depth without being starved by the evidence-weighted algorithm.
