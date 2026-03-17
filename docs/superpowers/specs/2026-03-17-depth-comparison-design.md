@@ -76,7 +76,7 @@ Use an LLM to extract distinct factual assertions from each generated review.
 - Claim novelty rate: fraction of claims at depth N+1 not present in union of all shallower depths
 - **Reference claim coverage** (Tier A topics only): extract claims from the human reference review, then report what fraction appear at each depth level. Transforms relative metrics into a grounded absolute metric.
 
-**Implementation**: Section-chunked LLM extraction — each review is split by section headings and claims are extracted per section, then aggregated. This avoids context degradation on deep reviews (~25K words). Uses Haiku as the extraction model (not Sonnet) to avoid self-evaluation bias, since Sonnet generates the reviews. Claim deduplication via embedding similarity (cosine threshold 0.90). Borderline cases (0.85-0.95 band) are flagged; a random sample of 50 borderline pairs is manually validated to calibrate the threshold.
+**Implementation**: Section-chunked LLM extraction — each review is split by section headings and claims are extracted per section, then aggregated. This avoids context degradation on deep reviews (~25K words). Uses Sonnet 4.6 (same as generation model) for extraction — self-evaluation bias is acceptable since all depth conditions are extracted with the same model, so any systematic bias affects all conditions equally and cancels out in comparative analysis. Claim deduplication via embedding similarity (cosine threshold 0.90). Borderline cases (0.85-0.95 band) are flagged; a random sample of 50 borderline pairs is manually validated to calibrate the threshold.
 
 ### 2. Concept/Entity Coverage
 
@@ -257,15 +257,15 @@ Current estimated runs: 103-156. Adding depth comparison (net new): +34-46. New 
 
 **Pipeline runs**: At ~$2-5 per run (Sonnet), net new depth runs (low + deep only) cost ~$68-230.
 
-**Claim/concept extraction**: Deep reviews (~25K words, ~35K tokens input) are the expensive case. Per-review extraction cost at Haiku pricing (~$0.25/M input, $1.25/M output): ~$0.01 input + ~$0.05-0.15 output per review (100-500 claims). Across 51-69 reviews at mixed depths: ~$2-8. Reference claim extraction for Tier A topics adds ~$1-3.
+**Claim/concept extraction**: Deep reviews (~25K words, ~35K tokens input) are the expensive case. Per-review extraction cost at Sonnet pricing (~$3/M input, $15/M output): ~$0.10 input + ~$0.50-1.50 output per review (100-500 claims). Across 51-69 reviews at mixed depths: ~$20-60. Reference claim extraction for Tier A topics adds ~$5-10.
 
 **Embedding costs**: ~500 claims/review × 3 depths × 20 topics = ~30K embeddings. At typical embedding API rates: ~$1-3.
 
-**Total incremental cost**: Pipeline runs ($68-230) + extraction ($3-11) + embeddings ($1-3) = **~$72-244**. The extraction/embedding costs are negligible compared to pipeline runs.
+**Total incremental cost**: Pipeline runs ($68-230) + extraction ($25-70) + embeddings ($1-3) = **~$94-303**.
 
 ## Decisions
 
-- **Haiku for claim extraction** (not Sonnet) — avoids self-evaluation bias since Sonnet generates the reviews. Haiku is cheap, fast, and different enough that self-favor bias is broken. All depth conditions are extracted with the same model, so any systematic Haiku bias affects all conditions equally and cancels out in comparative analysis.
+- **Sonnet for claim extraction** (same as generation model) — self-evaluation bias is acceptable because all depth conditions are extracted with the same model, so any systematic bias cancels out in comparative analysis. Using the same model also ensures consistent claim granularity across conditions.
 - **Section-chunked extraction** for deep reviews — a single LLM call on 25K words risks context degradation. Splitting by section headings and aggregating preserves extraction quality. Shallow/medium reviews can use single-call extraction since they fit comfortably in context.
 - **Claim deduplication via embeddings** rather than exact match — claims at different depths will be paraphrased, not identical. Threshold 0.90 cosine similarity. Borderline cases (0.85-0.95 band) are flagged; a random sample of 50 borderline pairs is manually validated to calibrate the threshold before running full analysis.
 - **Cumulative union baseline for novelty** — "new at deep" means claims in deep not present in union(low, medium), not just claims in deep not present in medium. This prevents double-counting claims that appear first at medium and again (paraphrased) at deep.
