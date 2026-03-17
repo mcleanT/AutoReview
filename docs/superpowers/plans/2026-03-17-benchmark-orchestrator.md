@@ -890,6 +890,12 @@ def _eval_to_row(eval_data: dict[str, Any]) -> dict[str, Any]:
     arise = eval_data.get("arise_result")
     row["arise_total"] = arise.get("total_score") if arise else None
 
+    # Hallucination rate (for Analysis 6)
+    cs = eval_data.get("citation_score", {})
+    hallucinated = len(cs.get("hallucinated_titles", []))
+    generated = cs.get("generated_count", 0)
+    row["hallucination_rate"] = hallucinated / generated if generated > 0 else 0.0
+
     # Structural metrics
     sm = eval_data.get("structural_metrics")
     if sm:
@@ -1149,6 +1155,25 @@ def run(
         and registry.runs.get(make_run_key(*k), type("E", (), {"status": "pending"})()).status != "permanently_failed"
     ]
 
+    # Apply batch filter if specified
+    if batch_filter:
+        allowed = {b.strip() for b in batch_filter.split(",")}
+        remaining = [k for k in remaining if _classify_batch(k) in allowed]
+
+
+def _classify_batch(key: RunKey) -> str:
+    """Classify a run key into its batch label."""
+    _, model, depth, condition = key
+    if condition in ("no_evidence_chains", "no_critique_loops", "no_passage_mining", "no_comprehensiveness"):
+        return "3e"
+    if condition == "retrieval_controlled":
+        return "3c"
+    if depth != "medium":
+        return "3f"
+    # Distinguish 3a (Tier B) from 3b (Tier A) would require topic lookup;
+    # for filtering purposes, both are "3ab"
+    return "3ab"
+
     typer.echo(f"Remaining runs: {len(remaining)} of {len(matrix)} total")
     if dry_run:
         typer.echo("Dry run — no execution.")
@@ -1198,6 +1223,8 @@ async def _execute_runs(
                 # Ablation config
                 if condition == "no_critique_loops":
                     config.critique.max_revision_cycles = 0
+                if condition == "no_evidence_chains":
+                    config.writing.evidence_chains = False
 
                 kb = KnowledgeBase(topic=topic.title, domain=topic.domain, output_dir=output_dir)
                 llm = create_llm_provider(config.llm)
