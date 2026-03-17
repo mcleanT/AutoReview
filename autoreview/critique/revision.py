@@ -121,13 +121,16 @@ async def outline_critique_loop(
     required_sections: list[str] | None = None,
     max_cycles: int = 2,
     threshold: float = 0.80,
+    depth: Any | None = None,
 ) -> tuple[ReviewOutline, list[CritiqueReport]]:
     """Run the outline generation → critique → revision loop.
 
     Returns:
         Tuple of (final outline, list of critique reports).
     """
-    outline = await outline_generator.generate(evidence_map, scope_document, required_sections)
+    outline = await outline_generator.generate(
+        evidence_map, scope_document, required_sections, depth=depth
+    )
     critiques: list[CritiqueReport] = []
     scores: list[float] = []
 
@@ -156,6 +159,7 @@ async def outline_critique_loop(
             required_sections,
             previous_outline=outline,
             critique_report=report,
+            depth=depth,
         )
 
     return outline, critiques

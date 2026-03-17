@@ -198,6 +198,7 @@ class MockOutlineGenerator:
         required_sections=None,
         previous_outline=None,
         critique_report=None,
+        depth=None,
     ):
         self.call_count += 1
         if previous_outline is not None:

@@ -692,7 +692,15 @@ class PipelineNodes:
             required_sections=self.config.outline.required_sections,
             max_cycles=self.config.outline.max_critique_cycles,
             threshold=self.config.critique.score_threshold,
+            depth=self.config.writing.depth,
         )
+
+        from autoreview.config.depth import EvidenceWeightedAllocator, get_depth_profile
+
+        depth = self.config.writing.depth
+        profile = get_depth_profile(depth)
+        allocator = EvidenceWeightedAllocator(profile)
+        allocator.allocate(review_outline, kb.evidence_map, kb.extractions)
 
         kb.outline = review_outline.model_dump()
         kb.critique_history.extend(critiques)
@@ -715,6 +723,7 @@ class PipelineNodes:
             outline=outline,
             evidence_map=kb.evidence_map,
             scope_document=kb.scope_document or "",
+            depth=self.config.writing.depth,
         )
 
         kb.narrative_plan = plan
@@ -1090,6 +1099,7 @@ class PipelineNodes:
             kb.evidence_map,
             narrative_plan=kb.narrative_plan,
             contextual_enrichment=kb.contextual_enrichment or None,
+            depth=self.config.writing.depth,
         )
 
         # Validate citations and critique each section
