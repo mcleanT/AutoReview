@@ -60,6 +60,8 @@ def build_section_writing_prompt(
     adjacent_text: str = "",
     narrative_guidance: str = "",
     contextual_enrichment: str = "",
+    target_word_count: int | None = None,
+    depth_instructions: str = "",
 ) -> str:
     narrative_block = f"\n{narrative_guidance}\n" if narrative_guidance else ""
     enrichment_block = ""
@@ -68,6 +70,9 @@ def build_section_writing_prompt(
             f"\n## Contextual Background Material (supplementary — use for framing, not primary evidence)\n"
             f"{contextual_enrichment}\n"
         )
+    depth_block = ""
+    if depth_instructions:
+        depth_block = f"\n## DEPTH AND LENGTH GUIDANCE\n\n{depth_instructions}\n"
     return f"""\
 ## Section to Write
 **ID:** {section_id}
@@ -85,6 +90,6 @@ def build_section_writing_prompt(
 
 ## Adjacent Section Text
 {adjacent_text or "(First section or adjacent sections not yet written)"}
-{narrative_block}{enrichment_block}\
+{narrative_block}{enrichment_block}{depth_block}\
 Write this section with proper synthesis, citation markers [@paper_id], and smooth transitions.
 """
