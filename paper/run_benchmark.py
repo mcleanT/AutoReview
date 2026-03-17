@@ -461,7 +461,7 @@ async def _run_analyses(
                 _generate_depth_shim(results_dir, analysis_out, topics)
                 from paper.analysis.depth_comparison import main as depth_main
 
-                await depth_main(analysis_out, analysis_out)
+                await depth_main(analysis_out, analysis_out, skip_extraction=True)
             else:
                 mod = __import__(f"paper.analysis.{name}", fromlist=["main"])
                 await mod.main(results_dir, analysis_out, df)

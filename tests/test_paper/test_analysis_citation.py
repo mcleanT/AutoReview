@@ -184,11 +184,13 @@ class TestPlotHallucinationHistogram:
 
 class TestMain:
     def test_main_creates_outputs(self, sample_df: pd.DataFrame, tmp_path: Path) -> None:
+        import asyncio
+
         from paper.analysis.citation_analysis import main
 
         results_dir = tmp_path / "results"
         output_dir = tmp_path / "out"
-        main(results_dir, output_dir, sample_df)
+        asyncio.run(main(results_dir, output_dir, sample_df))
 
         assert (output_dir / "citation_analysis.json").exists()
         assert (output_dir / "citation_bar_domain.pdf").exists()
@@ -196,12 +198,13 @@ class TestMain:
         assert (output_dir / "hallucination_histogram.pdf").exists()
 
     def test_main_json_has_expected_keys(self, sample_df: pd.DataFrame, tmp_path: Path) -> None:
+        import asyncio
         import json
 
         from paper.analysis.citation_analysis import main
 
         output_dir = tmp_path / "out"
-        main(tmp_path, output_dir, sample_df)
+        asyncio.run(main(tmp_path, output_dir, sample_df))
 
         data = json.loads((output_dir / "citation_analysis.json").read_text())
         assert "overall_hallucination_rate" in data

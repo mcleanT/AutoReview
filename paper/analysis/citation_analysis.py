@@ -147,7 +147,7 @@ def plot_hallucination_histogram(df: pd.DataFrame, out: Path) -> None:
     logger.info("citation_analysis.histogram_saved", path=str(out))
 
 
-def main(results_dir: Path, output_dir: Path, df: pd.DataFrame) -> None:
+async def main(results_dir: Path, output_dir: Path, df: pd.DataFrame) -> None:
     """Run citation quality analysis.
 
     Args:
