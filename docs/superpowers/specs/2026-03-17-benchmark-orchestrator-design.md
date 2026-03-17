@@ -100,7 +100,7 @@ RunKey = tuple[str, str, str, str]  # (topic_id, model, depth, condition)
 | 3a: Tier B end-to-end | 15 topics x 3 models x medium | 45 | A1,A2,A3,A6,A7,A8,A9 |
 | 3b: Tier A end-to-end | 8 topics x 3 models x medium | 24 | A1,A2,A3,A5,A6,A7,A8,A9 |
 | 3c: Tier A retrieval-controlled | 8 topics x 3 models x medium | 24 | A5 |
-| 3d: ARISE baseline | 23 topics (external) | 23 | A1,A3 |
+| 3d: ARISE baseline | 23 topics (external, not orchestrated) | 23 | A1,A3 |
 | 3e: Ablation | 8 topics x 4 conditions x Sonnet x medium | 32 | A4 |
 | 3f: Depth | 23 topics x {low, deep} x Sonnet | 46 | A10 |
 
@@ -200,12 +200,14 @@ async def evaluate_benchmark(
 ```
 
 For each completed run in registry without an evaluation:
-1. Load generated review markdown
-2. Load reference PDF path from topics.yaml
-3. Call `run_evaluation()` (existing evaluator)
-4. Run ARISE rubric via `ARISERubricScorer`
+1. Resolve `generated_path` from the registry's `review_path` field (these are equivalent — the registry stores the path to the final review markdown)
+2. Resolve `reference_path` by looking up the topic's `reference.pdf_path` in `topics.yaml`
+3. Call `run_evaluation(generated_path=Path(review_path), reference_path=Path(ref_pdf_path), output_dir=run_dir, judge_llm=judge_llm)` (existing evaluator signature)
+4. Run ARISE rubric via `ARISERubricScorer` on the generated review text
 5. Save `evaluation.json` alongside the run output
-6. Update registry with evaluation_path
+6. Update registry with `evaluation_path`
+
+**ARISE output evaluation:** ARISE runs have no registry entry. The orchestrator scans `paper/results/arise/{topic_id}/review.md` for any topic that exists in `topics.yaml`. For each found ARISE output, it runs the same evaluation pipeline (step 3-5), saving to `paper/results/arise/{topic_id}/evaluation.json`.
 
 ### `analyze` Subcommand
 
@@ -251,11 +253,40 @@ FONT_CONFIG = {
 }
 
 def apply_style() -> None: ...
-def load_all_evaluations(results_dir: Path) -> pd.DataFrame: ...
 def fdr_correct(p_values: list[float]) -> list[float]: ...
 def save_analysis_json(data: dict, path: Path) -> None: ...
 def generate_markdown_report(title: str, sections: list[ReportSection], path: Path) -> None: ...
+
+def load_all_evaluations(results_dir: Path) -> pd.DataFrame:
+    """Scan results directory and build a unified DataFrame of all evaluations.
+
+    Reads `run_registry.json` to discover all completed runs, then loads each
+    run's `evaluation.json`. Also scans `results_dir/arise/` for ARISE outputs.
+
+    Returns DataFrame with columns:
+        - topic_id: str (from registry key)
+        - domain: str (from topics.yaml lookup)
+        - tier: str ("A" or "B")
+        - system: str ("autoreview" or "arise")
+        - model: str (e.g. "claude-sonnet-4-6", "arise" for ARISE runs)
+        - depth: str ("low", "medium", "deep")
+        - condition: str ("end_to_end", "retrieval_controlled", ablation conditions)
+        - overall_score: float
+        - citation_recall, citation_precision, citation_f1: float
+        - synthesis_score, topic_coverage, writing_quality: float
+        - arise_total: float | None (ARISE rubric score, if evaluated)
+        - word_count, section_count, citation_count: int (structural metrics)
+        - citations_per_1000_words, flesch_kincaid_grade: float
+        - cost_usd: float | None (from registry)
+        - tokens_input, tokens_output: int | None (from registry)
+
+    AutoReview runs: parsed from registry key format "topic|model|depth|condition"
+    ARISE runs: system="arise", model="arise", depth="medium", condition="end_to_end"
+    """
+    ...
 ```
+
+**Note on Analysis 10 integration:** `depth_comparison.py` currently reads from a bespoke `depth_runs.json` format. The orchestrator's `analyze` subcommand must generate a `depth_runs.json` shim from the registry before calling `depth_comparison.main()`. This shim maps registry entries (topic, model=sonnet, depth=*, condition=end_to_end) to the `DepthRunConfig` format that `depth_comparison.py` expects. ~30 LOC adapter in the analyze subcommand.
 
 ### Per-Analysis Script Pattern
 
@@ -478,12 +509,16 @@ The ablation conditions require pipeline configuration changes. These map to exi
 
 | Condition | Config Change |
 |-----------|--------------|
-| `no_evidence_chains` | `config.writing.evidence_chains = False` (needs new flag) |
-| `no_critique_loops` | `config.critique.max_revision_cycles = 0` |
-| `no_passage_mining` | Skip passage_search node via `skip_nodes=["passage_search"]` |
-| `no_comprehensiveness` | Skip gap_search node via `skip_nodes=["gap_search"]` |
+| `no_evidence_chains` | `config.writing.evidence_chains = False` | **Prerequisite**: add `evidence_chains: bool = True` to `WritingConfig`, thread through section_writing node to skip chain construction when False. ~20 LOC in `config/models.py` + `nodes.py`. |
+| `no_critique_loops` | `config.critique.max_revision_cycles = 0` | **Already supported** — existing config knob. |
+| `no_passage_mining` | Skip passage_search node | **Prerequisite**: add `skip_nodes: list[str] = []` parameter to `run_pipeline()` and `DAGRunner.execute()`. When a node is in skip_nodes, the DAG skips it and passes through the KB unchanged. ~30 LOC in `runner.py` + `dag.py`. |
+| `no_comprehensiveness` | Skip gap_search node | Same `skip_nodes` mechanism as above. |
 
-**Note:** `no_evidence_chains` and `skip_nodes` may require minor pipeline additions (adding a `skip_nodes` parameter to `run_pipeline`). These are minimal changes to the runner, not the pipeline nodes themselves.
+**Prerequisite tasks (block ablation runs only):**
+1. Add `evidence_chains` flag to `WritingConfig` + thread through section_writing node (~20 LOC)
+2. Add `skip_nodes` parameter to `run_pipeline()` and `DAGRunner.execute()` (~30 LOC)
+
+These are prerequisites for batch 3e (ablation) only. All other batches (3a, 3b, 3c, 3f) can proceed without them.
 
 ---
 
