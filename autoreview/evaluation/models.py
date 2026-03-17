@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Literal  # noqa: F401
+
 from autoreview.models.base import AutoReviewModel
 
 
@@ -114,3 +116,50 @@ class AggregatedScores(AutoReviewModel):
     arise_total: StatSummary | None = None
     by_model_tier: dict[str, AggregatedScores] | None = None
     by_domain: dict[str, AggregatedScores] | None = None
+
+
+class Claim(AutoReviewModel):
+    """A distinct factual assertion extracted from a review."""
+
+    text: str
+    category: Literal["empirical", "methodological", "contextual", "synthesis", "limitation"]
+    section_id: str | None = None
+
+
+class InformationMetrics(AutoReviewModel):
+    """Aggregated information metrics for a single topic across depth levels."""
+
+    claims_per_depth: dict[str, int]
+    new_claims_per_increment: dict[str, int]
+    new_claims_by_category: dict[str, dict[str, int]]
+    claim_novelty_rate: dict[str, float]
+    concepts_per_depth: dict[str, int]
+    concept_growth: dict[str, int]
+    claims_per_1k_words: dict[str, float]
+    concepts_per_1k_words: dict[str, float]
+    citations_per_claim: dict[str, float]
+    concept_overlap: dict[str, float] | None = None
+    reference_claim_coverage: dict[str, float] | None = None
+
+
+class DepthRunConfig(AutoReviewModel):
+    """Configuration for a single depth comparison run."""
+
+    topic: str
+    domain: str
+    depth: str
+    generated_path: str
+    reference_path: str | None = None
+    evaluation_path: str | None = None
+    tier: str | None = None
+
+
+class DepthComparisonResult(AutoReviewModel):
+    """Full comparison result for a single topic across depths."""
+
+    topic: str
+    domain: str
+    depths: list[str]
+    evaluation_scores: dict[str, float]
+    information_metrics: InformationMetrics
+    cost_per_depth: dict[str, float] | None = None

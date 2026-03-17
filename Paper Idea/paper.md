@@ -125,6 +125,8 @@ The field of automated scientific review/survey generation has exploded (AutoSur
 7. **Cost scatter plot**: quality score vs. API cost per review (colored by model tier and system)
 8. **Retrieval decomposition bar chart**: end-to-end vs. retrieval-controlled vs. human (Tier A)
 9. **Contamination histogram**: n-gram overlap distribution across topics and tiers
+10. **Quality × depth line chart**: score per metric dimension across low/medium/deep
+11. **Cumulative claims stacked bar**: claims by category at each depth level
 
 ---
 
@@ -189,6 +191,16 @@ The field of automated scientific review/survey generation has exploded (AutoSur
 - Particularly relevant for Tier A (high-citation, likely in training data)
 - Reported as limitation with quantitative bounds
 - **Scripts**: `paper/analysis/contamination_analysis.py`
+
+### Analysis 10 — Depth Level Comparison
+- All topics x 3 depths (low/medium/deep) x Sonnet only
+- Quality scaling: do synthesis, coverage, writing, citation scores scale with depth?
+- Information gain: claim extraction, concept coverage, information density per depth
+- Diminishing returns: where does the quality and information curve plateau?
+- Cost-efficiency: cost per quality-point and cost per new claim
+- Domain interaction: which domains benefit most from deeper treatment?
+- **Scripts**: `paper/analysis/depth_comparison.py`
+- **Design spec**: `docs/superpowers/specs/2026-03-17-depth-comparison-design.md`
 
 ---
 
@@ -282,7 +294,11 @@ Tier B (contemporary, 50-200 citations, 2023-2024):
 - Conditions: no evidence chains, no critique loops, no passage mining, no comprehensiveness checks
 - Sonnet only, at least 1-2 per domain
 
-**Total estimated runs: ~103-156** (lower bound: 5 Tier A + 12 Tier B; upper bound: 8 Tier A + 15 Tier B)
+**3f. AutoReview runs — depth comparison** (17-23 topics x 2 net-new depths x Sonnet = 34-46 runs)
+- Low and deep runs for all topics; medium reused from 3a/3b
+- Full pipeline with same parameters as main comparison except `--depth`
+
+**Total estimated runs: ~137-202**
 
 ### Phase 4: Evaluation and analysis
 
@@ -328,6 +344,7 @@ Tier B (contemporary, 50-200 citations, 2023-2024):
 | `paper/analysis/model_comparison.py` | **New**: Analysis 7 | 4 |
 | `paper/analysis/cost_analysis.py` | **New**: Analysis 8 | 4 |
 | `paper/analysis/contamination_analysis.py` | **New**: Analysis 9 | 4 |
+| `paper/analysis/depth_comparison.py` | **New**: Analysis 10 | 4 |
 | `paper/analysis/figures.py` | **New**: all publication figures | 4 |
 | `paper/results/` | **New**: evaluation results JSON | 4 |
 
