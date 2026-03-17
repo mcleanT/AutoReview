@@ -391,6 +391,7 @@ class SectionWriter:
         evidence_map: EvidenceMap,
         narrative_plan: NarrativePlan | None = None,
         contextual_enrichment: dict[str, SectionEnrichment] | None = None,
+        depth: DepthLevel | None = None,
     ) -> dict[str, SectionDraft]:
         """Write all sections sequentially with cross-section context."""
         drafts: dict[str, SectionDraft] = {}
@@ -417,6 +418,7 @@ class SectionWriter:
                 following_text=following,
                 directive=directive,
                 enrichment=enrichment,
+                depth=depth,
             )
             drafts[section.id] = draft
 
