@@ -298,7 +298,7 @@ class SectionWriter:
             depth_instructions=depth_instructions_text,
         )
 
-        generate_kwargs: dict = dict(
+        generate_kwargs: dict[str, Any] = dict(
             prompt=prompt,
             system=SECTION_WRITING_SYSTEM_PROMPT,
             temperature=0.55,

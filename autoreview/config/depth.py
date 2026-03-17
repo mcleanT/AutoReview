@@ -10,6 +10,8 @@ import structlog
 from autoreview.config.models import DepthLevel
 
 if TYPE_CHECKING:
+    from typing import Any  # noqa: F401
+
     from autoreview.analysis.evidence_map import EvidenceMap  # noqa: F401
     from autoreview.llm.prompts.outline import OutlineSection, ReviewOutline  # noqa: F401
 
@@ -131,7 +133,7 @@ class EvidenceWeightedAllocator:
         self,
         outline: ReviewOutline,
         evidence_map: EvidenceMap,
-        extractions: dict,
+        extractions: dict[str, Any],
     ) -> None:
         """Mutate outline sections' estimated_word_count in place."""
         sections = outline.sections
@@ -190,7 +192,7 @@ class EvidenceWeightedAllocator:
     def _compute_density(
         self,
         section: OutlineSection,
-        extractions: dict,
+        extractions: dict[str, Any],
         evidence_map: EvidenceMap,
     ) -> float:
         n_papers = len(section.paper_ids)

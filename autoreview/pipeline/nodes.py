@@ -700,7 +700,8 @@ class PipelineNodes:
         depth = self.config.writing.depth
         profile = get_depth_profile(depth)
         allocator = EvidenceWeightedAllocator(profile)
-        allocator.allocate(review_outline, kb.evidence_map, kb.extractions)
+        if kb.evidence_map is not None:
+            allocator.allocate(review_outline, kb.evidence_map, kb.extractions)
 
         kb.outline = review_outline.model_dump()
         kb.critique_history.extend(critiques)

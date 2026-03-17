@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import re
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
-class DepthLevel(str, Enum):
+class DepthLevel(StrEnum):
     LOW = "low"
     MEDIUM = "medium"
     DEEP = "deep"
