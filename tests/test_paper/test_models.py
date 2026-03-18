@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from pydantic import ValidationError
+
 from paper.models import (
     RunRegistry,
     TopicEntry,
@@ -60,7 +62,7 @@ class TestTopicEntry:
         assert "retrieval_controlled" in topic.conditions
 
     def test_invalid_tier_rejected(self) -> None:
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             TopicEntry(**_make_topic(tier="C"))
 
 

@@ -144,14 +144,14 @@ class CORESearch:
                                     status=e.response.status_code,
                                     query=query[:80],
                                 )
-                                resp = None  # type: ignore[assignment]
+                                resp = None
                             continue
                         except httpx.RequestError as e:
                             if attempt < _MAX_RETRIES - 1:
                                 await asyncio.sleep(_RETRY_BACKOFF[attempt])
                             else:
                                 logger.warning("core.request_error", error=str(e), query=query[:80])
-                                resp = None  # type: ignore[assignment]
+                                resp = None
                             continue
                     else:
                         break

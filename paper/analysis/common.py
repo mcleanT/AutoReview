@@ -1,5 +1,6 @@
 # paper/analysis/common.py
 """Shared utilities for benchmark analysis scripts."""
+
 from __future__ import annotations
 
 import json
@@ -7,9 +8,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 import structlog
 
@@ -52,7 +53,7 @@ def fdr_correct(p_values: list[float]) -> list[float]:
 
     # Compute raw adjusted values
     raw_adj = [0.0] * m
-    for rank, (orig_idx, p) in enumerate(indexed):
+    for rank, (_orig_idx, p) in enumerate(indexed):
         raw_adj[rank] = min(p * m / (rank + 1), 1.0)
 
     # Cumulative minimum from right (enforce monotonicity)
@@ -109,18 +110,20 @@ def load_all_evaluations(results_dir: Path, topics: TopicsConfig) -> pd.DataFram
         topic_info = topic_lookup.get(topic_id)
 
         row = _eval_to_row(eval_data)
-        row.update({
-            "topic_id": topic_id,
-            "domain": topic_info.domain if topic_info else "unknown",
-            "tier": topic_info.tier if topic_info else "unknown",
-            "system": "autoreview",
-            "model": model,
-            "depth": depth,
-            "condition": condition,
-            "cost_usd": entry.cost_usd,
-            "tokens_input": entry.tokens_input,
-            "tokens_output": entry.tokens_output,
-        })
+        row.update(
+            {
+                "topic_id": topic_id,
+                "domain": topic_info.domain if topic_info else "unknown",
+                "tier": topic_info.tier if topic_info else "unknown",
+                "system": "autoreview",
+                "model": model,
+                "depth": depth,
+                "condition": condition,
+                "cost_usd": entry.cost_usd,
+                "tokens_input": entry.tokens_input,
+                "tokens_output": entry.tokens_output,
+            }
+        )
         rows.append(row)
 
     # ARISE outputs
@@ -138,18 +141,20 @@ def load_all_evaluations(results_dir: Path, topics: TopicsConfig) -> pd.DataFram
             topic_info = topic_lookup.get(topic_id)
 
             row = _eval_to_row(eval_data)
-            row.update({
-                "topic_id": topic_id,
-                "domain": topic_info.domain if topic_info else "unknown",
-                "tier": topic_info.tier if topic_info else "unknown",
-                "system": "arise",
-                "model": "arise",
-                "depth": "medium",
-                "condition": "end_to_end",
-                "cost_usd": None,
-                "tokens_input": None,
-                "tokens_output": None,
-            })
+            row.update(
+                {
+                    "topic_id": topic_id,
+                    "domain": topic_info.domain if topic_info else "unknown",
+                    "tier": topic_info.tier if topic_info else "unknown",
+                    "system": "arise",
+                    "model": "arise",
+                    "depth": "medium",
+                    "condition": "end_to_end",
+                    "cost_usd": None,
+                    "tokens_input": None,
+                    "tokens_output": None,
+                }
+            )
             rows.append(row)
 
     return pd.DataFrame(rows)
@@ -186,7 +191,14 @@ def _eval_to_row(eval_data: dict[str, Any]) -> dict[str, Any]:
         row["citations_per_1000_words"] = sm.get("citations_per_1000_words", 0.0)
         row["flesch_kincaid_grade"] = sm.get("flesch_kincaid_grade", 0.0)
     else:
-        row.update({"word_count": 0, "section_count": 0, "citation_count": 0,
-                     "citations_per_1000_words": 0.0, "flesch_kincaid_grade": 0.0})
+        row.update(
+            {
+                "word_count": 0,
+                "section_count": 0,
+                "citation_count": 0,
+                "citations_per_1000_words": 0.0,
+                "flesch_kincaid_grade": 0.0,
+            }
+        )
 
     return row

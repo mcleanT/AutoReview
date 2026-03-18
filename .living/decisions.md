@@ -99,3 +99,6 @@
 - **Decision**: Cache full-text retrieval results on disk with 30-day positive / 7-day negative TTL
 - **Why**: Benchmark runs 172 times across same topic corpora — without caching, every run re-fetches everything
 - **Impact**: New `full_text_cache.py` module wrapping `FullTextResolver`
+
+## 2026-03-17 — Pushed 21 commits to origin/main
+Pushed 21 pre-existing commits to origin/main covering: search infrastructure overhaul (CORE, CrossRef, Europe PMC backends, full-text cache, OA publisher handlers, Perplexity removal), progressive disclosure knowledge system, and Analysis 10 depth comparison infrastructure.

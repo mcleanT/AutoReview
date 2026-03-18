@@ -20,7 +20,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from paper.models import (
+from paper.models import (  # noqa: E402
     SONNET_MODEL,
     RunKey,
     RunRegistry,
@@ -101,9 +101,8 @@ def _format_matrix_summary(matrix: list[RunKey], registry: RunRegistry) -> str:
     lines.append(f"Total unique runs: {len(matrix)}")
     lines.append(f"  Completed: {completed}")
     lines.append(f"  Remaining: {remaining}")
-    lines.append(
-        f"  Estimated cost (remaining): ${estimate_cost([k for k in matrix if not registry.is_completed(make_run_key(*k))]):.0f}"
-    )
+    remaining_keys = [k for k in matrix if not registry.is_completed(make_run_key(*k))]
+    lines.append(f"  Estimated cost (remaining): ${estimate_cost(remaining_keys):.0f}")
 
     # Corpus vs writing breakdown
     corpus_count = sum(1 for k in matrix if _is_corpus_run(k))
@@ -113,7 +112,7 @@ def _format_matrix_summary(matrix: list[RunKey], registry: RunRegistry) -> str:
 
     # Breakdown by batch
     batch_counts: dict[str, int] = {}
-    for topic_id, model, depth, condition in matrix:
+    for _topic_id, _model, depth, condition in matrix:
         if condition in (
             "no_evidence_chains",
             "no_critique_loops",
@@ -192,13 +191,13 @@ def _find_corpus_snapshot(
 
 @app.command(name="generate-matrix")
 def generate_matrix(
-    topics_path: Path = typer.Option(
+    topics_path: Path = typer.Option(  # noqa: B008
         Path("paper/topics.yaml"), "--topics", help="Path to topics YAML"
     ),
-    results_dir: Path = typer.Option(
+    results_dir: Path = typer.Option(  # noqa: B008
         Path("paper/results"), "--results-dir", help="Results directory"
     ),
-    models: str = typer.Option(
+    models: str = typer.Option(  # noqa: B008
         ",".join(DEFAULT_MODELS), "--models", help="Comma-separated model list"
     ),
 ) -> None:
@@ -213,15 +212,15 @@ def generate_matrix(
 
 @app.command()
 def run(
-    topics_path: Path = typer.Option(Path("paper/topics.yaml"), "--topics"),
-    results_dir: Path = typer.Option(Path("paper/results"), "--results-dir"),
-    models: str = typer.Option(",".join(DEFAULT_MODELS), "--models"),
-    max_concurrent: int = typer.Option(2, "--max-concurrent"),
-    batch_filter: str | None = typer.Option(
+    topics_path: Path = typer.Option(Path("paper/topics.yaml"), "--topics"),  # noqa: B008
+    results_dir: Path = typer.Option(Path("paper/results"), "--results-dir"),  # noqa: B008
+    models: str = typer.Option(",".join(DEFAULT_MODELS), "--models"),  # noqa: B008
+    max_concurrent: int = typer.Option(2, "--max-concurrent"),  # noqa: B008
+    batch_filter: str | None = typer.Option(  # noqa: B008
         None, "--batch", help="Filter to batches: 3a,3b,3c,3e,3f"
     ),
-    dry_run: bool = typer.Option(False, "--dry-run"),
-    verbose: bool = typer.Option(False, "--verbose", "-v"),
+    dry_run: bool = typer.Option(False, "--dry-run"),  # noqa: B008
+    verbose: bool = typer.Option(False, "--verbose", "-v"),  # noqa: B008
 ) -> None:
     """Execute pipeline runs."""
     _setup_logging(verbose)
@@ -423,11 +422,11 @@ async def _execute_runs(
 
 @app.command()
 def evaluate(
-    topics_path: Path = typer.Option(Path("paper/topics.yaml"), "--topics"),
-    results_dir: Path = typer.Option(Path("paper/results"), "--results-dir"),
-    max_concurrent: int = typer.Option(5, "--max-concurrent"),
-    judge_model: str = typer.Option("claude-sonnet-4-6", "--judge-model"),
-    verbose: bool = typer.Option(False, "--verbose", "-v"),
+    topics_path: Path = typer.Option(Path("paper/topics.yaml"), "--topics"),  # noqa: B008
+    results_dir: Path = typer.Option(Path("paper/results"), "--results-dir"),  # noqa: B008
+    max_concurrent: int = typer.Option(5, "--max-concurrent"),  # noqa: B008
+    judge_model: str = typer.Option("claude-sonnet-4-6", "--judge-model"),  # noqa: B008
+    verbose: bool = typer.Option(False, "--verbose", "-v"),  # noqa: B008
 ) -> None:
     """Evaluate completed runs with both rubrics."""
     _setup_logging(verbose)
@@ -534,13 +533,13 @@ async def _evaluate_runs(
 
 @app.command()
 def analyze(
-    topics_path: Path = typer.Option(Path("paper/topics.yaml"), "--topics"),
-    results_dir: Path = typer.Option(Path("paper/results"), "--results-dir"),
-    output_dir: Path = typer.Option(Path("paper/output"), "--output-dir"),
-    analyses: str | None = typer.Option(
+    topics_path: Path = typer.Option(Path("paper/topics.yaml"), "--topics"),  # noqa: B008
+    results_dir: Path = typer.Option(Path("paper/results"), "--results-dir"),  # noqa: B008
+    output_dir: Path = typer.Option(Path("paper/output"), "--output-dir"),  # noqa: B008
+    analyses: str | None = typer.Option(  # noqa: B008
         None, "--analyses", help="Comma-separated analysis numbers, e.g. 1,2,3"
     ),
-    verbose: bool = typer.Option(False, "--verbose", "-v"),
+    verbose: bool = typer.Option(False, "--verbose", "-v"),  # noqa: B008
 ) -> None:
     """Run analysis scripts on evaluation results."""
     _setup_logging(verbose)
@@ -638,12 +637,12 @@ def _generate_depth_shim(results_dir: Path, output_dir: Path, topics: TopicsConf
 
 @app.command()
 def full(
-    topics_path: Path = typer.Option(Path("paper/topics.yaml"), "--topics"),
-    results_dir: Path = typer.Option(Path("paper/results"), "--results-dir"),
-    output_dir: Path = typer.Option(Path("paper/output"), "--output-dir"),
-    models: str = typer.Option(",".join(DEFAULT_MODELS), "--models"),
-    max_concurrent: int = typer.Option(2, "--max-concurrent"),
-    verbose: bool = typer.Option(False, "--verbose", "-v"),
+    topics_path: Path = typer.Option(Path("paper/topics.yaml"), "--topics"),  # noqa: B008
+    results_dir: Path = typer.Option(Path("paper/results"), "--results-dir"),  # noqa: B008
+    output_dir: Path = typer.Option(Path("paper/output"), "--output-dir"),  # noqa: B008
+    models: str = typer.Option(",".join(DEFAULT_MODELS), "--models"),  # noqa: B008
+    max_concurrent: int = typer.Option(2, "--max-concurrent"),  # noqa: B008
+    verbose: bool = typer.Option(False, "--verbose", "-v"),  # noqa: B008
 ) -> None:
     """Run the full benchmark: generate -> evaluate -> analyze."""
     _setup_logging(verbose)

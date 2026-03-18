@@ -62,3 +62,6 @@
 - **`structlog.testing.capture_logs()` is fragile in full suite**: Works in isolation but fails when other tests reconfigure structlog. Prefer mock-based assertions over log capture for test robustness.
 - **Europe PMC is free, no key needed**: Full JATS XML available for all PMC articles via `/rest/{pmcid}/fullTextXML`. Broader than PubMed for European research.
 - **CrossRef abstracts are JATS XML**: Must strip XML tags before storing as plain text abstract.
+
+## 2026-03-17 — Push-only session trigger
+Push-only sessions trigger the mycelium stop hook even with no new code changes in the session — the hook detects prior-session work that was committed but not yet registered in .living/. Register significant commit batches even in push-only sessions.

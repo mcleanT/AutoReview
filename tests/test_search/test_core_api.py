@@ -167,7 +167,8 @@ class TestCORESearchSearch:
         )
 
         # Papers from both queries are returned (dedup by core id within query,
-        # but across queries it's normal to get some duplication — the aggregator handles cross-source dedup)
+        # but across queries it's normal to get some duplication —
+        # the aggregator handles cross-source dedup)
         assert len(papers) <= 20
         assert all(isinstance(p, CandidatePaper) for p in papers)
 

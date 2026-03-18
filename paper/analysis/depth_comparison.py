@@ -4,7 +4,9 @@ Compares AutoReview output quality, information content, and cost
 across low/medium/deep depth levels.
 
 Usage:
-    python -m paper.analysis.depth_comparison --results-dir paper/results/depth_comparison --output-dir paper/output/depth_comparison
+    python -m paper.analysis.depth_comparison \
+        --results-dir paper/results/depth_comparison \
+        --output-dir paper/output/depth_comparison
 """
 
 from __future__ import annotations
@@ -668,7 +670,10 @@ async def main(results_dir: Path, output_dir: Path, skip_extraction: bool = Fals
     elif not skip_extraction:
         logger.warning(
             "depth_comparison.extraction_requires_llm",
-            msg="Live extraction requires LLM client and embedder. Use --skip-extraction with cached results.",
+            msg=(
+                "Live extraction requires LLM client and embedder."
+                " Use --skip-extraction with cached results."
+            ),
         )
     else:
         logger.info("depth_comparison.no_extraction_no_cache")

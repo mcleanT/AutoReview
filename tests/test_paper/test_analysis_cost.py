@@ -1,4 +1,5 @@
 """Tests for Analysis 8: Cost-Quality Tradeoff."""
+
 from __future__ import annotations
 
 import asyncio

@@ -4,7 +4,8 @@ Runs AutoReview on ARISE's exact 10 benchmark topics and compares
 results against ARISE's published scores using their rubric.
 
 Usage:
-    python -m paper.analysis.arise_comparison --results-dir paper/results --output-dir paper/output/arise_comparison
+    python -m paper.analysis.arise_comparison \
+        --results-dir paper/results --output-dir paper/output/arise_comparison
 """
 
 from __future__ import annotations
@@ -212,7 +213,7 @@ def plot_system_bar(comparison: dict[str, Any], out: Path) -> None:
     )
 
     # Add value labels on bars
-    for bar, score in zip(bars, scores):
+    for bar, score in zip(bars, scores, strict=False):
         ax.text(
             bar.get_x() + bar.get_width() / 2,
             bar.get_height() + 0.3,

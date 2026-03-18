@@ -1498,7 +1498,7 @@ class TestCrossRefStrategy:
         """Falls back to JATS XML when no PDF link is available."""
         import json
 
-        _JATS_BODY = b"<article><body><p>" + b"A" * 200 + b"</p></body></article>"
+        jats_body = b"<article><body><p>" + b"A" * 200 + b"</p></body></article>"
 
         links = [{"content-type": "text/xml", "URL": "https://example.com/paper.xml"}]
         sp = _make_screened(external_ids={"crossref_links": json.dumps(links)})
@@ -1506,8 +1506,8 @@ class TestCrossRefStrategy:
         resolver = FullTextResolver()
         mock_resp = MagicMock()
         mock_resp.status_code = 200
-        mock_resp.content = _JATS_BODY
-        mock_resp.text = _JATS_BODY.decode()
+        mock_resp.content = jats_body
+        mock_resp.text = jats_body.decode()
         resolver._client = MagicMock()
         resolver._client.get = AsyncMock(return_value=mock_resp)
 

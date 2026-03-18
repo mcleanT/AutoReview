@@ -1,4 +1,5 @@
 """Tests for Analysis 9: Contamination Analysis."""
+
 from __future__ import annotations
 
 import pytest

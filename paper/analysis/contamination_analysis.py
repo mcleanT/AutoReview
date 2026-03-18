@@ -4,7 +4,8 @@ Measures n-gram overlap between generated reviews and reference papers
 to detect potential training data contamination.
 
 Usage:
-    python -m paper.analysis.contamination_analysis --results-dir paper/results --output-dir paper/output/contamination
+    python -m paper.analysis.contamination_analysis \
+        --results-dir paper/results --output-dir paper/output/contamination
 """
 
 from __future__ import annotations
@@ -190,7 +191,7 @@ def plot_tier_comparison(overlaps_df: pd.DataFrame, out: Path) -> None:
     colors = [CB_PALETTE[i % len(CB_PALETTE)] for i in range(len(tiers))]
 
     bp = ax.boxplot(data, patch_artist=True, tick_labels=[str(t).capitalize() for t in tiers])
-    for patch, color in zip(bp["boxes"], colors):
+    for patch, color in zip(bp["boxes"], colors, strict=False):
         patch.set_facecolor(color)
         patch.set_alpha(0.75)
 

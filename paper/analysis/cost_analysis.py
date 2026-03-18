@@ -3,7 +3,8 @@
 Computes cost efficiency metrics and plots cost vs. quality scatter.
 
 Usage:
-    python -m paper.analysis.cost_analysis --results-dir paper/results --output-dir paper/output/cost_analysis
+    python -m paper.analysis.cost_analysis \
+        --results-dir paper/results --output-dir paper/output/cost_analysis
 """
 
 from __future__ import annotations

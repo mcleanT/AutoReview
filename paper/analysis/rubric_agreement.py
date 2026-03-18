@@ -5,7 +5,8 @@ and the ARISE rubric (arise_total) via Spearman/Pearson correlation
 and Bland-Altman agreement analysis.
 
 Usage:
-    python -m paper.analysis.rubric_agreement --results-dir paper/results --output-dir paper/output/rubric_agreement
+    python -m paper.analysis.rubric_agreement \
+        --results-dir paper/results --output-dir paper/output/rubric_agreement
 """
 
 from __future__ import annotations

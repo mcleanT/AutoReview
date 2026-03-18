@@ -5,7 +5,8 @@ domain, tier, or model. Generates grouped bar charts and a hallucination
 histogram.
 
 Usage:
-    python -m paper.analysis.citation_analysis --results-dir paper/results --output-dir paper/output/citation
+    python -m paper.analysis.citation_analysis \
+        --results-dir paper/results --output-dir paper/output/citation
 """
 
 from __future__ import annotations
@@ -98,7 +99,7 @@ def plot_citation_bar(
 
     fig, ax = plt.subplots(figsize=(max(8, len(groups) * 1.5), 5), constrained_layout=True)
 
-    for i, (key, label) in enumerate(zip(metric_keys, metric_labels)):
+    for i, (key, label) in enumerate(zip(metric_keys, metric_labels, strict=False)):
         values = [breakdown[g].get(key, float("nan")) for g in groups]
         offset = (i - n_metrics / 2 + 0.5) * width
         ax.bar(x + offset, values, width, label=label, color=CB_PALETTE[i], alpha=0.85)

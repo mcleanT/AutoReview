@@ -4,7 +4,8 @@ Examines how AutoReview performance varies across scientific domains
 (cs_ai, biomedical, climate_science, social_science).
 
 Usage:
-    python -m paper.analysis.domain_analysis --results-dir paper/results --output-dir paper/output/domain_analysis
+    python -m paper.analysis.domain_analysis \
+        --results-dir paper/results --output-dir paper/output/domain_analysis
 """
 
 from __future__ import annotations
@@ -115,7 +116,7 @@ def compute_domain_tests(df: pd.DataFrame) -> dict[str, Any]:
     valid_p = [p for p in p_values_raw if not np.isnan(p)]
     if valid_p:
         adjusted = fdr_correct(p_values_raw)
-        for metric, p_adj in zip(metric_order, adjusted):
+        for metric, p_adj in zip(metric_order, adjusted, strict=False):
             if metric in results:
                 results[metric]["p_adjusted"] = p_adj
     else:

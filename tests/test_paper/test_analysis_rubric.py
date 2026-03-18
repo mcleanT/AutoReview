@@ -17,7 +17,7 @@ def sample_df() -> pd.DataFrame:
     overall_scores = [0.55, 0.62, 0.68, 0.71, 0.75, 0.79, 0.83, 0.88]
     arise_totals = [52.0, 58.0, 65.0, 69.0, 74.0, 77.0, 81.0, 87.0]
     rows = []
-    for i, (os, at) in enumerate(zip(overall_scores, arise_totals)):
+    for i, (os, at) in enumerate(zip(overall_scores, arise_totals, strict=False)):
         rows.append(
             {
                 "topic_id": f"t{i}",

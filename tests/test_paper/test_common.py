@@ -1,16 +1,14 @@
 # tests/test_paper/test_common.py
 """Tests for shared analysis utilities."""
+
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
-import numpy as np
-import pandas as pd
 import pytest
 
 from paper.analysis.common import (
-    CB_PALETTE,
     apply_style,
     fdr_correct,
     load_all_evaluations,
@@ -52,6 +50,7 @@ class TestSaveAnalysisJSON:
 class TestApplyStyle:
     def test_sets_rcparams(self) -> None:
         import matplotlib.pyplot as plt
+
         apply_style()
         assert plt.rcParams["axes.labelsize"] == 12
 
@@ -65,26 +64,45 @@ class TestLoadAllEvaluations:
             "reference_path": "ref.pdf",
             "overall_score": 0.75,
             "citation_score": {
-                "recall": 0.6, "precision": 0.8, "f1": 0.69,
-                "matched_count": 10, "reference_count": 15, "generated_count": 12,
-                "matched_titles": [], "missed_titles": [], "hallucinated_titles": [],
+                "recall": 0.6,
+                "precision": 0.8,
+                "f1": 0.69,
+                "matched_count": 10,
+                "reference_count": 15,
+                "generated_count": 12,
+                "matched_titles": [],
+                "missed_titles": [],
+                "hallucinated_titles": [],
             },
             "synthesis_score": {
-                "generated_score": 3.5, "reference_score": 4.0, "delta": -0.5,
-                "dimension_scores": {}, "generated_observations": "", "reference_observations": "",
+                "generated_score": 3.5,
+                "reference_score": 4.0,
+                "delta": -0.5,
+                "dimension_scores": {},
+                "generated_observations": "",
+                "reference_observations": "",
             },
             "topic_coverage": {
-                "generated_coverage": 0.8, "reference_coverage": 1.0,
-                "topics_in_both": [], "topics_only_in_reference": [], "topics_only_in_generated": [],
+                "generated_coverage": 0.8,
+                "reference_coverage": 1.0,
+                "topics_in_both": [],
+                "topics_only_in_reference": [],
+                "topics_only_in_generated": [],
             },
             "writing_quality": {
-                "generated_score": 3.0, "reference_score": 4.0, "delta": -1.0,
+                "generated_score": 3.0,
+                "reference_score": 4.0,
+                "delta": -1.0,
                 "dimension_scores": {},
             },
             "structural_metrics": {
-                "word_count": 5000, "section_count": 8, "citation_count": 45,
-                "citations_per_1000_words": 9.0, "avg_section_length_words": 625,
-                "section_balance": 0.3, "flesch_kincaid_grade": 14.5,
+                "word_count": 5000,
+                "section_count": 8,
+                "citation_count": 45,
+                "citations_per_1000_words": 9.0,
+                "avg_section_length_words": 625,
+                "section_balance": 0.3,
+                "flesch_kincaid_grade": 14.5,
             },
         }
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -93,6 +111,7 @@ class TestLoadAllEvaluations:
     def _make_registry(self, results_dir: Path) -> None:
         """Write a minimal run_registry.json."""
         from paper.models import RunRegistry
+
         reg = RunRegistry()
         key = "test_topic|claude-sonnet-4-6|medium|end_to_end"
         run_dir = results_dir / "test_topic" / "claude-sonnet-4-6_medium_end_to_end"
@@ -114,12 +133,22 @@ class TestLoadAllEvaluations:
         self._make_registry(results_dir)
 
         # Also need a topics.yaml for domain/tier lookup
-        from paper.models import TopicsConfig, TopicEntry, ReferenceInfo
-        topics = TopicsConfig(topics=[TopicEntry(
-            id="test_topic", title="Test", domain="cs_ai", tier="B",
-            reference=ReferenceInfo(doi="x", title="y", year=2023, citation_count=100, pdf_path="z"),
-            conditions=["end_to_end"],
-        )])
+        from paper.models import ReferenceInfo, TopicEntry, TopicsConfig
+
+        topics = TopicsConfig(
+            topics=[
+                TopicEntry(
+                    id="test_topic",
+                    title="Test",
+                    domain="cs_ai",
+                    tier="B",
+                    reference=ReferenceInfo(
+                        doi="x", title="y", year=2023, citation_count=100, pdf_path="z"
+                    ),
+                    conditions=["end_to_end"],
+                )
+            ]
+        )
 
         df = load_all_evaluations(results_dir, topics)
         assert len(df) == 1
@@ -133,18 +162,28 @@ class TestLoadAllEvaluations:
         results_dir.mkdir(parents=True)
 
         # Empty registry
-        from paper.models import RunRegistry, TopicsConfig, TopicEntry, ReferenceInfo
+        from paper.models import ReferenceInfo, RunRegistry, TopicEntry, TopicsConfig
+
         RunRegistry().save(results_dir / "run_registry.json")
 
         # ARISE output
         arise_dir = results_dir / "arise" / "test_topic"
         self._make_eval_json(arise_dir / "evaluation.json")
 
-        topics = TopicsConfig(topics=[TopicEntry(
-            id="test_topic", title="Test", domain="cs_ai", tier="B",
-            reference=ReferenceInfo(doi="x", title="y", year=2023, citation_count=100, pdf_path="z"),
-            conditions=["end_to_end"],
-        )])
+        topics = TopicsConfig(
+            topics=[
+                TopicEntry(
+                    id="test_topic",
+                    title="Test",
+                    domain="cs_ai",
+                    tier="B",
+                    reference=ReferenceInfo(
+                        doi="x", title="y", year=2023, citation_count=100, pdf_path="z"
+                    ),
+                    conditions=["end_to_end"],
+                )
+            ]
+        )
 
         df = load_all_evaluations(results_dir, topics)
         assert len(df) == 1

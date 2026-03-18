@@ -4,7 +4,8 @@ Compares AutoReview output quality when individual components are ablated
 (disabled) versus the full end-to-end pipeline.
 
 Usage:
-    python -m paper.analysis.ablation_analysis --results-dir paper/results --output-dir paper/output/ablation
+    python -m paper.analysis.ablation_analysis \
+        --results-dir paper/results --output-dir paper/output/ablation
 """
 
 from __future__ import annotations
@@ -217,8 +218,8 @@ def plot_ablation_heatmap(
     ax.set_ylabel("Ablation Condition")
     ax.set_title("Ablation Deltas from End-to-End Baseline")
 
-    for i, condition in enumerate(conditions):
-        for j, metric in enumerate(metrics):
+    for i, _condition in enumerate(conditions):
+        for j, _metric in enumerate(metrics):
             val = data[i, j]
             if not np.isnan(val):
                 text_color = "white" if abs(val) > vmax * 0.6 else "black"

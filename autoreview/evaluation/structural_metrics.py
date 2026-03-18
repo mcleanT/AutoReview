@@ -102,7 +102,7 @@ def compute_structural_metrics(markdown_text: str) -> StructuralMetrics:
         round(citation_count / (word_count / 1000), 4) if word_count > 0 else 0.0
     )
 
-    fk_grade = round(textstat.flesch_kincaid_grade(plain_text), 2)  # type: ignore[attr-defined]
+    fk_grade = round(textstat.flesch_kincaid_grade(plain_text), 2)
 
     logger.debug(
         "structural_metrics.computed",

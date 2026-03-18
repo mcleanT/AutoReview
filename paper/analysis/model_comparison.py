@@ -4,7 +4,8 @@ Compares AutoReview output quality across model tiers at medium depth.
 Runs Friedman test + post-hoc Wilcoxon with FDR correction.
 
 Usage:
-    python -m paper.analysis.model_comparison --results-dir paper/results --output-dir paper/output/model_comparison
+    python -m paper.analysis.model_comparison \
+        --results-dir paper/results --output-dir paper/output/model_comparison
 """
 
 from __future__ import annotations
@@ -178,7 +179,7 @@ def compute_model_tests(df: pd.DataFrame) -> dict[str, Any]:
     if all_pvals:
         raw_pvals = [p for _, _, p in all_pvals]
         adjusted = fdr_correct(raw_pvals)
-        for (metric, pair_key, _), p_adj in zip(all_pvals, adjusted):
+        for (metric, pair_key, _), p_adj in zip(all_pvals, adjusted, strict=False):
             wilcoxon_results[metric][pair_key]["p_adjusted"] = p_adj
 
     return {

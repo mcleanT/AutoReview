@@ -25,7 +25,9 @@ _SAMPLE_WORK = {
         {"given": "Bob", "family": "Jones"},
     ],
     "published-print": {"date-parts": [[2022, 6, 1]]},
-    "abstract": "<jats:p>We present a novel approach to genomic analysis using deep learning.</jats:p>",
+    "abstract": (
+        "<jats:p>We present a novel approach to genomic analysis using deep learning.</jats:p>"
+    ),
     "container-title": ["Nature"],
     "is-referenced-by-count": 142,
     "link": [

@@ -187,8 +187,8 @@ class TestComputeModelTests:
         from paper.analysis.model_comparison import compute_model_tests
 
         result = compute_model_tests(sample_df)
-        for metric, pairs in result["wilcoxon"].items():
-            for pair_key, stats in pairs.items():
+        for _metric, pairs in result["wilcoxon"].items():
+            for _pair_key, stats in pairs.items():
                 p_adj = stats["p_adjusted"]
                 if not math.isnan(p_adj):
                     assert 0.0 <= p_adj <= 1.0

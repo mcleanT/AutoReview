@@ -4,7 +4,8 @@ Compares AutoReview vs ARISE baseline on overall quality metrics
 across all benchmark topics.
 
 Usage:
-    python -m paper.analysis.main_comparison --results-dir paper/results --output-dir paper/output/main_comparison
+    python -m paper.analysis.main_comparison \
+        --results-dir paper/results --output-dir paper/output/main_comparison
 """
 
 from __future__ import annotations
@@ -79,7 +80,6 @@ def compute_statistical_tests(df: pd.DataFrame) -> dict[str, Any]:
         metric_result: dict[str, Any] = {"systems": systems}
 
         # Friedman test (requires >= 3 systems; fall back to Wilcoxon for 2)
-        groups = [df[df["system"] == s][metric].dropna().values for s in systems]
         # Use only common topics for paired tests
         topic_col = "topic_id" if "topic_id" in df.columns else "topic"
         pivot = df.pivot_table(values=metric, index=topic_col, columns="system", aggfunc="mean")
@@ -144,7 +144,7 @@ def compute_statistical_tests(df: pd.DataFrame) -> dict[str, Any]:
         valid_p = [p for p in p_values_raw if not np.isnan(p)]
         if valid_p:
             adj = fdr_correct(p_values_raw)
-            for pair_key, p_adj in zip(pair_keys, adj):
+            for pair_key, p_adj in zip(pair_keys, adj, strict=False):
                 pairwise[pair_key]["p_adjusted"] = p_adj
         else:
             for pair_key in pair_keys:
@@ -218,7 +218,7 @@ def plot_radar_chart(summary: dict[str, dict[str, dict[str, float]]], out: Path)
         values = [summary[system][m]["mean"] for m in available_metrics]
         # Normalize: synthesis_score and writing_quality are 1-5, others 0-1
         norm_values: list[float] = []
-        for m, v in zip(available_metrics, values):
+        for m, v in zip(available_metrics, values, strict=False):
             if m in ("synthesis_score", "writing_quality"):
                 norm_values.append(v / 5.0)
             else:

@@ -21,7 +21,7 @@ import re
 import unicodedata
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 import structlog
 
@@ -57,10 +57,7 @@ def cache_key(paper: CandidatePaper) -> str:
       1. Normalised DOI (already lowercased by the model validator).
       2. Normalised title as a fallback.
     """
-    if paper.doi:
-        raw = paper.doi.lower().strip()
-    else:
-        raw = _normalize_title(paper.title)
+    raw = paper.doi.lower().strip() if paper.doi else _normalize_title(paper.title)
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
@@ -106,7 +103,7 @@ class FullTextCache:
     def _path(self, key: str) -> Path:
         return self._root / key[:2] / f"{key}.json"
 
-    def _is_fresh(self, entry: dict) -> bool:
+    def _is_fresh(self, entry: dict[str, Any]) -> bool:
         try:
             ts = datetime.fromisoformat(entry["timestamp"])
             is_negative = entry.get("text") is None
@@ -115,13 +112,13 @@ class FullTextCache:
         except (KeyError, ValueError):
             return False
 
-    def _read_entry(self, path: Path) -> dict | None:
+    def _read_entry(self, path: Path) -> dict[str, Any] | None:
         try:
-            return json.loads(path.read_text(encoding="utf-8"))
+            return cast(dict[str, Any], json.loads(path.read_text(encoding="utf-8")))
         except (OSError, json.JSONDecodeError):
             return None
 
-    def _write_entry(self, path: Path, entry: dict) -> None:
+    def _write_entry(self, path: Path, entry: dict[str, Any]) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(entry, ensure_ascii=False), encoding="utf-8")
 
@@ -163,7 +160,7 @@ class FullTextCache:
                 return None
             return text, source
 
-    async def get_raw(self, paper: CandidatePaper) -> dict | None:
+    async def get_raw(self, paper: CandidatePaper) -> dict[str, Any] | None:
         """Return the raw cache entry dict, or None on miss / expiry.
 
         Includes negative entries (text=null, source='not_found').

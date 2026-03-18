@@ -33,7 +33,9 @@ _SAMPLE_RESULT_2 = {
     "authorString": "Jumper J, Evans R.",
     "pubYear": "2021",
     "doi": "10.1038/s41586-021-03819-2",
-    "abstractText": "We present AlphaFold2, a deep learning method for protein structure prediction.",
+    "abstractText": (
+        "We present AlphaFold2, a deep learning method for protein structure prediction."
+    ),
     "pmid": "34567890",
     "pmcid": "PMC8371605",
     "isOpenAccess": "Y",

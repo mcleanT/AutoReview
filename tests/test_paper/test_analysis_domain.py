@@ -92,7 +92,7 @@ class TestDomainAnalysis:
         from paper.analysis.domain_analysis import compute_domain_tests
 
         tests = compute_domain_tests(sample_df)
-        for metric, result in tests.items():
+        for _metric, result in tests.items():
             assert "domains" in result
             assert "statistic" in result
 

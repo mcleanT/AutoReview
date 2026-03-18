@@ -4,7 +4,8 @@ Compares end_to_end vs retrieval_controlled conditions on Tier A topics
 to isolate the contribution of retrieval quality vs synthesis quality.
 
 Usage:
-    python -m paper.analysis.retrieval_decomposition --results-dir paper/results --output-dir paper/output/retrieval
+    python -m paper.analysis.retrieval_decomposition \
+        --results-dir paper/results --output-dir paper/output/retrieval
 """
 
 from __future__ import annotations

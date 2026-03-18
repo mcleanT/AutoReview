@@ -22,7 +22,7 @@ def compute_cosine_similarity_matrix(a: np.ndarray, b: np.ndarray) -> np.ndarray
     """
     a_norm = a / (np.linalg.norm(a, axis=1, keepdims=True) + 1e-10)
     b_norm = b / (np.linalg.norm(b, axis=1, keepdims=True) + 1e-10)
-    return a_norm @ b_norm.T
+    return np.asarray(a_norm @ b_norm.T)
 
 
 async def deduplicate_claims(
