@@ -331,6 +331,8 @@ class TestCorpusExpansion:
         outline = ReviewOutline.model_validate(kb.outline)
         section_1 = outline.get_section("1")
         section_2 = outline.get_section("2")
+        assert section_1 is not None
+        assert section_2 is not None
         # Original paper_ids plus new ones
         assert len(section_1.paper_ids) > 1
         assert len(section_2.paper_ids) > 2

@@ -26,7 +26,6 @@ Produce structured output with:
 - pubmed_queries: list of Boolean/MeSH queries for PubMed (3-5 queries)
 - semantic_scholar_queries: list of semantic search queries (3-5 queries)
 - openalex_queries: list of general academic queries (3-5 queries)
-- perplexity_questions: list of natural language discovery questions (2-3 questions)
 - scope_document: a detailed paragraph defining what this review should cover, its boundaries, expected sub-topics (at least 5), and what is explicitly out of scope
 """
 

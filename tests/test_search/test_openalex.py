@@ -9,7 +9,7 @@ from autoreview.search.openalex import OpenAlexSearch
 
 def _make_work(
     *,
-    title: str = "Test OpenAlex Paper",
+    title: str | None = "Test OpenAlex Paper",
     authorships: list[dict] | None = None,
     year: int = 2023,
     journal_name: str | None = "Journal of Testing",

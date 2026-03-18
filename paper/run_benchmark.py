@@ -16,6 +16,9 @@ from typing import Any
 
 import structlog
 import typer
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from paper.models import (
     SONNET_MODEL,

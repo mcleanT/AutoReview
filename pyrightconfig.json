@@ -1,0 +1,8 @@
+{
+  "venvPath": ".",
+  "venv": ".venv",
+  "pythonVersion": "3.13",
+  "include": ["autoreview", "tests"],
+  "typeCheckingMode": "basic",
+  "ignore": ["tests/test_paper", "tests/test_analysis/test_depth_comparison.py"]
+}

@@ -3,11 +3,16 @@
 Chains multiple strategies to maximise full-text coverage:
 
 1. Elsevier ScienceDirect API  (DOI-based, requires ELSEVIER_API_KEY)
-2. Springer Nature Open Access API  (DOI-based, requires SPRINGER_API_KEY)
-3. Semantic Scholar openAccessPdf  (stored during search)
+2. Semantic Scholar openAccessPdf  (stored during search)
+3. CORE API  (core_pdf_url or direct output download, 300M+ OA records)
 4. PubMed Central  (PMID/PMCID -> JATS XML)
+4b. Europe PMC  (PMCID -> JATS XML, superset of PMC with sometimes better availability)
 5. arXiv / bioRxiv / medRxiv  (preprint PDF)
-6. Unpaywall  (DOI-based OA lookup)
+6. PLOS  (10.1371/ prefix, guaranteed OA)
+7. MDPI  (10.3390/ prefix, guaranteed OA)
+8. Frontiers  (10.3389/ prefix, guaranteed OA)
+9. Unpaywall  (DOI-based OA lookup)
+10. Springer Nature Open Access API  (DOI-based, last resort)
 
 Each strategy is tried in order; the first one that returns usable text wins.
 """
@@ -15,6 +20,7 @@ Each strategy is tried in order; the first one that returns usable text wins.
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import re
 from typing import Any
@@ -49,6 +55,14 @@ _SPRINGER_NATURE_DOI_PREFIXES = (
     "10.1365/",  # Springer Fachmedien
     "10.1251/",  # Springer Japan
 )
+
+# Open Access publisher DOI prefixes
+_PLOS_DOI_PREFIX = "10.1371/"
+_MDPI_DOI_PREFIX = "10.3390/"
+_FRONTIERS_DOI_PREFIX = "10.3389/"
+
+# bioRxiv / medRxiv versions to try when API lookup fails
+_BIORXIV_FALLBACK_VERSIONS = ("v1", "v2", "v3")
 
 # ---------------------------------------------------------------------------
 # Elsevier XML text extraction
@@ -149,12 +163,18 @@ class FullTextResolver:
 
     Strategies are tried in this order per paper:
       1. Elsevier ScienceDirect API          (DOI-based, structured XML)
-      2. Springer Nature Open Access API     (DOI-based, JATS XML)
-      3. Semantic Scholar openAccessPdf URL   (if stored in external_ids)
+      2. Semantic Scholar openAccessPdf URL   (if stored in external_ids)
+      3. CORE API                             (core_pdf_url or direct output download)
+      3b. CrossRef links                      (PDF > XML > HTML from external_ids)
       4. PubMed Central via PMCID/PMID        (free JATS XML)
+      4b. Europe PMC                          (PMCID -> JATS XML, PMC superset)
       5. arXiv PDF                             (if arXiv ID present)
-      6. bioRxiv / medRxiv PDF                 (preprint DOI)
-      7. Unpaywall                             (DOI-based OA lookup)
+      6. bioRxiv / medRxiv PDF                 (preprint DOI, with version API)
+      7. PLOS direct PDF                       (10.1371/ prefix, guaranteed OA)
+      8. MDPI direct PDF                       (10.3390/ prefix, guaranteed OA)
+      9. Frontiers direct PDF                  (10.3389/ prefix, guaranteed OA)
+     10. Unpaywall                             (DOI-based OA lookup)
+     11. Springer Nature Open Access API      (DOI-based JATS XML, last resort)
     """
 
     def __init__(
@@ -163,14 +183,20 @@ class FullTextResolver:
         entrez_email: str | None = None,
         elsevier_api_key: str | None = None,
         springer_api_key: str | None = None,
+        core_api_key: str | None = None,
+        crossref_email: str | None = None,
         requests_per_second: float = 10.0,
     ) -> None:
         self._unpaywall_email = unpaywall_email
         self._entrez_email = entrez_email or os.environ.get(
             "ENTREZ_EMAIL", "autoreview@example.com"
         )
+        self._crossref_email = (
+            crossref_email or os.environ.get("CROSSREF_EMAIL") or os.environ.get("ENTREZ_EMAIL")
+        )
         self._elsevier_api_key = elsevier_api_key or os.environ.get("ELSEVIER_API_KEY")
         self._springer_api_key = springer_api_key or os.environ.get("SPRINGER_API_KEY")
+        self._core_api_key = core_api_key or os.environ.get("CORE_API_KEY")
         self._client = httpx.AsyncClient(
             timeout=30.0,
             follow_redirects=True,
@@ -218,7 +244,18 @@ class FullTextResolver:
                     source_counts[source] = source_counts.get(source, 0) + 1
 
         tasks = [_process(sp) for sp in papers]
-        await asyncio.gather(*tasks, return_exceptions=True)
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Log any unexpected exceptions that bubbled up through gather
+        for sp, result in zip(papers, results, strict=True):
+            if isinstance(result, BaseException):
+                logger.error(
+                    "full_text.resolve_paper_exception",
+                    doi=sp.paper.doi,
+                    paper_id=sp.paper.id,
+                    error=str(result),
+                    exc_type=type(result).__name__,
+                )
 
         logger.info(
             "full_text.resolve_complete",
@@ -244,27 +281,84 @@ class FullTextResolver:
         pmid_to_pmcid: dict[str, str],
     ) -> tuple[str, str | None]:
         """Try each strategy in priority order.  Return (source, text)."""
-        for name, fn in [
+        strategies = [
             ("elsevier_api", self._try_elsevier_api),
             ("s2_pdf", self._try_s2_pdf),
+            # CORE has 300M+ OA records — high hit rate, try before PMC
+            ("core", self._try_core),
+            # CrossRef links stored during search (PDF, XML, HTML)
+            ("crossref", self._try_crossref),
             ("pmc", lambda p: self._try_pmc(p, pmid_to_pmcid)),
+            ("europe_pmc", self._try_europe_pmc),
             ("arxiv", self._try_arxiv),
             ("biorxiv", self._try_biorxiv),
+            ("plos", self._try_plos),
+            ("mdpi", self._try_mdpi),
+            ("frontiers", self._try_frontiers),
             ("unpaywall", self._try_unpaywall),
             # Rate-limited (500 calls/day) — last resort for OA articles
             ("springer_oa", self._try_springer_oa),
-        ]:
+        ]
+
+        attempted: list[str] = []
+        skipped: list[str] = []
+
+        for name, fn in strategies:
             try:
                 text = await fn(paper)
-                if text and len(text) > 100:
+                if text is None:
+                    # None return means the strategy was skipped (wrong prefix,
+                    # missing key, etc.) — distinguish from an attempted failure
+                    skipped.append(name)
+                    logger.debug(
+                        "full_text.strategy_skipped",
+                        strategy=name,
+                        doi=paper.doi,
+                        paper_id=paper.id,
+                    )
+                    continue
+                attempted.append(name)
+                if len(text) > 100:
+                    logger.info(
+                        "full_text.strategy_succeeded",
+                        strategy=name,
+                        doi=paper.doi,
+                        paper_id=paper.id,
+                        chars=len(text),
+                    )
+                    logger.debug(
+                        "full_text.try_all_summary",
+                        doi=paper.doi,
+                        attempted=attempted,
+                        skipped=skipped,
+                        succeeded=name,
+                    )
                     return name, text
+                # Returned something but too short — count as failed attempt
+                logger.debug(
+                    "full_text.strategy_text_too_short",
+                    strategy=name,
+                    doi=paper.doi,
+                    paper_id=paper.id,
+                    chars=len(text),
+                )
             except Exception as e:
+                attempted.append(name)
                 logger.debug(
                     "full_text.strategy_failed",
                     strategy=name,
+                    doi=paper.doi,
                     paper_id=paper.id,
                     error=str(e),
                 )
+
+        logger.warning(
+            "full_text.all_strategies_failed",
+            doi=paper.doi,
+            paper_id=paper.id,
+            attempted=attempted,
+            skipped=skipped,
+        )
         return "", None
 
     # ------------------------------------------------------------------
@@ -410,6 +504,171 @@ class FullTextResolver:
             return None
 
     # ------------------------------------------------------------------
+    # Strategy 3: CORE API (core_pdf_url or direct output download)
+    # ------------------------------------------------------------------
+
+    async def _try_core(self, paper: CandidatePaper) -> str | None:
+        """Fetch full-text PDF from CORE (core.ac.uk).
+
+        Tries two sources in order:
+          1. ``core_pdf_url`` stored in external_ids during search (direct link).
+          2. CORE API output download endpoint using the ``core`` ID.
+
+        Requires CORE_API_KEY for the second strategy (used in Authorization header).
+        """
+        # Strategy A: use the download URL cached during search
+        pdf_url = paper.external_ids.get("core_pdf_url")
+        if pdf_url:
+            await self._limiter.acquire()
+            try:
+                headers: dict[str, str] = {}
+                if self._core_api_key:
+                    headers["Authorization"] = f"Bearer {self._core_api_key}"
+                resp = await self._client.get(pdf_url, headers=headers)
+                if resp.status_code == 200 and len(resp.content) >= 1000:
+                    text = _extract_text_from_pdf(resp.content)
+                    if text:
+                        logger.debug(
+                            "full_text.core_pdf_url_success",
+                            paper_id=paper.id,
+                            chars=len(text),
+                        )
+                        return text
+            except Exception as e:
+                logger.debug("full_text.core_pdf_url_failed", paper_id=paper.id, error=str(e))
+
+        # Strategy B: use the CORE output download endpoint
+        core_id = paper.external_ids.get("core")
+        if core_id and self._core_api_key:
+            await self._limiter.acquire()
+            try:
+                resp = await self._client.get(
+                    f"https://api.core.ac.uk/v3/outputs/{core_id}/download",
+                    headers={"Authorization": f"Bearer {self._core_api_key}"},
+                )
+                if resp.status_code == 200 and len(resp.content) >= 1000:
+                    text = _extract_text_from_pdf(resp.content)
+                    if text:
+                        logger.debug(
+                            "full_text.core_download_success",
+                            paper_id=paper.id,
+                            core_id=core_id,
+                            chars=len(text),
+                        )
+                        return text
+            except Exception as e:
+                logger.debug(
+                    "full_text.core_download_failed",
+                    paper_id=paper.id,
+                    core_id=core_id,
+                    error=str(e),
+                )
+
+        return None
+
+    # ------------------------------------------------------------------
+    # Strategy 3b: CrossRef links (PDF > XML > HTML)
+    # ------------------------------------------------------------------
+
+    async def _try_crossref(self, paper: CandidatePaper) -> str | None:
+        """Fetch full text using link URLs stored from CrossRef search results.
+
+        CrossRef ``link`` objects carry ``content-type`` and ``URL`` fields.
+        We try link types in priority order: PDF → XML (JATS) → HTML.
+        Returns None (skip) if no crossref_links are stored for this paper.
+        """
+        raw = paper.external_ids.get("crossref_links")
+        if not raw:
+            return None
+
+        try:
+            links: list[dict[str, str]] = json.loads(raw)
+        except Exception:
+            return None
+
+        if not links:
+            return None
+
+        def _priority(link: dict[str, str]) -> int:
+            ct = link.get("content-type", "")
+            if ct == "application/pdf":
+                return 0
+            if ct in ("text/xml", "application/xml"):
+                return 1
+            if ct == "text/html":
+                return 2
+            return 3
+
+        sorted_links = sorted(links, key=_priority)
+
+        for link in sorted_links:
+            url = link.get("URL")
+            content_type = link.get("content-type", "")
+            if not url:
+                continue
+            # Skip unknown content types entirely
+            if _priority(link) == 3:
+                continue
+
+            await self._limiter.acquire()
+            try:
+                resp = await self._client.get(
+                    url,
+                    headers={
+                        "User-Agent": (
+                            f"AutoReview/1.0 (mailto:{self._crossref_email or 'anonymous'})"
+                        )
+                    },
+                )
+                min_size = 1000 if content_type == "application/pdf" else 100
+                if resp.status_code != 200 or len(resp.content) < min_size:
+                    continue
+
+                if content_type == "application/pdf":
+                    text = _extract_text_from_pdf(resp.content)
+                    if text and len(text) > 100:
+                        logger.debug(
+                            "full_text.crossref_pdf_success",
+                            paper_id=paper.id,
+                            url=url,
+                            chars=len(text),
+                        )
+                        return text
+
+                elif content_type in ("text/xml", "application/xml"):
+                    text = _extract_text_from_jats_xml(resp.content)
+                    if text and len(text) > 100:
+                        logger.debug(
+                            "full_text.crossref_xml_success",
+                            paper_id=paper.id,
+                            url=url,
+                            chars=len(text),
+                        )
+                        return text
+
+                elif content_type == "text/html":
+                    html_text = resp.text
+                    if len(html_text) > 100:
+                        logger.debug(
+                            "full_text.crossref_html_success",
+                            paper_id=paper.id,
+                            url=url,
+                            chars=len(html_text),
+                        )
+                        return html_text[:_MAX_TEXT_CHARS]
+
+            except Exception as e:
+                logger.debug(
+                    "full_text.crossref_link_failed",
+                    paper_id=paper.id,
+                    url=url,
+                    error=str(e),
+                )
+                continue
+
+        return None
+
+    # ------------------------------------------------------------------
     # Strategy 4: PubMed Central (JATS XML)
     # ------------------------------------------------------------------
 
@@ -501,6 +760,38 @@ class FullTextResolver:
             return None
 
     # ------------------------------------------------------------------
+    # Strategy 4b: Europe PMC full-text XML (JATS)
+    # ------------------------------------------------------------------
+
+    async def _try_europe_pmc(self, paper: CandidatePaper) -> str | None:
+        """Fetch full-text JATS XML from Europe PMC using the paper's PMCID.
+
+        Europe PMC provides a dedicated full-text XML endpoint for PMC articles.
+        It is a superset of PubMed Central and sometimes has better availability.
+        Only works for papers with a ``pmcid`` in ``external_ids``.
+        No API key required.
+        """
+        pmcid = paper.external_ids.get("pmcid")
+        if not pmcid:
+            return None
+
+        # Normalise: ensure it starts with "PMC"
+        if not pmcid.upper().startswith("PMC"):
+            pmcid = f"PMC{pmcid}"
+
+        await self._limiter.acquire()
+        try:
+            resp = await self._client.get(
+                f"https://www.ebi.ac.uk/europepmc/webservices/rest/{pmcid}/fullTextXML",
+            )
+            if resp.status_code != 200:
+                return None
+            return _extract_text_from_jats_xml(resp.content)
+        except Exception as e:
+            logger.debug("full_text.europe_pmc_failed", paper_id=paper.id, error=str(e))
+            return None
+
+    # ------------------------------------------------------------------
     # Strategy 5: arXiv PDF
     # ------------------------------------------------------------------
 
@@ -524,35 +815,240 @@ class FullTextResolver:
             return None
 
     # ------------------------------------------------------------------
-    # Strategy 6: bioRxiv / medRxiv (DOI-based PDF)
+    # Strategy 5: bioRxiv / medRxiv (DOI-based PDF, with version resolution)
     # ------------------------------------------------------------------
 
+    async def _get_biorxiv_latest_version(self, doi: str, server: str) -> str | None:
+        """Query the bioRxiv/medRxiv API to get the latest version number.
+
+        Returns the version string (e.g. "v3") or None if the API call fails.
+        """
+        await self._limiter.acquire()
+        try:
+            resp = await self._client.get(
+                f"https://api.biorxiv.org/details/{server}/{doi}",
+            )
+            if resp.status_code != 200:
+                return None
+            data = resp.json()
+            collection = data.get("collection", [])
+            if not collection:
+                return None
+            # The last entry in the collection is the most recent version
+            latest = collection[-1]
+            version = latest.get("version")
+            if version:
+                return f"v{version}"
+            return None
+        except Exception as e:
+            logger.debug(
+                "full_text.biorxiv_version_api_failed",
+                doi=doi,
+                server=server,
+                error=str(e),
+            )
+            return None
+
+    async def _fetch_biorxiv_pdf(self, doi: str, server: str, version: str) -> bytes | None:
+        """Fetch a single bioRxiv/medRxiv PDF for the given DOI and version."""
+        host = "biorxiv" if server == "biorxiv" else "medrxiv"
+        pdf_url = f"https://www.{host}.org/content/{doi}{version}.full.pdf"
+        await self._limiter.acquire()
+        try:
+            resp = await self._client.get(pdf_url)
+            if resp.status_code == 200 and len(resp.content) >= 1000:
+                return resp.content
+            return None
+        except Exception:
+            return None
+
     async def _try_biorxiv(self, paper: CandidatePaper) -> str | None:
-        """Fetch preprint PDF from bioRxiv or medRxiv."""
+        """Fetch preprint PDF from bioRxiv or medRxiv.
+
+        First queries the bioRxiv API to discover the latest version.
+        If the API call fails, falls back to trying v1, v2, v3 sequentially.
+        Then tries medRxiv with the same approach if bioRxiv yields nothing.
+        """
         doi = paper.doi
         if not doi or not doi.startswith("10.1101/"):
             return None
 
-        # bioRxiv/medRxiv PDFs follow a predictable URL pattern
-        pdf_url = f"https://www.biorxiv.org/content/{doi}v1.full.pdf"
+        for server in ("biorxiv", "medrxiv"):
+            # 1. Try to discover the latest version via the API
+            version = await self._get_biorxiv_latest_version(doi, server)
+
+            if version:
+                content = await self._fetch_biorxiv_pdf(doi, server, version)
+                if content:
+                    logger.debug(
+                        "full_text.biorxiv_version_api_hit",
+                        doi=doi,
+                        server=server,
+                        version=version,
+                        paper_id=paper.id,
+                    )
+                    text = _extract_text_from_pdf(content)
+                    if text:
+                        return text
+
+            # 2. Fallback: try v1, v2, v3 sequentially
+            logger.debug(
+                "full_text.biorxiv_version_fallback",
+                doi=doi,
+                server=server,
+                paper_id=paper.id,
+            )
+            for ver in _BIORXIV_FALLBACK_VERSIONS:
+                content = await self._fetch_biorxiv_pdf(doi, server, ver)
+                if content:
+                    text = _extract_text_from_pdf(content)
+                    if text:
+                        return text
+
+        logger.debug("full_text.biorxiv_all_versions_failed", doi=doi, paper_id=paper.id)
+        return None
+
+    # ------------------------------------------------------------------
+    # Strategy 6: PLOS direct PDF (10.1371/ prefix — all OA)
+    # ------------------------------------------------------------------
+
+    _PLOS_JOURNAL_SLUG: dict[str, str] = {
+        "pone": "plosone",
+        "pbio": "plosbiology",
+        "pmed": "plosmedicine",
+        "pgen": "plosgenetics",
+        "pcbi": "ploscompbiol",
+        "ppat": "plospathogens",
+        "pntd": "plosntds",
+    }
+
+    async def _try_plos(self, paper: CandidatePaper) -> str | None:
+        """Fetch PDF directly from PLOS journals.
+
+        All PLOS articles are Open Access.  The printable PDF is always
+        available at a canonical URL that varies by journal slug.
+        """
+        doi = paper.doi
+        if not doi or not doi.startswith(_PLOS_DOI_PREFIX):
+            return None
+
+        # Extract journal code from DOI: 10.1371/journal.pone.1234 → "pone"
+        slug = "plosone"  # default fallback
+        parts = doi.split("/", 1)
+        if len(parts) > 1 and parts[1].startswith("journal."):
+            code = parts[1].split(".")[1] if len(parts[1].split(".")) > 1 else ""
+            slug = self._PLOS_JOURNAL_SLUG.get(code, "plosone")
+
+        pdf_url = f"https://journals.plos.org/{slug}/article/file?id={doi}&type=printable"
 
         await self._limiter.acquire()
         try:
             resp = await self._client.get(pdf_url)
             if resp.status_code != 200 or len(resp.content) < 1000:
-                # Try medRxiv if bioRxiv fails
-                pdf_url = f"https://www.medrxiv.org/content/{doi}v1.full.pdf"
-                await self._limiter.acquire()
-                resp = await self._client.get(pdf_url)
-                if resp.status_code != 200 or len(resp.content) < 1000:
-                    return None
-            return _extract_text_from_pdf(resp.content)
+                logger.debug(
+                    "full_text.plos_http_failed",
+                    doi=doi,
+                    paper_id=paper.id,
+                    status=resp.status_code,
+                )
+                return None
+            text = _extract_text_from_pdf(resp.content)
+            if text:
+                logger.debug(
+                    "full_text.plos_success",
+                    doi=doi,
+                    paper_id=paper.id,
+                    chars=len(text),
+                )
+            return text
         except Exception as e:
-            logger.debug("full_text.biorxiv_failed", paper_id=paper.id, error=str(e))
+            logger.debug("full_text.plos_failed", doi=doi, paper_id=paper.id, error=str(e))
             return None
 
     # ------------------------------------------------------------------
-    # Strategy 7: Unpaywall (DOI lookup, tries all available URLs)
+    # Strategy 7: MDPI direct PDF (10.3390/ prefix — all OA)
+    # ------------------------------------------------------------------
+
+    async def _try_mdpi(self, paper: CandidatePaper) -> str | None:
+        """Fetch PDF directly from MDPI journals.
+
+        All MDPI articles are Open Access.  The PDF URL is constructed
+        from the DOI suffix (everything after '10.3390/').
+        """
+        doi = paper.doi
+        if not doi or not doi.startswith(_MDPI_DOI_PREFIX):
+            return None
+
+        doi_suffix = doi[len(_MDPI_DOI_PREFIX) :]
+        pdf_url = f"https://www.mdpi.com/{doi_suffix}/pdf"
+
+        await self._limiter.acquire()
+        try:
+            resp = await self._client.get(pdf_url)
+            if resp.status_code != 200 or len(resp.content) < 1000:
+                logger.debug(
+                    "full_text.mdpi_http_failed",
+                    doi=doi,
+                    paper_id=paper.id,
+                    status=resp.status_code,
+                )
+                return None
+            text = _extract_text_from_pdf(resp.content)
+            if text:
+                logger.debug(
+                    "full_text.mdpi_success",
+                    doi=doi,
+                    paper_id=paper.id,
+                    chars=len(text),
+                )
+            return text
+        except Exception as e:
+            logger.debug("full_text.mdpi_failed", doi=doi, paper_id=paper.id, error=str(e))
+            return None
+
+    # ------------------------------------------------------------------
+    # Strategy 8: Frontiers direct PDF (10.3389/ prefix — all OA)
+    # ------------------------------------------------------------------
+
+    async def _try_frontiers(self, paper: CandidatePaper) -> str | None:
+        """Fetch PDF directly from Frontiers journals.
+
+        All Frontiers articles are Open Access.  The PDF URL follows the
+        pattern https://www.frontiersin.org/articles/{doi}/pdf which
+        redirects to the actual PDF.
+        """
+        doi = paper.doi
+        if not doi or not doi.startswith(_FRONTIERS_DOI_PREFIX):
+            return None
+
+        pdf_url = f"https://www.frontiersin.org/articles/{doi}/pdf"
+
+        await self._limiter.acquire()
+        try:
+            resp = await self._client.get(pdf_url)
+            if resp.status_code != 200 or len(resp.content) < 1000:
+                logger.debug(
+                    "full_text.frontiers_http_failed",
+                    doi=doi,
+                    paper_id=paper.id,
+                    status=resp.status_code,
+                )
+                return None
+            text = _extract_text_from_pdf(resp.content)
+            if text:
+                logger.debug(
+                    "full_text.frontiers_success",
+                    doi=doi,
+                    paper_id=paper.id,
+                    chars=len(text),
+                )
+            return text
+        except Exception as e:
+            logger.debug("full_text.frontiers_failed", doi=doi, paper_id=paper.id, error=str(e))
+            return None
+
+    # ------------------------------------------------------------------
+    # Strategy 9: Unpaywall (DOI lookup, tries all available URLs)
     # ------------------------------------------------------------------
 
     async def _try_unpaywall(self, paper: CandidatePaper) -> str | None:

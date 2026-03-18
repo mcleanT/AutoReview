@@ -106,5 +106,81 @@ async def search_openalex(query: str, max_results: int = 20) -> str:
         return json.dumps({"error": str(e)})
 
 
+@mcp.tool()
+async def search_core(query: str, max_results: int = 20) -> str:
+    """Search CORE (core.ac.uk) for open access papers matching the query.
+
+    Uses the CORE API v3 which indexes 300M+ open access research outputs.
+    Requires CORE_API_KEY environment variable for higher rate limits.
+
+    Args:
+        query: Search query string (natural language or keywords).
+        max_results: Maximum number of papers to return (default 20).
+
+    Returns:
+        JSON string containing a list of paper objects with title, authors,
+        year, doi, abstract, and source fields.
+    """
+    try:
+        from autoreview.search.core_api import CORESearch
+
+        searcher = CORESearch()
+        papers = await searcher.search(queries=[query], max_results=max_results)
+        return json.dumps(_papers_to_dicts(papers), indent=2)
+    except Exception as e:
+        return json.dumps({"error": str(e)})
+
+
+@mcp.tool()
+async def search_europe_pmc(query: str, max_results: int = 20) -> str:
+    """Search Europe PMC for life sciences papers matching the query.
+
+    Uses the Europe PMC REST API which indexes 40M+ records including
+    PubMed, PubMed Central, preprints, and patents. No API key required.
+    Results include PMCIDs enabling direct full-text access.
+
+    Args:
+        query: Search query string (supports Europe PMC query syntax).
+        max_results: Maximum number of papers to return (default 20).
+
+    Returns:
+        JSON string containing a list of paper objects with title, authors,
+        year, doi, abstract, and source fields.
+    """
+    try:
+        from autoreview.search.europe_pmc import EuropePMCSearch
+
+        searcher = EuropePMCSearch()
+        papers = await searcher.search(queries=[query], max_results=max_results)
+        return json.dumps(_papers_to_dicts(papers), indent=2)
+    except Exception as e:
+        return json.dumps({"error": str(e)})
+
+
+@mcp.tool()
+async def search_crossref(query: str, max_results: int = 20) -> str:
+    """Search CrossRef for papers matching the query.
+
+    Uses the CrossRef REST API with polite pool access via CROSSREF_EMAIL
+    or ENTREZ_EMAIL environment variable (50 req/sec vs 1 req/sec anonymous).
+
+    Args:
+        query: Search query string (natural language or keywords).
+        max_results: Maximum number of papers to return (default 20).
+
+    Returns:
+        JSON string containing a list of paper objects with title, authors,
+        year, doi, abstract, and source fields.
+    """
+    try:
+        from autoreview.search.crossref import CrossRefSearch
+
+        searcher = CrossRefSearch()
+        papers = await searcher.search(queries=[query], max_results=max_results)
+        return json.dumps(_papers_to_dicts(papers), indent=2)
+    except Exception as e:
+        return json.dumps({"error": str(e)})
+
+
 if __name__ == "__main__":
     mcp.run()

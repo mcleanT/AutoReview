@@ -39,3 +39,26 @@
 - Always read the actual function body before assuming a code pattern (f-string vs parts list)
 - When threading a parameter through a pipeline, trace the FULL call chain — not just the function you are modifying
 - Frozen dataclasses with dict fields allow dict mutation — consider MappingProxyType if true immutability needed
+
+## 2026-03-17: Benchmark Orchestrator Implementation
+- Subagent-driven parallel implementation of 9 analysis scripts completed in ~4 min wall-clock
+- Pyright diagnostics during parallel agent work are expected (agents writing tests for modules created by other agents)
+- Analysis template pattern from depth_comparison.py scaled well to 9 scripts with minimal deviation
+- include_depth default should be False in expand_run_matrix (explicit opt-in for depth runs)
+
+## 2026-03-17 — CORE API integration
+- CORE API v3 search endpoint uses `q` (not `query`) param and returns `results`/`totalHits` (not `data`/`total`)
+- CORE author objects have a `name` field (not `displayName`) but safe to check both
+- CORE download URL is stored in `downloadUrl` field in search results; direct download via /outputs/{id}/download requires API key
+- respx library works well for mocking httpx calls in async tests
+
+## 2026-03-18: Search & full-text retrieval learnings
+
+- **Unpaywall `best_oa_location` is insufficient**: The API returns an `oa_locations` array with multiple entries. Only checking `best_oa_location` misses papers where the best URL is broken but secondary URLs work. Fix: iterate all locations.
+- **External IDs are siloed by search source**: Papers found via OpenAlex don't get `arxiv` or `s2_pdf_url` from Semantic Scholar. The aggregator's dedup must merge `external_ids` dicts, not just keep the winner's IDs.
+- **bioRxiv/medRxiv hardcode v1 in URLs**: Preprints at v2+ silently fail. Must query the bioRxiv API for latest version or try v1/v2/v3 sequentially.
+- **PLOS URL varies by journal**: `plosone` path only works for PLOS ONE. Must extract journal slug from DOI suffix (e.g., `10.1371/journal.pbio.*` → `plosbiology`).
+- **Test env var pollution**: `ELSEVIER_API_KEY` and `CORE_API_KEY` in shell env leak into tests that construct resolvers with `api_key=None`. Must pop env vars BEFORE constructing the object, not after.
+- **`structlog.testing.capture_logs()` is fragile in full suite**: Works in isolation but fails when other tests reconfigure structlog. Prefer mock-based assertions over log capture for test robustness.
+- **Europe PMC is free, no key needed**: Full JATS XML available for all PMC articles via `/rest/{pmcid}/fullTextXML`. Broader than PubMed for European research.
+- **CrossRef abstracts are JATS XML**: Must strip XML tags before storing as plain text abstract.

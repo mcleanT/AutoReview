@@ -179,7 +179,7 @@ class DomainConfig(BaseModel):
         default_factory=lambda: {
             "primary": ["semantic_scholar"],
             "secondary": ["openalex"],
-            "discovery": ["perplexity"],
+            "discovery": [],
         }
     )
     search: SearchConfig = Field(default_factory=SearchConfig)

@@ -48,13 +48,17 @@ class TestParseReferenceLine:
         line = "[1] Smith J. Great discovery in science. Nature. 2020. doi:10.1038/test123"
         result = parse_reference_line(line)
         assert result["doi"] == "10.1038/test123"
-        assert "Great discovery" in result["title"]
+        title = result["title"]
+        assert title is not None
+        assert "Great discovery" in title
 
     def test_returns_title_only_when_no_doi(self):
         line = "[2] Doe A. Another finding. Science. 2019;365:100-105."
         result = parse_reference_line(line)
         assert result["doi"] is None
-        assert len(result["title"]) > 0
+        title = result["title"]
+        assert title is not None
+        assert len(title) > 0
 
     def test_returns_raw_line(self):
         line = "[1] Smith J. Great discovery. Nature. 2020."

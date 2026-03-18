@@ -9,11 +9,11 @@ from autoreview.search.pubmed import PubMedSearch
 
 def _make_string_element(value: str, attributes: dict | None = None):
     """Create a mock Bio.Entrez StringElement-like object with .attributes."""
-    s = MagicMock(spec=str)
-    s.__str__ = lambda self: value
+    s = MagicMock()
+    s.__str__ = lambda self: value  # type: ignore[attr-defined]
     s.attributes = attributes or {}
     # Make it behave like a string in join/concatenation
-    s.__repr__ = lambda self: value
+    s.__repr__ = lambda self: value  # type: ignore[attr-defined]
     return s
 
 

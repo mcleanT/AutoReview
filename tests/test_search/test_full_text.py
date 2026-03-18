@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from typing import cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -189,7 +190,9 @@ class TestElsevierApiStrategy:
         assert text is None
 
     @pytest.mark.asyncio
+    @patch.dict(os.environ, {}, clear=False)
     async def test_skips_without_api_key(self):
+        os.environ.pop("ELSEVIER_API_KEY", None)
         sp = _make_screened(doi="10.1016/j.tins.2020.10.012")
         resolver = FullTextResolver(elsevier_api_key=None)
         text = await resolver._try_elsevier_api(sp.paper)
@@ -320,7 +323,9 @@ class TestSpringerOaStrategy:
         assert text is None
 
     @pytest.mark.asyncio
+    @patch.dict(os.environ, {}, clear=False)
     async def test_skips_without_api_key(self):
+        os.environ.pop("SPRINGER_API_KEY", None)
         sp = _make_screened(doi="10.1038/s41586-020-2649-2")
         resolver = FullTextResolver(springer_api_key=None)
         text = await resolver._try_springer_oa(sp.paper)
@@ -518,32 +523,19 @@ class TestArxivStrategy:
 
 
 # ---------------------------------------------------------------------------
-# Strategy: bioRxiv / medRxiv
+# Strategy: bioRxiv / medRxiv (with version resolution)
 # ---------------------------------------------------------------------------
 
 
+def _make_biorxiv_api_response(doi: str, versions: list[int]) -> MagicMock:
+    """Build a mock biorxiv API response with the given version list."""
+    mock = MagicMock()
+    mock.status_code = 200
+    mock.json.return_value = {"collection": [{"doi": doi, "version": str(v)} for v in versions]}
+    return mock
+
+
 class TestBiorxivStrategy:
-    @pytest.mark.asyncio
-    async def test_fetches_biorxiv_pdf(self):
-        sp = _make_screened(doi="10.1101/2024.01.01.123456")
-
-        resolver = FullTextResolver()
-        mock_resp = MagicMock()
-        mock_resp.status_code = 200
-        mock_resp.content = b"x" * 2000
-        resolver._client = MagicMock()
-        resolver._client.get = AsyncMock(return_value=mock_resp)
-
-        with patch(
-            "autoreview.search.full_text._extract_text_from_pdf",
-            return_value=_SAMPLE_PDF_TEXT,
-        ):
-            text = await resolver._try_biorxiv(sp.paper)
-
-        assert text == _SAMPLE_PDF_TEXT
-        call_args = resolver._client.get.call_args
-        assert "biorxiv.org" in str(call_args)
-
     @pytest.mark.asyncio
     async def test_skips_non_biorxiv_doi(self):
         sp = _make_screened(doi="10.1038/s41586-024-12345-6")
@@ -552,19 +544,21 @@ class TestBiorxivStrategy:
         assert text is None
 
     @pytest.mark.asyncio
-    async def test_falls_back_to_medrxiv(self):
-        sp = _make_screened(doi="10.1101/2024.01.01.123456")
+    async def test_fetches_latest_version_from_api(self):
+        """With API returning v2, should fetch the v2 PDF."""
+        doi = "10.1101/2024.01.01.123456"
+        sp = _make_screened(doi=doi)
 
         resolver = FullTextResolver()
-        fail_resp = MagicMock()
-        fail_resp.status_code = 404
-        fail_resp.content = b""
-        success_resp = MagicMock()
-        success_resp.status_code = 200
-        success_resp.content = b"x" * 2000
+
+        api_resp = _make_biorxiv_api_response(doi, [1, 2])
+        pdf_resp = MagicMock()
+        pdf_resp.status_code = 200
+        pdf_resp.content = b"x" * 2000
 
         resolver._client = MagicMock()
-        resolver._client.get = AsyncMock(side_effect=[fail_resp, success_resp])
+        # First call: version API; second call: PDF download
+        resolver._client.get = AsyncMock(side_effect=[api_resp, pdf_resp])
 
         with patch(
             "autoreview.search.full_text._extract_text_from_pdf",
@@ -573,9 +567,100 @@ class TestBiorxivStrategy:
             text = await resolver._try_biorxiv(sp.paper)
 
         assert text == _SAMPLE_PDF_TEXT
-        # Second call should be to medrxiv
-        second_call = resolver._client.get.call_args_list[1]
-        assert "medrxiv.org" in str(second_call)
+        # The PDF URL should contain v2
+        pdf_call = resolver._client.get.call_args_list[1]
+        assert "v2" in str(pdf_call)
+        assert "biorxiv.org" in str(pdf_call)
+
+    @pytest.mark.asyncio
+    async def test_fallback_when_api_fails(self):
+        """When the version API fails (non-200), tries v1, v2, v3 sequentially."""
+        doi = "10.1101/2024.01.01.123456"
+        sp = _make_screened(doi=doi)
+
+        resolver = FullTextResolver()
+
+        # biorxiv API → fail; v1 → fail; v2 → success PDF
+        api_fail = MagicMock()
+        api_fail.status_code = 500
+        api_fail.json.return_value = {}
+
+        v1_fail = MagicMock()
+        v1_fail.status_code = 404
+        v1_fail.content = b""
+
+        v2_success = MagicMock()
+        v2_success.status_code = 200
+        v2_success.content = b"x" * 2000
+
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(side_effect=[api_fail, v1_fail, v2_success])
+
+        with patch(
+            "autoreview.search.full_text._extract_text_from_pdf",
+            return_value=_SAMPLE_PDF_TEXT,
+        ):
+            text = await resolver._try_biorxiv(sp.paper)
+
+        assert text == _SAMPLE_PDF_TEXT
+        calls = resolver._client.get.call_args_list
+        # First call is version API
+        assert "api.biorxiv.org" in str(calls[0])
+        # v1 tried and failed
+        assert "v1" in str(calls[1])
+        # v2 succeeded
+        assert "v2" in str(calls[2])
+
+    @pytest.mark.asyncio
+    async def test_falls_back_to_medrxiv_when_biorxiv_all_fail(self):
+        """After all biorxiv attempts fail, tries medrxiv."""
+        doi = "10.1101/2024.01.01.123456"
+        sp = _make_screened(doi=doi)
+
+        resolver = FullTextResolver()
+
+        # biorxiv API → empty collection → fallback v1/v2/v3 all fail →
+        # medrxiv API → v1 success
+        biorxiv_api_resp = MagicMock()
+        biorxiv_api_resp.status_code = 200
+        biorxiv_api_resp.json.return_value = {"collection": []}
+
+        fail_resp = MagicMock()
+        fail_resp.status_code = 404
+        fail_resp.content = b""
+
+        medrxiv_api_resp = MagicMock()
+        medrxiv_api_resp.status_code = 200
+        medrxiv_api_resp.json.return_value = {"collection": [{"doi": doi, "version": "1"}]}
+
+        medrxiv_pdf = MagicMock()
+        medrxiv_pdf.status_code = 200
+        medrxiv_pdf.content = b"x" * 2000
+
+        # Call order:
+        # [0] biorxiv API (empty) → [1] biorxiv v1 fail → [2] v2 fail → [3] v3 fail →
+        # [4] medrxiv API (v1) → [5] medrxiv v1 PDF success
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(
+            side_effect=[
+                biorxiv_api_resp,
+                fail_resp,
+                fail_resp,
+                fail_resp,
+                medrxiv_api_resp,
+                medrxiv_pdf,
+            ]
+        )
+
+        with patch(
+            "autoreview.search.full_text._extract_text_from_pdf",
+            return_value=_SAMPLE_PDF_TEXT,
+        ):
+            text = await resolver._try_biorxiv(sp.paper)
+
+        assert text == _SAMPLE_PDF_TEXT
+        pdf_call = resolver._client.get.call_args_list[5]
+        assert "medrxiv.org" in str(pdf_call)
 
 
 # ---------------------------------------------------------------------------
@@ -667,9 +752,15 @@ class TestResolveIntegration:
         # Elsevier skipped (no matching DOI), S2 PDF succeeds
         resolver._try_elsevier_api = AsyncMock(return_value=None)
         resolver._try_s2_pdf = AsyncMock(return_value=_SAMPLE_PDF_TEXT)
+        resolver._try_core = AsyncMock(return_value=None)
+        resolver._try_crossref = AsyncMock(return_value=None)
         resolver._try_pmc = AsyncMock(return_value=None)
+        resolver._try_europe_pmc = AsyncMock(return_value=None)
         resolver._try_arxiv = AsyncMock(return_value=None)
         resolver._try_biorxiv = AsyncMock(return_value=None)
+        resolver._try_plos = AsyncMock(return_value=None)
+        resolver._try_mdpi = AsyncMock(return_value=None)
+        resolver._try_frontiers = AsyncMock(return_value=None)
         resolver._try_unpaywall = AsyncMock(return_value=None)
         resolver._try_springer_oa = AsyncMock(return_value=None)
 
@@ -680,8 +771,12 @@ class TestResolveIntegration:
         assert sp.paper.full_text_source == "s2_pdf"
 
         # Later strategies should NOT have been called since S2 succeeded
+        resolver._try_core.assert_not_called()
         resolver._try_pmc.assert_not_called()
         resolver._try_arxiv.assert_not_called()
+        resolver._try_plos.assert_not_called()
+        resolver._try_mdpi.assert_not_called()
+        resolver._try_frontiers.assert_not_called()
         resolver._try_springer_oa.assert_not_called()
 
     @pytest.mark.asyncio
@@ -694,12 +789,18 @@ class TestResolveIntegration:
         resolver = FullTextResolver()
         resolver._batch_pmid_to_pmcid = AsyncMock(return_value={"12345": "PMC6789"})
 
-        # Elsevier and S2 fail, PMC succeeds
+        # Elsevier, S2, CORE, CrossRef fail — PMC succeeds
         resolver._try_elsevier_api = AsyncMock(return_value=None)
         resolver._try_s2_pdf = AsyncMock(return_value=None)
+        resolver._try_core = AsyncMock(return_value=None)
+        resolver._try_crossref = AsyncMock(return_value=None)
         resolver._try_pmc = AsyncMock(return_value="PMC full text content here " * 10)
+        resolver._try_europe_pmc = AsyncMock(return_value=None)
         resolver._try_arxiv = AsyncMock(return_value=None)
         resolver._try_biorxiv = AsyncMock(return_value=None)
+        resolver._try_plos = AsyncMock(return_value=None)
+        resolver._try_mdpi = AsyncMock(return_value=None)
+        resolver._try_frontiers = AsyncMock(return_value=None)
         resolver._try_unpaywall = AsyncMock(return_value=None)
         resolver._try_springer_oa = AsyncMock(return_value=None)
 
@@ -729,11 +830,15 @@ class TestPipelineNodeIntegration:
         sp = _make_screened(doi="10.1234/test")
         kb.screened_papers = [sp]
 
-        with patch("autoreview.search.full_text.FullTextResolver") as mock_resolver:
+        with (
+            patch("autoreview.search.full_text.FullTextResolver") as mock_resolver_cls,
+            patch("autoreview.search.full_text_cache.CachedFullTextResolver") as mock_cached_cls,
+        ):
             mock_instance = AsyncMock()
             mock_instance.resolve = AsyncMock(return_value={"s2_pdf": 1})
             mock_instance.close = AsyncMock()
-            mock_resolver.return_value = mock_instance
+            mock_resolver_cls.return_value = AsyncMock()
+            mock_cached_cls.return_value = mock_instance
 
             await nodes.full_text_retrieval(kb)
 
@@ -860,3 +965,784 @@ class TestPubMedPmcid:
         assert paper.external_ids.get("pmid") == "12345678"
         assert paper.external_ids.get("pmcid") == "PMC9876543"
         assert paper.doi == "10.1234/test"
+
+
+# ---------------------------------------------------------------------------
+# Strategy: PLOS direct PDF
+# ---------------------------------------------------------------------------
+
+
+class TestPlosStrategy:
+    @pytest.mark.asyncio
+    async def test_fetches_plos_pdf(self):
+        doi = "10.1371/journal.pbio.3001234"
+        sp = _make_screened(doi=doi)
+
+        resolver = FullTextResolver()
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.content = b"x" * 2000
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(return_value=mock_resp)
+
+        with patch(
+            "autoreview.search.full_text._extract_text_from_pdf",
+            return_value=_SAMPLE_PDF_TEXT,
+        ):
+            text = await resolver._try_plos(sp.paper)
+
+        assert text == _SAMPLE_PDF_TEXT
+        call_args = resolver._client.get.call_args
+        assert "journals.plos.org" in str(call_args)
+        assert doi in str(call_args)
+        assert "printable" in str(call_args)
+
+    @pytest.mark.asyncio
+    async def test_skips_non_plos_doi(self):
+        sp = _make_screened(doi="10.1016/j.cell.2020.06.043")
+        resolver = FullTextResolver()
+        text = await resolver._try_plos(sp.paper)
+        assert text is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_on_http_error(self):
+        sp = _make_screened(doi="10.1371/journal.pone.0123456")
+
+        resolver = FullTextResolver()
+        mock_resp = MagicMock()
+        mock_resp.status_code = 404
+        mock_resp.content = b""
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(return_value=mock_resp)
+
+        text = await resolver._try_plos(sp.paper)
+        assert text is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_without_doi(self):
+        sp = _make_screened(doi=None)
+        resolver = FullTextResolver()
+        text = await resolver._try_plos(sp.paper)
+        assert text is None
+
+
+# ---------------------------------------------------------------------------
+# Strategy: MDPI direct PDF
+# ---------------------------------------------------------------------------
+
+
+class TestMdpiStrategy:
+    @pytest.mark.asyncio
+    async def test_fetches_mdpi_pdf(self):
+        doi = "10.3390/ijms24010123"
+        sp = _make_screened(doi=doi)
+
+        resolver = FullTextResolver()
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.content = b"x" * 2000
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(return_value=mock_resp)
+
+        with patch(
+            "autoreview.search.full_text._extract_text_from_pdf",
+            return_value=_SAMPLE_PDF_TEXT,
+        ):
+            text = await resolver._try_mdpi(sp.paper)
+
+        assert text == _SAMPLE_PDF_TEXT
+        call_args = resolver._client.get.call_args
+        assert "www.mdpi.com" in str(call_args)
+        # URL should contain the DOI suffix (everything after 10.3390/)
+        assert "ijms24010123" in str(call_args)
+        assert "/pdf" in str(call_args)
+
+    @pytest.mark.asyncio
+    async def test_skips_non_mdpi_doi(self):
+        sp = _make_screened(doi="10.1038/s41586-020-2649-2")
+        resolver = FullTextResolver()
+        text = await resolver._try_mdpi(sp.paper)
+        assert text is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_on_http_error(self):
+        sp = _make_screened(doi="10.3390/cells11010001")
+
+        resolver = FullTextResolver()
+        mock_resp = MagicMock()
+        mock_resp.status_code = 403
+        mock_resp.content = b""
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(return_value=mock_resp)
+
+        text = await resolver._try_mdpi(sp.paper)
+        assert text is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_without_doi(self):
+        sp = _make_screened(doi=None)
+        resolver = FullTextResolver()
+        text = await resolver._try_mdpi(sp.paper)
+        assert text is None
+
+
+# ---------------------------------------------------------------------------
+# Strategy: Frontiers direct PDF
+# ---------------------------------------------------------------------------
+
+
+class TestFrontiersStrategy:
+    @pytest.mark.asyncio
+    async def test_fetches_frontiers_pdf(self):
+        doi = "10.3389/fnins.2023.1234567"
+        sp = _make_screened(doi=doi)
+
+        resolver = FullTextResolver()
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.content = b"x" * 2000
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(return_value=mock_resp)
+
+        with patch(
+            "autoreview.search.full_text._extract_text_from_pdf",
+            return_value=_SAMPLE_PDF_TEXT,
+        ):
+            text = await resolver._try_frontiers(sp.paper)
+
+        assert text == _SAMPLE_PDF_TEXT
+        call_args = resolver._client.get.call_args
+        assert "www.frontiersin.org" in str(call_args)
+        assert doi in str(call_args)
+        assert "/pdf" in str(call_args)
+
+    @pytest.mark.asyncio
+    async def test_skips_non_frontiers_doi(self):
+        sp = _make_screened(doi="10.1371/journal.pone.0123456")
+        resolver = FullTextResolver()
+        text = await resolver._try_frontiers(sp.paper)
+        assert text is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_on_http_error(self):
+        sp = _make_screened(doi="10.3389/fimmu.2023.1100000")
+
+        resolver = FullTextResolver()
+        mock_resp = MagicMock()
+        mock_resp.status_code = 404
+        mock_resp.content = b""
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(return_value=mock_resp)
+
+        text = await resolver._try_frontiers(sp.paper)
+        assert text is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_without_doi(self):
+        sp = _make_screened(doi=None)
+        resolver = FullTextResolver()
+        text = await resolver._try_frontiers(sp.paper)
+        assert text is None
+
+
+# ---------------------------------------------------------------------------
+# Structured failure logging in _try_all
+# ---------------------------------------------------------------------------
+
+
+class TestFailureLogging:
+    @pytest.mark.asyncio
+    async def test_logs_warning_when_all_strategies_fail(self):
+        """When all strategies return None, a WARNING event is emitted."""
+        sp = _make_screened(doi="10.9999/unknown")
+
+        resolver = FullTextResolver()
+        resolver._batch_pmid_to_pmcid = AsyncMock(return_value={})
+        # All strategies return None (skipped/failed)
+        for attr in (
+            "_try_elsevier_api",
+            "_try_s2_pdf",
+            "_try_pmc",
+            "_try_arxiv",
+            "_try_biorxiv",
+            "_try_plos",
+            "_try_mdpi",
+            "_try_frontiers",
+            "_try_unpaywall",
+            "_try_springer_oa",
+        ):
+            setattr(resolver, attr, AsyncMock(return_value=None))
+
+        import structlog.testing
+
+        with structlog.testing.capture_logs() as cap_logs:
+            source, text = await resolver._try_all(sp.paper, {})
+
+        assert text is None
+        assert source == ""
+        warning_events = [e for e in cap_logs if e.get("log_level") == "warning"]
+        assert any("all_strategies_failed" in e.get("event", "") for e in warning_events)
+
+    @pytest.mark.asyncio
+    async def test_logs_info_on_success(self):
+        """A successful strategy emits an INFO event."""
+        sp = _make_screened(doi="10.1371/journal.pbio.3001234")
+
+        resolver = FullTextResolver()
+        for attr in (
+            "_try_elsevier_api",
+            "_try_s2_pdf",
+            "_try_pmc",
+            "_try_arxiv",
+            "_try_biorxiv",
+        ):
+            setattr(resolver, attr, AsyncMock(return_value=None))
+        resolver._try_plos = AsyncMock(return_value=_SAMPLE_PDF_TEXT)
+
+        import structlog.testing
+
+        with structlog.testing.capture_logs() as cap_logs:
+            source, text = await resolver._try_all(sp.paper, {})
+
+        assert source == "plos"
+        assert text == _SAMPLE_PDF_TEXT
+        info_events = [e for e in cap_logs if e.get("log_level") == "info"]
+        assert any(
+            "strategy_succeeded" in e.get("event", "") and e.get("strategy") == "plos"
+            for e in info_events
+        )
+
+    @pytest.mark.asyncio
+    @patch.dict(os.environ, {}, clear=False)
+    async def test_logs_debug_skips_for_inapplicable_strategies(self):
+        """Strategies that return None are logged at DEBUG as skipped.
+
+        Verifies via return value and mock call counts rather than structlog
+        capture, which is fragile across the full test suite.
+        """
+        os.environ.pop("ELSEVIER_API_KEY", None)
+        os.environ.pop("SPRINGER_API_KEY", None)
+        sp = _make_screened(doi="10.1234/generic")
+
+        resolver = FullTextResolver()
+        resolver._try_elsevier_api = AsyncMock(return_value=None)  # wrong prefix
+        resolver._try_s2_pdf = AsyncMock(return_value=_SAMPLE_PDF_TEXT)
+        for attr in (
+            "_try_pmc",
+            "_try_arxiv",
+            "_try_biorxiv",
+            "_try_plos",
+            "_try_mdpi",
+            "_try_frontiers",
+            "_try_unpaywall",
+            "_try_springer_oa",
+        ):
+            setattr(resolver, attr, AsyncMock(return_value=None))
+
+        source, text = await resolver._try_all(sp.paper, {})
+
+        # s2_pdf is the second strategy and returns text, so it should win
+        assert source == "s2_pdf"
+        assert text == _SAMPLE_PDF_TEXT
+        # elsevier_api was called (returned None = skipped)
+        resolver._try_elsevier_api.assert_called_once()
+        # strategies after s2_pdf should NOT be called (early return on success)
+        cast(AsyncMock, resolver._try_pmc).assert_not_called()
+        cast(AsyncMock, resolver._try_arxiv).assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Exception logging from asyncio.gather in resolve()
+# ---------------------------------------------------------------------------
+
+
+class TestGatherExceptionLogging:
+    @pytest.mark.asyncio
+    async def test_logs_error_for_exception_in_gather(self):
+        """Exceptions raised during paper processing are logged at ERROR level."""
+        sp = _make_screened(doi="10.1234/test")
+
+        resolver = FullTextResolver()
+
+        # Make _batch_pmid_to_pmcid succeed
+        resolver._batch_pmid_to_pmcid = AsyncMock(return_value={})
+
+        # Make _try_all raise an unexpected exception
+        async def _raise(*args, **kwargs):
+            raise RuntimeError("unexpected failure")
+
+        resolver._try_all = _raise
+
+        import structlog.testing
+
+        with structlog.testing.capture_logs() as cap_logs:
+            await resolver.resolve([sp])
+
+        error_events = [e for e in cap_logs if e.get("log_level") == "error"]
+        assert any("resolve_paper_exception" in e.get("event", "") for e in error_events), (
+            f"No error event found; got: {cap_logs}"
+        )
+
+    @pytest.mark.asyncio
+    async def test_doi_included_in_exception_log(self):
+        """The paper DOI is included in the exception log event."""
+        doi = "10.1234/exception-test"
+        sp = _make_screened(doi=doi)
+
+        resolver = FullTextResolver()
+        resolver._batch_pmid_to_pmcid = AsyncMock(return_value={})
+
+        async def _raise(*args, **kwargs):
+            raise ValueError("boom")
+
+        resolver._try_all = _raise
+
+        import structlog.testing
+
+        with structlog.testing.capture_logs() as cap_logs:
+            await resolver.resolve([sp])
+
+        error_events = [e for e in cap_logs if "resolve_paper_exception" in e.get("event", "")]
+        assert len(error_events) >= 1
+        assert error_events[0].get("doi") == doi
+
+
+# ---------------------------------------------------------------------------
+# Strategy: CORE API full-text
+# ---------------------------------------------------------------------------
+
+
+class TestCoreStrategy:
+    @pytest.mark.asyncio
+    async def test_fetches_pdf_when_core_pdf_url_exists(self):
+        pdf_url = "https://core.ac.uk/download/pdf/12345678.pdf"
+        sp = _make_screened(external_ids={"core": "12345678", "core_pdf_url": pdf_url})
+
+        resolver = FullTextResolver(core_api_key="test-core-key")
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.content = b"x" * 2000
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(return_value=mock_resp)
+
+        with patch(
+            "autoreview.search.full_text._extract_text_from_pdf",
+            return_value=_SAMPLE_PDF_TEXT,
+        ):
+            text = await resolver._try_core(sp.paper)
+
+        assert text == _SAMPLE_PDF_TEXT
+        call_args = resolver._client.get.call_args_list[0]
+        assert pdf_url in str(call_args)
+
+    @pytest.mark.asyncio
+    async def test_falls_through_to_download_endpoint_when_pdf_url_missing(self):
+        sp = _make_screened(external_ids={"core": "12345678"})
+
+        resolver = FullTextResolver(core_api_key="test-core-key")
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.content = b"x" * 2000
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(return_value=mock_resp)
+
+        with patch(
+            "autoreview.search.full_text._extract_text_from_pdf",
+            return_value=_SAMPLE_PDF_TEXT,
+        ):
+            text = await resolver._try_core(sp.paper)
+
+        assert text == _SAMPLE_PDF_TEXT
+        call_args = resolver._client.get.call_args_list[0]
+        assert "outputs/12345678/download" in str(call_args)
+
+    @pytest.mark.asyncio
+    async def test_skips_when_no_core_id_and_no_pdf_url(self):
+        sp = _make_screened(external_ids={})
+
+        resolver = FullTextResolver(core_api_key="test-core-key")
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock()
+
+        text = await resolver._try_core(sp.paper)
+
+        assert text is None
+        resolver._client.get.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_skips_download_endpoint_without_api_key(self):
+        """Without a CORE API key, the download endpoint strategy is skipped."""
+        sp = _make_screened(external_ids={"core": "12345678"})
+
+        resolver = FullTextResolver(core_api_key=None)
+        import os
+
+        env_backup = os.environ.pop("CORE_API_KEY", None)
+        try:
+            resolver._core_api_key = None
+            resolver._client = MagicMock()
+            resolver._client.get = AsyncMock()
+
+            text = await resolver._try_core(sp.paper)
+        finally:
+            if env_backup is not None:
+                os.environ["CORE_API_KEY"] = env_backup
+
+        assert text is None
+        resolver._client.get.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_handles_http_error_on_pdf_url_gracefully(self):
+        pdf_url = "https://core.ac.uk/download/pdf/12345678.pdf"
+        sp = _make_screened(external_ids={"core": "12345678", "core_pdf_url": pdf_url})
+
+        resolver = FullTextResolver(core_api_key="test-core-key")
+        # First call (pdf_url) fails with 404, second call (download endpoint) also fails
+        fail_resp = MagicMock()
+        fail_resp.status_code = 404
+        fail_resp.content = b""
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(return_value=fail_resp)
+
+        text = await resolver._try_core(sp.paper)
+
+        assert text is None
+
+    @pytest.mark.asyncio
+    async def test_handles_request_exception_gracefully(self):
+        pdf_url = "https://core.ac.uk/download/pdf/12345678.pdf"
+        sp = _make_screened(external_ids={"core": "12345678", "core_pdf_url": pdf_url})
+
+        resolver = FullTextResolver(core_api_key="test-core-key")
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(side_effect=Exception("Connection timed out"))
+
+        text = await resolver._try_core(sp.paper)
+
+        assert text is None
+
+    @pytest.mark.asyncio
+    async def test_core_is_in_strategy_chain(self):
+        """CORE strategy appears after s2_pdf but before pmc in _try_all."""
+        sp = _make_screened(doi="10.1234/test")
+
+        resolver = FullTextResolver(core_api_key="test-core-key")
+        resolver._batch_pmid_to_pmcid = AsyncMock(return_value={})
+
+        call_order: list[str] = []
+
+        async def make_strategy(name: str, return_val):
+            async def strategy(*args, **kwargs):
+                call_order.append(name)
+                return return_val
+
+            return strategy
+
+        resolver._try_elsevier_api = await make_strategy("elsevier_api", None)
+        resolver._try_s2_pdf = await make_strategy("s2_pdf", None)
+        resolver._try_core = await make_strategy("core", _SAMPLE_PDF_TEXT)
+        resolver._try_crossref = await make_strategy("crossref", None)
+        resolver._try_pmc = await make_strategy("pmc", None)
+        resolver._try_europe_pmc = await make_strategy("europe_pmc", None)
+        resolver._try_arxiv = await make_strategy("arxiv", None)
+        resolver._try_biorxiv = await make_strategy("biorxiv", None)
+        resolver._try_plos = await make_strategy("plos", None)
+        resolver._try_mdpi = await make_strategy("mdpi", None)
+        resolver._try_frontiers = await make_strategy("frontiers", None)
+        resolver._try_unpaywall = await make_strategy("unpaywall", None)
+        resolver._try_springer_oa = await make_strategy("springer_oa", None)
+
+        source, text = await resolver._try_all(sp.paper, {})
+
+        assert source == "core"
+        assert text == _SAMPLE_PDF_TEXT
+        # core should come after s2_pdf
+        assert call_order.index("core") > call_order.index("s2_pdf")
+        # pmc should NOT have been called (core succeeded first)
+        assert "pmc" not in call_order
+
+
+# ---------------------------------------------------------------------------
+# Strategy: CrossRef links full-text
+# ---------------------------------------------------------------------------
+
+
+class TestCrossRefStrategy:
+    @pytest.mark.asyncio
+    async def test_fetches_pdf_from_crossref_link(self):
+        """Fetches PDF when a crossref_links entry with content-type application/pdf is present."""
+        import json
+
+        links = [{"content-type": "application/pdf", "URL": "https://example.com/paper.pdf"}]
+        sp = _make_screened(external_ids={"crossref_links": json.dumps(links)})
+
+        resolver = FullTextResolver()
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.content = b"x" * 2000
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(return_value=mock_resp)
+
+        with patch(
+            "autoreview.search.full_text._extract_text_from_pdf",
+            return_value=_SAMPLE_PDF_TEXT,
+        ):
+            text = await resolver._try_crossref(sp.paper)
+
+        assert text == _SAMPLE_PDF_TEXT
+        call_args = resolver._client.get.call_args
+        assert "example.com/paper.pdf" in str(call_args)
+
+    @pytest.mark.asyncio
+    async def test_tries_xml_when_no_pdf_link(self):
+        """Falls back to JATS XML when no PDF link is available."""
+        import json
+
+        _JATS_BODY = b"<article><body><p>" + b"A" * 200 + b"</p></body></article>"
+
+        links = [{"content-type": "text/xml", "URL": "https://example.com/paper.xml"}]
+        sp = _make_screened(external_ids={"crossref_links": json.dumps(links)})
+
+        resolver = FullTextResolver()
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.content = _JATS_BODY
+        mock_resp.text = _JATS_BODY.decode()
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(return_value=mock_resp)
+
+        with patch(
+            "autoreview.search.full_text._extract_text_from_jats_xml",
+            return_value=_SAMPLE_PDF_TEXT,
+        ):
+            text = await resolver._try_crossref(sp.paper)
+
+        assert text == _SAMPLE_PDF_TEXT
+
+    @pytest.mark.asyncio
+    async def test_skips_when_no_crossref_links(self):
+        """Returns None immediately when crossref_links is not in external_ids."""
+        sp = _make_screened(external_ids={})
+
+        resolver = FullTextResolver()
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock()
+
+        text = await resolver._try_crossref(sp.paper)
+
+        assert text is None
+        resolver._client.get.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_skips_on_http_error(self):
+        """Returns None when the HTTP request fails."""
+        import json
+
+        links = [{"content-type": "application/pdf", "URL": "https://example.com/paper.pdf"}]
+        sp = _make_screened(external_ids={"crossref_links": json.dumps(links)})
+
+        resolver = FullTextResolver()
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(side_effect=Exception("Connection error"))
+
+        text = await resolver._try_crossref(sp.paper)
+
+        assert text is None
+
+    @pytest.mark.asyncio
+    async def test_prefers_pdf_over_xml(self):
+        """PDF link is tried before XML link (sorted by priority)."""
+        import json
+
+        pdf_url = "https://example.com/paper.pdf"
+        xml_url = "https://example.com/paper.xml"
+        # Put XML first in list — PDF should still be tried first
+        links = [
+            {"content-type": "text/xml", "URL": xml_url},
+            {"content-type": "application/pdf", "URL": pdf_url},
+        ]
+        sp = _make_screened(external_ids={"crossref_links": json.dumps(links)})
+
+        resolver = FullTextResolver()
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.content = b"x" * 2000
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(return_value=mock_resp)
+
+        with patch(
+            "autoreview.search.full_text._extract_text_from_pdf",
+            return_value=_SAMPLE_PDF_TEXT,
+        ):
+            text = await resolver._try_crossref(sp.paper)
+
+        assert text == _SAMPLE_PDF_TEXT
+        # PDF URL should have been the first (and only) call
+        first_call_url = str(resolver._client.get.call_args_list[0])
+        assert pdf_url in first_call_url
+
+    @pytest.mark.asyncio
+    async def test_crossref_is_in_strategy_chain_after_core(self):
+        """CrossRef strategy appears after CORE but before PMC in _try_all."""
+        sp = _make_screened(doi="10.1234/test")
+
+        resolver = FullTextResolver()
+        resolver._batch_pmid_to_pmcid = AsyncMock(return_value={})
+
+        call_order: list[str] = []
+
+        async def make_strategy(name: str, return_val):
+            async def strategy(*args, **kwargs):
+                call_order.append(name)
+                return return_val
+
+            return strategy
+
+        resolver._try_elsevier_api = await make_strategy("elsevier_api", None)
+        resolver._try_s2_pdf = await make_strategy("s2_pdf", None)
+        resolver._try_core = await make_strategy("core", None)
+        resolver._try_crossref = await make_strategy("crossref", _SAMPLE_PDF_TEXT)
+        resolver._try_pmc = await make_strategy("pmc", None)
+        resolver._try_europe_pmc = await make_strategy("europe_pmc", None)
+        resolver._try_arxiv = await make_strategy("arxiv", None)
+        resolver._try_biorxiv = await make_strategy("biorxiv", None)
+        resolver._try_plos = await make_strategy("plos", None)
+        resolver._try_mdpi = await make_strategy("mdpi", None)
+        resolver._try_frontiers = await make_strategy("frontiers", None)
+        resolver._try_unpaywall = await make_strategy("unpaywall", None)
+        resolver._try_springer_oa = await make_strategy("springer_oa", None)
+
+        source, text = await resolver._try_all(sp.paper, {})
+
+        assert source == "crossref"
+        assert text == _SAMPLE_PDF_TEXT
+        # crossref must come after core
+        assert call_order.index("crossref") > call_order.index("core")
+        # pmc should NOT have been called (crossref succeeded first)
+        assert "pmc" not in call_order
+
+
+# ---------------------------------------------------------------------------
+# Strategy: Europe PMC full-text XML
+# ---------------------------------------------------------------------------
+
+
+class TestEuropePmcStrategy:
+    @pytest.mark.asyncio
+    async def test_fetches_jats_xml_when_pmcid_present(self):
+        sp = _make_screened(external_ids={"pmcid": "PMC8765432"})
+        resolver = FullTextResolver()
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.content = _SAMPLE_JATS
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(return_value=mock_resp)
+
+        text = await resolver._try_europe_pmc(sp.paper)
+
+        assert text is not None
+        assert "introduction paragraph" in text.lower()
+        resolver._client.get.assert_called_once()
+        call_args = resolver._client.get.call_args
+        assert "PMC8765432" in call_args[0][0]
+        assert "ebi.ac.uk" in call_args[0][0]
+
+    @pytest.mark.asyncio
+    async def test_normalises_pmcid_without_prefix(self):
+        """PMCIDs stored without 'PMC' prefix should be normalised before use."""
+        sp = _make_screened(external_ids={"pmcid": "8765432"})
+        resolver = FullTextResolver()
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.content = _SAMPLE_JATS
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(return_value=mock_resp)
+
+        text = await resolver._try_europe_pmc(sp.paper)
+
+        assert text is not None
+        call_args = resolver._client.get.call_args
+        assert "PMC8765432" in call_args[0][0]
+
+    @pytest.mark.asyncio
+    async def test_skips_when_no_pmcid(self):
+        sp = _make_screened(external_ids={"pmid": "33456789"})
+        resolver = FullTextResolver()
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock()
+
+        text = await resolver._try_europe_pmc(sp.paper)
+
+        assert text is None
+        resolver._client.get.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_returns_none_on_http_error(self):
+        sp = _make_screened(external_ids={"pmcid": "PMC8765432"})
+        resolver = FullTextResolver()
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 404
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(return_value=mock_resp)
+
+        text = await resolver._try_europe_pmc(sp.paper)
+
+        assert text is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_on_request_exception(self):
+        import httpx as _httpx
+
+        sp = _make_screened(external_ids={"pmcid": "PMC8765432"})
+        resolver = FullTextResolver()
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(side_effect=_httpx.ConnectError("Connection refused"))
+
+        text = await resolver._try_europe_pmc(sp.paper)
+
+        assert text is None
+
+    @pytest.mark.asyncio
+    async def test_strategy_position_after_pmc_before_arxiv(self):
+        """europe_pmc must appear after pmc and before arxiv in the strategy chain."""
+        sp = _make_screened(
+            doi="10.1101/12345",
+            external_ids={"pmcid": "PMC8765432"},
+        )
+        resolver = FullTextResolver()
+        resolver._batch_pmid_to_pmcid = AsyncMock(return_value={})
+
+        call_order: list[str] = []
+
+        async def make_strategy(name: str, return_val):
+            async def strategy(*args, **kwargs):
+                call_order.append(name)
+                return return_val
+
+            return strategy
+
+        resolver._try_elsevier_api = await make_strategy("elsevier_api", None)
+        resolver._try_s2_pdf = await make_strategy("s2_pdf", None)
+        resolver._try_core = await make_strategy("core", None)
+        resolver._try_crossref = await make_strategy("crossref", None)
+        resolver._try_pmc = await make_strategy("pmc", None)
+        resolver._try_europe_pmc = await make_strategy("europe_pmc", _SAMPLE_PDF_TEXT)
+        resolver._try_arxiv = await make_strategy("arxiv", None)
+        resolver._try_biorxiv = await make_strategy("biorxiv", None)
+        resolver._try_plos = await make_strategy("plos", None)
+        resolver._try_mdpi = await make_strategy("mdpi", None)
+        resolver._try_frontiers = await make_strategy("frontiers", None)
+        resolver._try_unpaywall = await make_strategy("unpaywall", None)
+        resolver._try_springer_oa = await make_strategy("springer_oa", None)
+
+        source, text = await resolver._try_all(sp.paper, {})
+
+        assert source == "europe_pmc"
+        assert text == _SAMPLE_PDF_TEXT
+        # europe_pmc must come after pmc
+        assert call_order.index("europe_pmc") > call_order.index("pmc")
+        # arxiv should NOT have been called (europe_pmc succeeded first)
+        assert "arxiv" not in call_order

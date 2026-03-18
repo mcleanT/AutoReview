@@ -36,7 +36,7 @@ class TestBaseModels:
         assert model.created_at is not None
 
     def test_extra_fields_ignored(self):
-        model = TimestampedModel(unknown_field="bad")
+        model = TimestampedModel(unknown_field="bad")  # type: ignore[call-arg]
         assert not hasattr(model, "unknown_field")
 
 

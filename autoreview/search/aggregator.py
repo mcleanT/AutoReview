@@ -11,6 +11,27 @@ from autoreview.models.paper import CandidatePaper
 
 logger = structlog.get_logger()
 
+# Source priority for deduplication: higher index = lower priority.
+# When two records match, the one from the higher-priority source becomes
+# `primary` so its IDs take precedence on conflict.
+_SOURCE_PRIORITY: list[str] = [
+    "pubmed",
+    "europe_pmc",
+    "s2",
+    "openalex",
+    "core",
+    "crossref",
+]
+
+
+def _source_rank(paper: CandidatePaper) -> int:
+    """Return a sort key for source priority (lower = higher priority)."""
+    db = paper.source_database.lower()
+    try:
+        return _SOURCE_PRIORITY.index(db)
+    except ValueError:
+        return len(_SOURCE_PRIORITY)
+
 
 def _normalize_title(title: str) -> str:
     """Normalize a paper title for fuzzy matching."""
@@ -23,7 +44,12 @@ def _normalize_title(title: str) -> str:
 
 
 def _merge_papers(primary: CandidatePaper, secondary: CandidatePaper) -> CandidatePaper:
-    """Merge metadata from two records of the same paper. Primary wins."""
+    """Merge metadata from two records of the same paper.
+
+    Primary wins on conflicting scalar fields and conflicting external_ids keys.
+    Non-None values from secondary fill in any gaps left by primary.
+    Returns the merged record and a count of external IDs cross-populated from secondary.
+    """
     data = primary.model_dump()
     sec = secondary.model_dump()
 
@@ -31,10 +57,33 @@ def _merge_papers(primary: CandidatePaper, secondary: CandidatePaper) -> Candida
         if data.get(field) is None and sec.get(field) is not None:
             data[field] = sec[field]
 
-    data["external_ids"] = {**sec.get("external_ids", {}), **data.get("external_ids", {})}
+    primary_ids: dict[str, str] = data.get("external_ids") or {}
+    secondary_ids: dict[str, str] = sec.get("external_ids") or {}
+
+    # Track which keys are contributed by secondary (present there but absent/None in primary)
+    cross_populated = {
+        k: v for k, v in secondary_ids.items() if v is not None and primary_ids.get(k) is None
+    }
+
+    # Primary wins on conflicts; secondary fills gaps
+    merged_ids = {**secondary_ids, **primary_ids}
+    # Restore any cross-populated keys that primary may have set to None explicitly
+    for k, v in cross_populated.items():
+        merged_ids[k] = v
+
+    data["external_ids"] = merged_ids
 
     if not data.get("authors") and sec.get("authors"):
         data["authors"] = sec["authors"]
+
+    if cross_populated:
+        logger.debug(
+            "aggregator.external_ids_cross_populated",
+            primary_source=primary.source_database,
+            secondary_source=secondary.source_database,
+            keys_added=sorted(cross_populated.keys()),
+            count=len(cross_populated),
+        )
 
     return CandidatePaper.model_validate(data)
 
@@ -155,13 +204,19 @@ class SearchAggregator:
             else:
                 no_doi.append(paper)
 
+        total_cross_populated: int = 0
         merged_by_doi: list[CandidatePaper] = []
         doi_titles: set[str] = set()
 
         for group in doi_groups.values():
-            primary = group[0]
-            for secondary in group[1:]:
+            # Sort by source priority so the highest-priority source is primary
+            sorted_group = sorted(group, key=_source_rank)
+            primary = sorted_group[0]
+            for secondary in sorted_group[1:]:
+                before_ids = set(primary.external_ids.keys())
                 primary = _merge_papers(primary, secondary)
+                after_ids = set(primary.external_ids.keys())
+                total_cross_populated += len(after_ids - before_ids)
             merged_by_doi.append(primary)
             doi_titles.add(_normalize_title(primary.title))
 
@@ -174,9 +229,20 @@ class SearchAggregator:
 
         merged_by_title: list[CandidatePaper] = []
         for group in title_groups.values():
-            primary = group[0]
-            for secondary in group[1:]:
+            sorted_group = sorted(group, key=_source_rank)
+            primary = sorted_group[0]
+            for secondary in sorted_group[1:]:
+                before_ids = set(primary.external_ids.keys())
                 primary = _merge_papers(primary, secondary)
+                after_ids = set(primary.external_ids.keys())
+                total_cross_populated += len(after_ids - before_ids)
             merged_by_title.append(primary)
+
+        if total_cross_populated:
+            logger.info(
+                "aggregator.dedup_cross_populated",
+                total_ids_cross_populated=total_cross_populated,
+                papers_total=len(merged_by_doi) + len(merged_by_title),
+            )
 
         return merged_by_doi + merged_by_title

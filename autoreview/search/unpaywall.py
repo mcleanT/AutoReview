@@ -4,11 +4,18 @@ Looks up DOIs on Unpaywall and fetches full text from any available
 PDF or HTML location. Tries all available URLs regardless of the
 is_oa flag, since Unpaywall can return usable locations (bronze,
 author manuscripts, institutional copies) even for non-OA papers.
+
+Iteration strategy:
+1. Try ``best_oa_location`` first (pdf then html).
+2. If that fails, iterate through the full ``oa_locations`` array in
+   order, trying ``url_for_pdf`` then ``url_for_landing_page`` for
+   each entry, stopping on the first successful extraction.
 """
 
 from __future__ import annotations
 
 import asyncio
+from typing import Any
 
 import httpx
 import structlog
@@ -31,6 +38,8 @@ class UnpaywallResult(AutoReviewModel):
     oa_status: str = ""  # e.g. "gold", "green", "hybrid", "bronze", "closed"
     pdf_url: str | None = None
     html_url: str | None = None
+    # Full oa_locations array from the API response, used for fallback iteration.
+    oa_locations: list[dict[str, Any]] = []
 
 
 class UnpaywallClient:
@@ -60,6 +69,7 @@ class UnpaywallClient:
 
             data = resp.json()
             best_oa = data.get("best_oa_location") or {}
+            oa_locations: list[dict[str, Any]] = data.get("oa_locations") or []
             return UnpaywallResult(
                 doi=doi,
                 is_oa=data.get("is_oa", False),
@@ -67,46 +77,141 @@ class UnpaywallClient:
                 oa_status=data.get("oa_status", "closed"),
                 pdf_url=best_oa.get("url_for_pdf"),
                 html_url=best_oa.get("url_for_landing_page"),
+                oa_locations=oa_locations,
             )
         except Exception as e:
             logger.warning("unpaywall.lookup_failed", doi=doi, error=str(e))
             return None
 
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    async def _try_pdf_url(self, doi: str, pdf_url: str) -> str | None:
+        """Fetch and extract text from a single PDF URL.
+
+        Returns extracted text on success, None otherwise.
+        """
+        try:
+            await self._limiter.acquire()
+            resp = await self._client.get(pdf_url, follow_redirects=True)
+            if resp.status_code == 200 and len(resp.content) > 0:
+                text = _extract_text_from_pdf(resp.content)
+                if text and len(text) > 100:
+                    return text
+        except Exception as e:
+            logger.debug("unpaywall.pdf_fetch_failed", doi=doi, url=pdf_url, error=str(e))
+        return None
+
+    async def _try_html_url(self, doi: str, html_url: str) -> str | None:
+        """Fetch and extract text from a single HTML/landing-page URL.
+
+        Returns extracted text on success, None otherwise.
+        """
+        try:
+            await self._limiter.acquire()
+            resp = await self._client.get(html_url, follow_redirects=True)
+            if resp.status_code == 200:
+                text = _extract_text_from_html(resp.text)
+                if text and len(text) > 100:
+                    return text
+        except Exception as e:
+            logger.debug("unpaywall.html_fetch_failed", doi=doi, url=html_url, error=str(e))
+        return None
+
     async def fetch_full_text(self, result: UnpaywallResult) -> str | None:
         """Fetch and extract full text from an Unpaywall result.
 
-        Tries PDF first, then HTML. Attempts all available URLs regardless
-        of is_oa status — Unpaywall can surface bronze, green, or
-        institutional copies that are accessible even for non-OA papers.
-        Returns None if no URLs are available or extraction fails.
+        Strategy:
+        1. Try ``best_oa_location`` (pdf then html).
+        2. If that fails, iterate through ``oa_locations`` in order,
+           trying ``url_for_pdf`` then ``url_for_landing_page`` for each
+           entry, stopping on the first successful extraction.
+
+        Attempts all available URLs regardless of is_oa status — Unpaywall
+        can surface bronze, green, or institutional copies that are
+        accessible even for non-OA papers.
+
+        Returns None if no URLs are available or all extractions fail.
         """
-        if not result.pdf_url and not result.html_url:
+        doi = result.doi
+
+        # ---- Step 1: best_oa_location --------------------------------
+        if result.pdf_url:
+            text = await self._try_pdf_url(doi, result.pdf_url)
+            if text:
+                logger.debug(
+                    "unpaywall.fetch_success", doi=doi, source="best_oa_location", url_type="pdf"
+                )
+                return text
+
+        if result.html_url:
+            text = await self._try_html_url(doi, result.html_url)
+            if text:
+                logger.debug(
+                    "unpaywall.fetch_success", doi=doi, source="best_oa_location", url_type="html"
+                )
+                return text
+
+        # ---- Step 2: iterate oa_locations ----------------------------
+        locations = result.oa_locations
+        if not locations:
+            if result.pdf_url or result.html_url:
+                # best_oa_location already tried above; nothing more to do
+                logger.debug(
+                    "unpaywall.all_locations_failed",
+                    doi=doi,
+                    locations_tried=1,
+                    reason="best_oa_location only (no oa_locations array)",
+                )
             return None
 
-        # Try PDF first
-        if result.pdf_url:
-            try:
-                await self._limiter.acquire()
-                resp = await self._client.get(result.pdf_url, follow_redirects=True)
-                if resp.status_code == 200 and len(resp.content) > 0:
-                    text = _extract_text_from_pdf(resp.content)
-                    if text and len(text) > 100:
-                        return text
-            except Exception as e:
-                logger.debug("unpaywall.pdf_fetch_failed", doi=result.doi, error=str(e))
+        tried = 0
+        for idx, loc in enumerate(locations):
+            pdf_url: str | None = loc.get("url_for_pdf")
+            html_url: str | None = loc.get("url_for_landing_page")
 
-        # Fallback to HTML
-        if result.html_url:
-            try:
-                await self._limiter.acquire()
-                resp = await self._client.get(result.html_url, follow_redirects=True)
-                if resp.status_code == 200:
-                    text = _extract_text_from_html(resp.text)
-                    if text and len(text) > 100:
-                        return text
-            except Exception as e:
-                logger.debug("unpaywall.html_fetch_failed", doi=result.doi, error=str(e))
+            # Skip locations whose URLs duplicate best_oa_location (already tried)
+            if pdf_url and pdf_url == result.pdf_url:
+                pdf_url = None
+            if html_url and html_url == result.html_url:
+                html_url = None
 
+            if not pdf_url and not html_url:
+                continue
+
+            tried += 1
+
+            if pdf_url:
+                text = await self._try_pdf_url(doi, pdf_url)
+                if text:
+                    logger.info(
+                        "unpaywall.fetch_success",
+                        doi=doi,
+                        source="oa_locations",
+                        location_index=idx,
+                        url_type="pdf",
+                    )
+                    return text
+
+            if html_url:
+                text = await self._try_html_url(doi, html_url)
+                if text:
+                    logger.info(
+                        "unpaywall.fetch_success",
+                        doi=doi,
+                        source="oa_locations",
+                        location_index=idx,
+                        url_type="html",
+                    )
+                    return text
+
+        logger.warning(
+            "unpaywall.all_locations_failed",
+            doi=doi,
+            locations_tried=tried + (1 if result.pdf_url or result.html_url else 0),
+            reason="all URLs exhausted",
+        )
         return None
 
     async def enrich_papers(

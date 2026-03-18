@@ -216,7 +216,6 @@ class PipelineNodes:
             pubmed_queries: list[str] = Field(default_factory=list)
             semantic_scholar_queries: list[str] = Field(default_factory=list)
             openalex_queries: list[str] = Field(default_factory=list)
-            perplexity_questions: list[str] = Field(default_factory=list)
             scope_document: str = ""
 
         response = await self.llm.generate_structured(
@@ -233,7 +232,6 @@ class PipelineNodes:
             "pubmed": result.pubmed_queries,
             "semantic_scholar": result.semantic_scholar_queries,
             "openalex": result.openalex_queries,
-            "perplexity": result.perplexity_questions,
         }
         kb.scope_document = result.scope_document
         kb.current_phase = PipelinePhase.QUERY_EXPANSION
@@ -284,10 +282,6 @@ class PipelineNodes:
                     from autoreview.search.openalex import OpenAlexSearch
 
                     sources.append(OpenAlexSearch())
-                elif db == "perplexity":
-                    from autoreview.search.perplexity import PerplexitySearch
-
-                    sources.append(PerplexitySearch())
             except Exception as e:
                 logger.warning("search.source_init_failed", source=db, error=str(e))
 
@@ -363,7 +357,11 @@ class PipelineNodes:
             tracker.usage,
         )
 
-    async def full_text_retrieval(self, kb: KnowledgeBase) -> None:
+    async def full_text_retrieval(
+        self,
+        kb: KnowledgeBase,
+        cache_dir: str | None = None,
+    ) -> None:
         """Node: Retrieve full text from multiple sources.
 
         Chains strategies in priority order:
@@ -373,15 +371,26 @@ class PipelineNodes:
           4. arXiv / bioRxiv / medRxiv PDFs
           5. Unpaywall (DOI-based lookup, tries all available URLs)
           6. Springer Nature API (requires SPRINGER_API_KEY)
-        """
-        from autoreview.search.full_text import FullTextResolver
 
-        resolver = FullTextResolver(
+        Results are cached to disk so that repeated runs over the same corpus
+        (e.g. benchmark sweeps) skip redundant API calls.  Cache location
+        defaults to ``{output_dir}/.cache``; override with *cache_dir*.
+        """
+        from pathlib import Path
+
+        from autoreview.search.full_text import FullTextResolver
+        from autoreview.search.full_text_cache import CachedFullTextResolver, FullTextCache
+
+        resolved_cache_dir = Path(cache_dir) if cache_dir else Path(kb.output_dir) / ".cache"
+
+        cache = FullTextCache(cache_dir=resolved_cache_dir)
+        base_resolver = FullTextResolver(
             unpaywall_email=os.environ.get("UNPAYWALL_EMAIL"),
             entrez_email=os.environ.get("ENTREZ_EMAIL"),
             elsevier_api_key=os.environ.get("ELSEVIER_API_KEY"),
             springer_api_key=os.environ.get("SPRINGER_API_KEY"),
         )
+        resolver = CachedFullTextResolver(resolver=base_resolver, cache=cache)
         try:
             source_counts = await resolver.resolve(kb.screened_papers)
         finally:
@@ -774,10 +783,6 @@ class PipelineNodes:
                     from autoreview.search.openalex import OpenAlexSearch
 
                     sources.append(OpenAlexSearch())
-                elif db == "perplexity":
-                    from autoreview.search.perplexity import PerplexitySearch
-
-                    sources.append(PerplexitySearch())
             except Exception as e:
                 logger.warning("contextual_enrichment.source_init_failed", source=db, error=str(e))
 
@@ -978,10 +983,6 @@ class PipelineNodes:
                     from autoreview.search.openalex import OpenAlexSearch
 
                     sources.append(OpenAlexSearch())
-                elif db == "perplexity":
-                    from autoreview.search.perplexity import PerplexitySearch
-
-                    sources.append(PerplexitySearch())
             except Exception as e:
                 logger.warning("corpus_expansion.source_init_failed", source=db, error=str(e))
 
@@ -1182,10 +1183,6 @@ class PipelineNodes:
                     from autoreview.search.openalex import OpenAlexSearch
 
                     sources.append(OpenAlexSearch())
-                elif db == "perplexity":
-                    from autoreview.search.perplexity import PerplexitySearch
-
-                    sources.append(PerplexitySearch())
             except Exception as e:
                 logger.warning("passage_search.source_init_failed", source=db, error=str(e))
 

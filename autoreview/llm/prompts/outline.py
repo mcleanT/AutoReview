@@ -34,7 +34,7 @@ class OutlineSection(AutoReviewModel):
 
     def flatten(self) -> list[OutlineSection]:
         """Return this section and all subsections in order."""
-        result = [self]
+        result: list[OutlineSection] = [self]
         for sub in self.subsections:
             result.extend(sub.flatten())
         return result

@@ -146,7 +146,7 @@ class OpenAlexSearch:
             from pyalex import Works
 
             work = await loop.run_in_executor(None, lambda: Works()[paper_id])
-            return self._parse_work(work) if work else None
+            return self._parse_work(work) if work else None  # type: ignore[arg-type]
         except Exception as e:
             logger.warning("openalex.details_error", paper_id=paper_id, error=str(e))
             return None

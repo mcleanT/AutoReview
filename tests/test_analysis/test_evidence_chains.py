@@ -16,6 +16,7 @@ from autoreview.analysis.evidence_map import (
     EvidenceMap,
 )
 from autoreview.extraction.models import (
+    EvidenceStrength,
     Finding,
     PaperExtraction,
 )
@@ -24,7 +25,7 @@ from autoreview.extraction.models import (
 def _make_extraction(
     paper_id: str,
     claim: str = "Test claim",
-    strength: str = "moderate",
+    strength: EvidenceStrength | str = EvidenceStrength.MODERATE,
     methods: str = "Standard methods",
 ) -> PaperExtraction:
     return PaperExtraction(
@@ -32,7 +33,7 @@ def _make_extraction(
         key_findings=[
             Finding(
                 claim=claim,
-                evidence_strength=strength,
+                evidence_strength=strength,  # type: ignore[arg-type]
                 paper_id=paper_id,
             )
         ],

@@ -5,8 +5,10 @@ databases:
     - semantic_scholar
   secondary:
     - openalex
-  discovery:
-    - perplexity
+    - europe_pmc
+    - core
+    - crossref
+  discovery: []
 search:
   date_range: "2015-2025"
   max_results_per_source: 500

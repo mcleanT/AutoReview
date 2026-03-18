@@ -63,3 +63,39 @@
 - Prompt-only depth (rejected: LLMs unreliable at word count targeting from instructions alone)
 - Uniform scaling without evidence weighting (rejected: sections with sparse evidence would get unnecessarily long)
 - Per-section depth overrides (rejected: adds complexity, global with automatic section-type dampening sufficient)
+
+## 2026-03-17: Benchmark Orchestrator Architecture
+- Single orchestrator script (paper/run_benchmark.py) chosen over Snakemake/Makefile
+- Run matrix with dedup reduces 170-202 runs to 120-140
+- All 9 analysis scripts templated from Analysis 10 pattern
+- 3-arg main(results_dir, output_dir, df) signature for analyses (deviation from spec 2-arg)
+- skip_nodes parameter added to DAGRunner for ablation support
+
+## 2026-03-17 — Add CORE API search backend
+- Decision: Insert CORE strategy after s2_pdf but before pmc in FullTextResolver chain (CORE has 300M+ OA records, high hit rate)
+- Decision: Rate limiter set to 10 req/sec with API key, 1 req/sec without
+- Decision: Store both core_pdf_url and core ID in external_ids during search for full-text retrieval
+- Decision: Added core to _SOURCE_PRIORITY in aggregator between openalex and perplexity
+- Decision: Added core as secondary source in all three domain configs (biomedical, cs_ai, chemistry)
+
+## 2026-03-18: Search infrastructure overhaul for benchmark paper
+
+### Removed Perplexity as search source
+- **Decision**: Remove Perplexity (AI-powered discovery) from the pipeline entirely
+- **Why**: AI source is a black box — not reproducible, not justifiable in a benchmark paper methodology section
+- **Impact**: `perplexity.py` kept but disconnected from pipeline, aggregator, domain configs, and LLM prompts
+
+### Added CORE, CrossRef, Europe PMC as search backends
+- **Decision**: Add three new deterministic academic search backends
+- **Why**: Push full-text retrieval rate from ~25% to ~50-65% using only reproducible, indexed databases
+- **Impact**: New files: `core_api.py`, `crossref.py`, `europe_pmc.py` + MCP tools + domain config updates
+
+### Added OA publisher direct handlers (PLOS, MDPI, Frontiers)
+- **Decision**: Add direct PDF retrieval for guaranteed-OA publishers
+- **Why**: These publishers are 100% OA — bypassing Unpaywall for them avoids unnecessary API calls
+- **Impact**: Three new strategies in full-text resolver, positioned before Unpaywall
+
+### Added disk-based full-text cache
+- **Decision**: Cache full-text retrieval results on disk with 30-day positive / 7-day negative TTL
+- **Why**: Benchmark runs 172 times across same topic corpora — without caching, every run re-fetches everything
+- **Impact**: New `full_text_cache.py` module wrapping `FullTextResolver`

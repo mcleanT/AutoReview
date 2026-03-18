@@ -35,7 +35,7 @@ topics:
     domain: biomedical
     tier: A
     reference:
-      doi: "10.1038/s41571-019-0210-z"
+      doi: "10.1038/s41571-018-0142-8"
       title: "Cancer Immunoediting and Resistance to T Cell-Based Immunotherapy"
       year: 2019
       citation_count: 1200
@@ -247,7 +247,7 @@ topics:
     domain: materials
     tier: B
     reference:
-      doi: "10.1016/j.cej.2022.139535"
+      doi: "10.1016/j.cej.2023.141710"
       title: "MOFs for Heavy Metal Removal: Synthesis, Applications and Mechanism"
       year: 2023
       citation_count: 120

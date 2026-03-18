@@ -35,7 +35,6 @@ class MockRemediationLLM:
                     pubmed_queries=["query1"],
                     semantic_scholar_queries=["query2"],
                     openalex_queries=["query3"],
-                    perplexity_questions=["question1"],
                     scope_document="This review covers topic A, topic B, and topic C.",
                 ),
                 input_tokens=100,

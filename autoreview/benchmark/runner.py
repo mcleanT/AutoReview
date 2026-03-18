@@ -34,7 +34,6 @@ class QueryExpansionResult(AutoReviewModel):
     pubmed_queries: list[str] = Field(default_factory=list)
     semantic_scholar_queries: list[str] = Field(default_factory=list)
     openalex_queries: list[str] = Field(default_factory=list)
-    perplexity_questions: list[str] = Field(default_factory=list)
     scope_document: str = ""
 
 
@@ -156,7 +155,6 @@ async def _run_query_expansion(llm: LLMProvider, model_name: str, topic: str) ->
             len(parsed.pubmed_queries)
             + len(parsed.semantic_scholar_queries)
             + len(parsed.openalex_queries)
-            + len(parsed.perplexity_questions)
         )
         return StageResult(
             stage="query_expansion",
