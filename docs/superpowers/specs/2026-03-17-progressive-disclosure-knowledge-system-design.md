@@ -85,8 +85,12 @@ All entries across all tiers use a consistent format:
 
 ### Promotion Flow
 
+All `.living/` and `~/.claude/knowledge/` updates are performed by a **sonnet subagent** (max_turns: 10). Sonnet over haiku because the write path requires semantic judgment: promotion decisions, `when_useful` trigger quality, domain classification, and entry formatting. The main context should only see the subagent's single-line summary.
+
 ```
 Agent learns something during a session
+        |
+    Dispatch sonnet subagent for knowledge update:
         |
     "Is this project-specific?"
      yes -> append to .living/learnings.md
@@ -103,6 +107,23 @@ Agent learns something during a session
 ### Decision Criteria for Promotion
 
 The agent applies this test: "Would a different project, in a different domain, encounter this same issue?" If yes, promote. If unsure, keep project-local — the weekly audit can promote later if the pattern recurs.
+
+### Entry Format Migration
+
+Existing `.living/learnings.md` entries use a legacy format:
+```markdown
+### [YYYY-MM-DD] Learning Title
+**Tags**: [tag1, tag2]
+**What happened**: ...
+**Lesson**: ...
+```
+
+**Migration strategy:** Progressive, not big-bang.
+- Existing entries are NOT retroactively converted. They remain readable and useful as-is.
+- The weekly audit progressively annotates legacy entries with missing fields (`last-validated`, `scope`, `status`) when it encounters them during staleness scans.
+- New entries (both project-local and global) use the new template exclusively.
+- When a legacy entry is promoted to a global domain file, it is reformatted to the new template during promotion.
+- Both formats coexist in project `.living/` files indefinitely. The INDEX.md generator handles both.
 
 ---
 
@@ -138,9 +159,28 @@ Seeded from meta-analysis of existing `.living/` files across all projects.
 ### Domain Governance Rules
 
 - Index stays at domain level — one line per domain, never individual entries
-- Domain file >100 lines → split into sub-topics (e.g., `external-apis/publishers.md` + `external-apis/rate-limiting.md`)
 - New domain creation requires 3+ entries that don't fit existing domains
 - Weekly audit validates these thresholds
+
+**Domain splitting (when a file exceeds ~100 lines):**
+
+1. The audit flags the domain file for splitting
+2. The domain file becomes a sub-index (e.g., `external-apis.md` is rewritten to a table of sub-topics)
+3. Entries are moved to sub-files in a directory: `external-apis/publishers.md`, `external-apis/rate-limiting.md`
+4. The MEMORY.md routing table keeps one row for the domain — the file path still points to `external-apis.md` (now a sub-index)
+5. The agent reads the sub-index first, then drills into specific sub-files as needed
+6. Splitting is performed by the audit subagent silently; results appear in the audit log
+
+```
+# Before splitting
+~/.claude/knowledge/external-apis.md          (120 lines, flagged)
+
+# After splitting
+~/.claude/knowledge/external-apis.md          (sub-index, ~15 lines)
+~/.claude/knowledge/external-apis/publishers.md
+~/.claude/knowledge/external-apis/rate-limiting.md
+~/.claude/knowledge/external-apis/auth-patterns.md
+```
 
 ---
 
@@ -148,7 +188,24 @@ Seeded from meta-analysis of existing `.living/` files across all projects.
 
 ### Trigger
 
-SessionStart hook checks `~/.claude/knowledge/.last-audit` timestamp. If >7 days old, emits a silent directive for the agent to dispatch a haiku subagent that performs the audit in the background.
+SessionStart hook (`mycelium-health.sh`) checks `~/.claude/knowledge/.last-audit` timestamp. If >7 days old, it emits `additionalContext` JSON with a strong instruction for the agent to dispatch the audit. This is advisory — the agent should prioritize the user's first message but dispatch the audit as a background subagent before or alongside initial work.
+
+```json
+{
+  "additionalContext": "KNOWLEDGE AUDIT DUE: Last audit >7 days ago. Dispatch a sonnet subagent in the background to run the knowledge audit (read ~/.claude/knowledge/ domain files, check staleness, regenerate INDEX.md files). Do this silently alongside your current task."
+}
+```
+
+**Fallback:** If the agent does not dispatch the audit (e.g., urgent user task), the hook will re-trigger on the next session start until the audit runs and updates `.last-audit`.
+
+**Model selection:** The audit subagent uses **sonnet** (not haiku) because audit steps require semantic judgment — dedup detection, caveat resolution, entry reformatting, and domain splitting decisions. The weekly cadence makes the cost difference negligible.
+
+### Initialization
+
+On first run or fresh machine, if `~/.claude/knowledge/` does not exist:
+1. The SessionStart hook detects the missing directory
+2. Emits `additionalContext` instructing the agent to run initial knowledge system setup
+3. Agent creates the directory, empty domain files with header templates, and `.last-audit`
 
 ### Audit Steps
 
@@ -158,7 +215,8 @@ SessionStart hook checks `~/.claude/knowledge/.last-audit` timestamp. If >7 days
 4. **INDEX.md regeneration** — each project's `.living/INDEX.md` rebuilt with current entry counts, topics, last-updated dates
 5. **Domain health** — domain files >100 lines flagged for splitting
 6. **Skills sync** — verify `skills.md` routing table matches installed skills
-7. **Cross-project dedup** — identify near-duplicate entries across project `.living/` files and global domains
+7. **Cross-project dedup** — scan project `.living/learnings.md` entries against global domain files. Two entries are near-duplicates if they describe the same pattern/fix for the same trigger condition. Action: merge into the global domain (keeping the richer version), add a reference comment in the project-local file pointing to the global entry. If unclear, flag in audit log for next review cycle rather than auto-merging.
+8. **Routing miss detection** — check for caveats tagged with `[routing-miss]` (convention: agents use this keyword when they needed knowledge that wasn't in the domain they consulted). Update `when_useful` triggers in the relevant domain to improve future routing
 
 ### Output Severity
 
@@ -171,7 +229,7 @@ SessionStart hook checks `~/.claude/knowledge/.last-audit` timestamp. If >7 days
 ### Audit Artifacts
 
 - `~/.claude/knowledge/.last-audit` — timestamp + one-line summary
-- `~/.claude/knowledge/.audit-log.md` — append-only log, agent can reference if asked
+- `~/.claude/knowledge/.audit-log.md` — append-only log, agent can reference if asked. Rotated at 50 entries (older entries archived to `.audit-log-archive.md`)
 
 ---
 
@@ -181,7 +239,7 @@ SessionStart hook checks `~/.claude/knowledge/.last-audit` timestamp. If >7 days
 
 When an agent retrieves a knowledge entry and finds it contradicts observed behavior:
 
-1. Agent appends `**Caveat [YYYY-MM-DD]:** [what was different and why` to the entry
+1. Agent appends `**Caveat [YYYY-MM-DD]:** [what was different and why]` to the entry
 2. Agent proceeds with the correct behavior (does not block on the contradiction)
 3. Contradictions are handled silently unless they have potential to directly impact the user's session
 
@@ -197,6 +255,11 @@ When an agent retrieves a knowledge entry and finds it contradicts observed beha
 
 ### CLAUDE.md Session-Start Instructions
 
+**Files to modify:**
+1. `Science/CLAUDE.md` — "Session Start — Mycelium Context Load" section (primary, inherited by all subprojects)
+2. `AutoReview/CLAUDE.md` — "Living Repository Protocol" section
+3. Any other project CLAUDE.md files that reference `.living/` loading
+
 **Before:**
 ```
 At the start of every session, silently read the following files:
@@ -208,20 +271,25 @@ At the start of every session, silently read the following files:
 **After:**
 ```
 At the start of every session:
-1. Read .living/INDEX.md (compact summary of project knowledge)
-2. Check MEMORY.md global knowledge domains for task-relevant context
+1. Read .living/INDEX.md (compact summary of project knowledge — entry counts, key topics, last-updated dates)
+2. MEMORY.md is auto-loaded and contains the global knowledge domain table — check domains relevant to your current task
 3. Read full .living/ files only when the current task touches those areas
+4. Skills routing: check ~/.claude/knowledge/skills.md when considering which skill to invoke (mycelium skills listed first)
 ```
+
+**Migration strategy:** INDEX.md is generated for each project during initial setup. For projects that don't yet have INDEX.md, the agent falls back to reading full `.living/` files (preserving current behavior). The weekly audit progressively generates INDEX.md for all discovered projects.
+
+**ACTIVE_SKILLS.yaml:** Subsumed by `~/.claude/knowledge/skills.md` for cross-project skill discovery. Project-specific skill packs (e.g., Gastruloids image-analysis skills under `.living/skills/`) are referenced in the project's INDEX.md under a "Local skills" row, not in the global skills domain.
 
 ### MEMORY.md Per-Project Updates
 
-Each project's MEMORY.md gets the standardized global knowledge domain table appended. This is the always-in-context routing layer.
+Each project's MEMORY.md gets the standardized global knowledge domain table appended. This is the always-in-context routing layer. Claude Code uses internal path slugs for project directories (e.g., `-Users-mst36-Desktop-Projects-Science-AutoReview`); the domain table uses `~/.claude/knowledge/` paths which resolve the same regardless of project slug.
 
 ### Mycelium Skill Integration
 
 The weekly audit becomes intrinsic to the mycelium skill:
-- Audit trigger logic added to SessionStart hook (check `.last-audit` age)
-- Audit execution via haiku subagent (silent, background)
+- Audit trigger logic added to `mycelium-health.sh` SessionStart hook (check `.last-audit` age)
+- Audit execution via **sonnet** subagent (silent, background) — sonnet over haiku because the audit requires semantic judgment (dedup, caveat resolution, entry promotion). Weekly frequency makes cost negligible.
 - Audit convention documented in mycelium skill definition
 - Knowledge promotion documented as part of the `.living/` update convention
 
@@ -248,7 +316,8 @@ The weekly audit becomes intrinsic to the mycelium skill:
     publishing-workflows.md
     writing-conventions.md
     .last-audit                  # Timestamp + summary
-    .audit-log.md                # Append-only audit history
+    .audit-log.md                # Append-only audit history (rotated at 50 entries)
+    .audit-log-archive.md        # Older audit entries moved here during rotation
 
 {project}/.living/
     INDEX.md                     # Auto-generated by audit (replaces full-file loading)

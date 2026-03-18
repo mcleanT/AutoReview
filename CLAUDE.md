@@ -35,10 +35,10 @@ Fully autonomous pipeline for generating publication-ready scientific review pap
 
 ## Living Repository Protocol
 
-Read `.living/` before starting work:
-- `.living/decisions.md` — project decisions log
-- `.living/learnings.md` — lessons learned
-- `.living/conventions.md` — project-specific conventions
+Read `.living/INDEX.md` for a compact summary of project knowledge before starting work. Read full files only when the current task touches those areas:
+- `.living/conventions.md` — project-specific conventions (read when writing code)
+- `.living/decisions.md` — project decisions log (read when making architectural choices)
+- `.living/learnings.md` — lessons learned (read when debugging or encountering known issues)
 
 After significant actions:
 - Log non-obvious decisions to `.living/decisions.md`
