@@ -254,3 +254,43 @@ def test_allocator_depth_scales_output():
     assert (
         outline_deep.sections[0].estimated_word_count > outline_low.sections[0].estimated_word_count
     )
+
+
+# ---------------------------------------------------------------------------
+# EXHAUSTIVE depth level and citation field tests
+# ---------------------------------------------------------------------------
+
+
+def test_exhaustive_depth_level():
+    from autoreview.config.models import DepthLevel
+
+    assert DepthLevel.EXHAUSTIVE == "exhaustive"
+
+
+def test_exhaustive_depth_profile():
+    from autoreview.config.depth import get_depth_profile
+    from autoreview.config.models import DepthLevel
+
+    profile = get_depth_profile(DepthLevel.EXHAUSTIVE)
+    assert profile.total_word_budget == 40000
+    assert profile.citation_density == "exhaustive"
+    assert profile.target_citations_per_1k_words == 16.0
+    assert profile.min_total_citations == 300
+
+
+def test_medium_depth_citation_fields():
+    from autoreview.config.depth import get_depth_profile
+    from autoreview.config.models import DepthLevel
+
+    profile = get_depth_profile(DepthLevel.MEDIUM)
+    assert profile.citation_density == "standard"
+    assert profile.target_citations_per_1k_words == 9.0
+    assert profile.min_total_citations == 75
+
+
+def test_exhaustive_depth_instructions():
+    from autoreview.config.depth import get_depth_instructions
+    from autoreview.config.models import DepthLevel
+
+    result = get_depth_instructions(DepthLevel.EXHAUSTIVE, 40000)
+    assert "40000" in result

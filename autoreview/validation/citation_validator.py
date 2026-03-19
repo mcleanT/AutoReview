@@ -3,12 +3,27 @@
 from __future__ import annotations
 
 import re
+from typing import TYPE_CHECKING
 
 from pydantic import Field
 
 from autoreview.critique.models import CritiqueIssue, CritiqueSeverity
 from autoreview.extraction.models import PaperExtraction
 from autoreview.models.base import AutoReviewModel
+
+if TYPE_CHECKING:
+    from autoreview.writing.citation_selector import SectionCitationPlan
+
+
+class PlanValidationReport(AutoReviewModel):
+    """Report from validating citations against a CitationPlan."""
+
+    section_id: str = ""
+    uncited_primary: list[str] = Field(default_factory=list)  # PRIMARY papers not cited
+    total_citations: int = 0
+    citation_budget: int = 0
+    budget_deviation: float = 0.0  # how far off from budget (fraction)
+    additive_citations: list[str] = Field(default_factory=list)  # citations not in plan
 
 
 class SuspiciousAttribution(AutoReviewModel):
@@ -103,6 +118,56 @@ class CitationValidator:
             uncited_papers=uncited,
             total_citation_markers=len(cited_ids),
             unique_citations=len(unique_cited),
+        )
+
+    def validate_against_plan(
+        self,
+        text: str,
+        plan: SectionCitationPlan,
+    ) -> PlanValidationReport:
+        """Validate section text against a CitationPlan for compliance.
+
+        Checks that all PRIMARY papers in the plan are cited, compares
+        total citation count against the plan budget, and flags citations
+        not in the plan (e.g., from passage_search) as additive.
+
+        Args:
+            text: Section text containing [@paper_id] markers.
+            plan: The SectionCitationPlan produced by citation_selection.
+
+        Returns:
+            PlanValidationReport with compliance details.
+        """
+        cited_ids = set(_CITATION_RE.findall(text))
+        total_citations = len(_CITATION_RE.findall(text))
+
+        # Collect all paper IDs in the plan (across all tiers)
+        all_plan_paper_ids: set[str] = set()
+        for pc in plan.primary_papers:
+            all_plan_paper_ids.add(pc.paper_id)
+        for pc in plan.supporting_papers:
+            all_plan_paper_ids.add(pc.paper_id)
+        for pc in plan.contextual_papers:
+            all_plan_paper_ids.add(pc.paper_id)
+
+        # Check PRIMARY paper compliance
+        primary_paper_ids = {pc.paper_id for pc in plan.primary_papers}
+        uncited_primary = sorted(primary_paper_ids - cited_ids)
+
+        # Budget deviation (fraction): (actual - budget) / budget
+        budget = plan.citation_budget
+        budget_deviation = (total_citations - budget) / budget if budget > 0 else 0.0
+
+        # Additive citations: cited but not in the plan (e.g., from passage_search)
+        additive_citations = sorted(cited_ids - all_plan_paper_ids)
+
+        return PlanValidationReport(
+            section_id=plan.section_id,
+            uncited_primary=uncited_primary,
+            total_citations=total_citations,
+            citation_budget=budget,
+            budget_deviation=round(budget_deviation, 4),
+            additive_citations=additive_citations,
         )
 
     @staticmethod

@@ -29,6 +29,9 @@ class DepthProfile:
     min_section_words: int
     section_type_dampening: dict[str, float]
     max_tokens_override: int | None
+    citation_density: str = "standard"
+    target_citations_per_1k_words: float = 9.0
+    min_total_citations: int = 50
 
 
 _DEPTH_PROFILES: dict[DepthLevel, DepthProfile] = {
@@ -45,6 +48,9 @@ _DEPTH_PROFILES: dict[DepthLevel, DepthProfile] = {
             "body": 1.0,
         },
         max_tokens_override=None,
+        citation_density="sparse",
+        target_citations_per_1k_words=6.0,
+        min_total_citations=25,
     ),
     DepthLevel.MEDIUM: DepthProfile(
         base_word_multiplier=1.0,
@@ -59,6 +65,9 @@ _DEPTH_PROFILES: dict[DepthLevel, DepthProfile] = {
             "body": 1.0,
         },
         max_tokens_override=None,
+        citation_density="standard",
+        target_citations_per_1k_words=9.0,
+        min_total_citations=75,
     ),
     DepthLevel.DEEP: DepthProfile(
         base_word_multiplier=2.5,
@@ -73,6 +82,26 @@ _DEPTH_PROFILES: dict[DepthLevel, DepthProfile] = {
             "body": 1.0,
         },
         max_tokens_override=16384,
+        citation_density="dense",
+        target_citations_per_1k_words=12.0,
+        min_total_citations=150,
+    ),
+    DepthLevel.EXHAUSTIVE: DepthProfile(
+        base_word_multiplier=4.0,
+        key_insights_range=(10, 15),
+        evidence_chain_detail="exhaustive",
+        total_word_budget=40000,
+        min_section_words=800,
+        section_type_dampening={
+            "introduction": 0.85,
+            "conclusion": 0.75,
+            "methods": 0.85,
+            "body": 1.0,
+        },
+        max_tokens_override=16384,
+        citation_density="exhaustive",
+        target_citations_per_1k_words=16.0,
+        min_total_citations=300,
     ),
 }
 
@@ -97,6 +126,15 @@ _DEPTH_INSTRUCTIONS: dict[DepthLevel, str] = {
         "Exhaustively trace evidence chains. Include methodological comparisons, "
         "conflicting results with resolution analysis, temporal evolution of findings, "
         "and secondary implications. Prioritize completeness over brevity. "
+        "Target approximately {target_word_count} words."
+    ),
+    DepthLevel.EXHAUSTIVE: (
+        "Produce a comprehensive, encyclopedic treatment of all evidence. "
+        "Trace every evidence chain in full detail. Include all methodological comparisons, "
+        "conflicting results with thorough resolution analysis, complete temporal evolution, "
+        "secondary and tertiary implications, and all identified gaps and future directions. "
+        "Cite densely ({target_word_count} words at ~16 citations per 1000 words). "
+        "Completeness is paramount — do not omit any relevant study or finding. "
         "Target approximately {target_word_count} words."
     ),
 }

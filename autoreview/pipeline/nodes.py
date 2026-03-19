@@ -686,8 +686,112 @@ class PipelineNodes:
         bench_result = await validator.check(kb.topic, pipeline_dois)
         kb.comprehensiveness_checks.append(bench_result)
 
+    async def draft_outline(self, kb: KnowledgeBase) -> None:
+        """Node: Generate a lightweight draft outline for enrichment targeting."""
+        tracker = _TokenAccumulator(self.llm, self._global_tokens, node_name="draft_outline")
+        generator = OutlineGenerator(tracker)
+
+        assert kb.evidence_map is not None, "evidence_map must be built before draft_outline"
+        review_outline = await generator.generate_draft(
+            evidence_map=kb.evidence_map,
+            scope_document=kb.scope_document or "",
+        )
+
+        kb.draft_outline = review_outline.model_dump()
+        kb.current_phase = PipelinePhase.DRAFT_OUTLINE
+        kb.add_audit_entry(
+            "draft_outline",
+            "complete",
+            f"Sections: {len(review_outline.sections)}",
+            tracker.usage,
+        )
+
+    async def final_outline(self, kb: KnowledgeBase) -> None:
+        """Node: Generate and critique the final outline after corpus expansion."""
+        tracker = _TokenAccumulator(self.llm, self._global_tokens, node_name="final_outline")
+        generator = OutlineGenerator(tracker)
+        critic = OutlineCritic(tracker)
+
+        assert kb.evidence_map is not None, "evidence_map must be built before final_outline"
+        review_outline, critiques = await outline_critique_loop(
+            llm=tracker,
+            outline_generator=generator,
+            outline_critic=critic,
+            evidence_map=kb.evidence_map,
+            scope_document=kb.scope_document or "",
+            required_sections=self.config.outline.required_sections,
+            max_cycles=self.config.outline.max_critique_cycles,
+            threshold=self.config.critique.score_threshold,
+            depth=self.config.writing.depth,
+        )
+
+        from autoreview.config.depth import EvidenceWeightedAllocator, get_depth_profile
+
+        depth = self.config.writing.depth
+        profile = get_depth_profile(depth)
+        allocator = EvidenceWeightedAllocator(profile)
+        if kb.evidence_map is not None:
+            allocator.allocate(review_outline, kb.evidence_map, kb.extractions)
+
+        kb.outline = review_outline.model_dump()
+        kb.critique_history.extend(critiques)
+        kb.current_phase = PipelinePhase.FINAL_OUTLINE
+        kb.add_audit_entry(
+            "final_outline",
+            "complete",
+            f"Sections: {len(review_outline.sections)}",
+            tracker.usage,
+        )
+
+    async def citation_selection(self, kb: KnowledgeBase) -> None:
+        """Node: Select and tier papers per section using CitationSelector."""
+        from autoreview.config.citation import CitationConfig
+        from autoreview.config.depth import get_depth_profile
+        from autoreview.writing.citation_selector import CitationSelector
+
+        assert kb.outline is not None, "outline must be built before citation_selection"
+        assert kb.evidence_map is not None, "evidence_map must be built before citation_selection"
+
+        # Get citation config from writing config (fallback to defaults)
+        citation_cfg: CitationConfig = getattr(self.config.writing, "citation", CitationConfig())
+
+        # Get target_per_1k from depth profile
+        depth = self.config.writing.depth
+        profile = get_depth_profile(depth)
+        target_per_1k = profile.target_citations_per_1k_words
+
+        # Build paper metadata lookups from screened papers
+        paper_years: dict[str, int] = {}
+        paper_sources: dict[str, str] = {}
+        for sp in kb.screened_papers:
+            pid = sp.paper.id
+            if sp.paper.year:
+                paper_years[pid] = sp.paper.year
+            paper_sources[pid] = sp.paper.source_database
+
+        selector = CitationSelector(citation_cfg)
+        outline = ReviewOutline.model_validate(kb.outline)
+        citation_plan = selector.select_all(
+            outline=outline,
+            extractions=kb.extractions,
+            evidence_map=kb.evidence_map,
+            target_per_1k=target_per_1k,
+            paper_years=paper_years,
+            paper_sources=paper_sources,
+        )
+
+        kb.citation_plan = citation_plan.model_dump()
+        kb.current_phase = PipelinePhase.CITATION_SELECTION
+        kb.add_audit_entry(
+            "citation_selection",
+            "complete",
+            f"Sections planned: {len(citation_plan.sections)}, "
+            f"Papers assigned: {citation_plan.total_citation_budget}, "
+            f"Corpus utilization: {citation_plan.corpus_utilization_target:.2%}",
+        )
+
     async def outline(self, kb: KnowledgeBase) -> None:
-        """Node: Generate and critique the outline."""
+        """Node: Generate and critique the outline (legacy — kept for backward compatibility)."""
         tracker = _TokenAccumulator(self.llm, self._global_tokens, node_name="outline")
         generator = OutlineGenerator(tracker)
         critic = OutlineCritic(tracker)
@@ -750,7 +854,13 @@ class PipelineNodes:
         tracker = _TokenAccumulator(
             self.llm, self._global_tokens, node_name="contextual_enrichment"
         )
-        outline = ReviewOutline.model_validate(kb.outline)
+        # Use draft_outline for section structure if available, else fall back to full outline
+        outline_data = kb.draft_outline if kb.draft_outline is not None else kb.outline
+        if outline_data is None:
+            kb.current_phase = PipelinePhase.CONTEXTUAL_ENRICHMENT
+            kb.add_audit_entry("contextual_enrichment", "skipped", "No outline available")
+            return
+        outline = ReviewOutline.model_validate(outline_data)
         enricher = ContextualEnricher(tracker)
 
         # Generate enrichment queries for each section
@@ -803,13 +913,12 @@ class PipelineNodes:
             if not section_queries.queries:
                 continue
 
-            # Skip enrichment for well-covered sections (15+ papers already assigned)
+            # Skip enrichment if evidence map has no themes (nothing to enrich toward)
             section = outline.get_section(section_id)
-            if section and len(section.paper_ids) >= 15:
+            if kb.evidence_map and len(kb.evidence_map.themes) == 0:
                 logger.info(
-                    "contextual_enrichment.skipped_well_covered",
+                    "contextual_enrichment.skipped_no_themes",
                     section_id=section_id,
-                    paper_count=len(section.paper_ids),
                 )
                 continue
 
@@ -897,7 +1006,13 @@ class PipelineNodes:
         from autoreview.search.aggregator import SearchAggregator
 
         tracker = _TokenAccumulator(self.llm, self._global_tokens, node_name="corpus_expansion")
-        outline = ReviewOutline.model_validate(kb.outline)
+        # Use draft_outline for section targeting if available, else fall back to full outline
+        outline_data = kb.draft_outline if kb.draft_outline is not None else kb.outline
+        outline = ReviewOutline.model_validate(outline_data) if outline_data else None
+        if outline is None:
+            kb.current_phase = PipelinePhase.CORPUS_EXPANSION
+            kb.add_audit_entry("corpus_expansion", "skipped", "No outline available for targeting")
+            return
 
         # 1. Collect insights and generate queries per section
         all_queries: list[str] = []
@@ -1033,7 +1148,10 @@ class PipelineNodes:
         kb.screened_papers.extend(new_screened)
         kb.extractions.update(new_extractions)
 
-        # 7. Assign new paper IDs to outline sections
+        # 7. Track new paper IDs per section (new papers already written to kb.extractions above)
+        # In the two-pass flow, corpus_expansion runs before final_outline, so we do NOT
+        # mutate kb.outline here. Instead, new papers are visible to final_outline via
+        # kb.extractions. If outline already exists (legacy / single-pass flow), update it.
         new_paper_ids = list(new_extractions.keys())
         section_new_papers: dict[str, list[str]] = {}
 
@@ -1041,10 +1159,9 @@ class PipelineNodes:
             for sid in section_ids:
                 section_new_papers.setdefault(sid, []).extend(new_paper_ids)
 
-        # Deduplicate per section and update outline
-        outline_dict = kb.outline
-        if outline_dict and new_paper_ids:
-            outline_obj = ReviewOutline.model_validate(outline_dict)
+        # Only update kb.outline if it already exists (backward-compatible with old flow)
+        if kb.outline and new_paper_ids:
+            outline_obj = ReviewOutline.model_validate(kb.outline)
             for sid, pids in section_new_papers.items():
                 section = outline_obj.get_section(sid)
                 if section:
@@ -1095,6 +1212,15 @@ class PipelineNodes:
         critic = SectionCritic(tracker)
 
         assert kb.evidence_map is not None, "evidence_map must be built before section writing"
+        citation_plan_obj = None
+        if kb.citation_plan is not None:
+            from autoreview.writing.citation_selector import CitationPlan
+
+            if isinstance(kb.citation_plan, dict):
+                citation_plan_obj = CitationPlan.model_validate(kb.citation_plan)
+            else:
+                citation_plan_obj = kb.citation_plan
+
         drafts = await writer.write_all_sections(
             outline,
             kb.extractions,
@@ -1102,6 +1228,7 @@ class PipelineNodes:
             narrative_plan=kb.narrative_plan,
             contextual_enrichment=kb.contextual_enrichment or None,
             depth=self.config.writing.depth,
+            citation_plan=citation_plan_obj,
         )
 
         # Validate citations and critique each section

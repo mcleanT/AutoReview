@@ -8,9 +8,11 @@ from autoreview.analysis.evidence_map import EvidenceMap
 from autoreview.config.models import DepthLevel
 from autoreview.critique.models import CritiqueReport
 from autoreview.llm.prompts.outline import (
+    DRAFT_OUTLINE_SYSTEM_PROMPT,
     OUTLINE_REVISION_SYSTEM_PROMPT,
     OUTLINE_SYSTEM_PROMPT,
     ReviewOutline,
+    build_draft_outline_prompt,
     build_outline_prompt,
     build_outline_revision_prompt,
 )
@@ -122,6 +124,49 @@ class OutlineGenerator:
 
         logger.info(
             "outline.generated",
+            sections=len(outline.sections),
+            total_subsections=len(outline.flatten()) - len(outline.sections),
+            input_tokens=response.input_tokens,
+            output_tokens=response.output_tokens,
+        )
+
+        return outline
+
+    async def generate_draft(
+        self,
+        evidence_map: EvidenceMap,
+        scope_document: str,
+    ) -> ReviewOutline:
+        """Generate a lightweight draft outline without paper ID assignments.
+
+        This is intended as a first-pass structural skeleton used to drive
+        targeted enrichment queries.  The returned outline will not have
+        ``paper_ids``, ``theme_refs``, or meaningful ``estimated_word_count``
+        values — those are populated by the full ``generate()`` call after
+        the enriched corpus is assembled.
+
+        Args:
+            evidence_map: Current evidence map (used for theme summary).
+            scope_document: The review scope / research question text.
+
+        Returns:
+            A ``ReviewOutline`` with section structure and descriptions only.
+        """
+        evidence_summary = _format_evidence_summary(evidence_map)
+        prompt = build_draft_outline_prompt(
+            scope_document=scope_document,
+            evidence_summary=evidence_summary,
+        )
+
+        response = await self.llm.generate_structured(
+            prompt=prompt,
+            response_model=ReviewOutline,
+            system=DRAFT_OUTLINE_SYSTEM_PROMPT,
+        )
+        outline: ReviewOutline = response.parsed
+
+        logger.info(
+            "outline.draft_generated",
             sections=len(outline.sections),
             total_subsections=len(outline.flatten()) - len(outline.sections),
             input_tokens=response.input_tokens,

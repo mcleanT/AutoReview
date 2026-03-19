@@ -33,7 +33,22 @@ def _node_summary(name: str, kb: KnowledgeBase) -> str:
         "clustering": f"{len(kb.evidence_map.themes) if kb.evidence_map else 0} themes, "
         f"{len(kb.evidence_map.contradictions) if kb.evidence_map else 0} contradictions",
         "gap_search": f"{len(kb.evidence_map.gaps) if kb.evidence_map else 0} gaps identified",
-        "outline": f"{len(kb.outline.sections) if kb.outline else 0} sections planned",
+        "draft_outline": (
+            f"{len(kb.draft_outline.get('sections', [])) if isinstance(kb.draft_outline, dict) else 0}"  # noqa: E501
+            " sections (draft)"
+        ),
+        "final_outline": (
+            f"{len(kb.outline.get('sections', [])) if isinstance(kb.outline, dict) else 0}"
+            " sections (final)"
+        ),
+        "citation_selection": (
+            f"{len(kb.citation_plan.get('sections', {})) if isinstance(kb.citation_plan, dict) else 0}"  # noqa: E501
+            " sections planned"
+        ),
+        "outline": (
+            f"{len(kb.outline.get('sections', [])) if isinstance(kb.outline, dict) else 0}"
+            " sections planned"
+        ),
         "narrative_planning": "narrative arc planned",
         "contextual_enrichment": "context enriched",
         "corpus_expansion": "corpus expanded",
@@ -109,13 +124,17 @@ def build_pipeline(llm: Any, config: DomainConfig) -> tuple[DAGRunner, PipelineN
     dag.add_node("extraction", nodes.extraction, dependencies=["full_text_retrieval"])
     dag.add_node("clustering", nodes.clustering, dependencies=["extraction"])
     dag.add_node("gap_search", nodes.gap_search, dependencies=["clustering"])
-    dag.add_node("outline", nodes.outline, dependencies=["gap_search"])
-    dag.add_node("narrative_planning", nodes.narrative_planning, dependencies=["outline"])
+    dag.add_node("draft_outline", nodes.draft_outline, dependencies=["gap_search"])
     dag.add_node(
-        "contextual_enrichment", nodes.contextual_enrichment, dependencies=["narrative_planning"]
+        "contextual_enrichment", nodes.contextual_enrichment, dependencies=["draft_outline"]
     )
     dag.add_node("corpus_expansion", nodes.corpus_expansion, dependencies=["contextual_enrichment"])
-    dag.add_node("section_writing", nodes.section_writing, dependencies=["corpus_expansion"])
+    dag.add_node("final_outline", nodes.final_outline, dependencies=["corpus_expansion"])
+    dag.add_node("narrative_planning", nodes.narrative_planning, dependencies=["final_outline"])
+    dag.add_node(
+        "citation_selection", nodes.citation_selection, dependencies=["narrative_planning"]
+    )
+    dag.add_node("section_writing", nodes.section_writing, dependencies=["citation_selection"])
     dag.add_node("passage_search", nodes.passage_search, dependencies=["section_writing"])
     dag.add_node("assembly", nodes.assembly, dependencies=["passage_search"])
     dag.add_node("final_polish", nodes.final_polish, dependencies=["assembly"])

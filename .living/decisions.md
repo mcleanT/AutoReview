@@ -102,3 +102,31 @@
 
 ## 2026-03-17 — Pushed 21 commits to origin/main
 Pushed 21 pre-existing commits to origin/main covering: search infrastructure overhaul (CORE, CrossRef, Europe PMC backends, full-text cache, OA publisher handlers, Perplexity removal), progressive disclosure knowledge system, and Analysis 10 depth comparison infrastructure.
+
+### 2026-03-19: ARISE batch run — sequential overnight execution
+- Ran all 10 ARISE topics sequentially via subagent dispatch (not parallel) to avoid rate limiting
+- Used /tmp fallback when macOS EPERM blocked project directory after ~6 hours
+- CORE API deprioritized after consistent failures across all 10 topics
+- **Why:** Overnight unattended run needed reliability over speed; rate limiting on 6 concurrent search APIs would have caused failures
+- **How to apply:** Future overnight batch runs should use sequential execution with /tmp fallback built in
+
+---
+
+## 2026-03-19 — arise_rag_v2 Pipeline Decisions
+
+**Tags:** pipeline, search, extraction, clustering, topic-selection
+
+### Test topic: arise_rag (well-studied field, search bottleneck obvious)
+Chose `arise_rag` as the v2 rerun topic because it is a well-studied field where shallow search (40 papers) was most obviously a bottleneck relative to what the literature contains. A 27x improvement validates the fix clearly in a domain where ground truth corpus size is known to be large.
+
+### Stage 13 (Passage Search) skipped — diminishing returns at 1,302-paper corpus
+With 1,302 papers in corpus and 113 citations already extracted, Stage 13 passage search offered diminishing returns. Skipping it was the right tradeoff for this run. Revisit for deep-depth reviews where exhaustive coverage is required.
+
+### Programmatic extraction (regex/keyword) over LLM for bulk 634-paper pass
+Selected programmatic extraction instead of LLM-based extraction for the 634-paper full-text batch. Rationale: <3 second runtime vs potentially hours + significant API cost for LLM. Reserve LLM extraction for targeted passes on high-priority papers where structured fields are ambiguous.
+
+### Enrichment and expansion searches capped at 100/source (vs 500 for primary)
+Primary search ran at 500/source; enrichment and corpus expansion queries ran at 100/source. These are supplementary passes where marginal returns diminish quickly. 100/source is an appropriate cap for secondary and tertiary search stages.
+
+### 11 clustering themes consolidated to 5 body sections (medium-depth)
+The clustering stage produced 11 themes; these were consolidated into 5 body sections for the medium-depth review format. Medium-depth (~8K words) cannot support 11 distinct sections without superficiality — consolidation is necessary and correct at this depth level.

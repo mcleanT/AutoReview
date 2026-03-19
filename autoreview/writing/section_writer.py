@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
+
+if TYPE_CHECKING:
+    from autoreview.writing.citation_selector import SectionCitationPlan
 
 from autoreview.analysis.evidence_map import EvidenceMap
 from autoreview.config.models import DepthLevel
@@ -85,6 +88,77 @@ def _format_extractions(
             f"  Limitations: {ext.limitations}"
         )
     return "\n\n".join(blocks) if blocks else "(No extractions available)"
+
+
+def _format_extractions_tiered(
+    citation_plan: SectionCitationPlan,
+    extractions: dict[str, PaperExtraction],
+) -> str:
+    """Format papers by tier for the section writer prompt.
+
+    Produces a structured citation budget header followed by tier sections
+    (PRIMARY / SUPPORTING / CONTEXTUAL) with per-paper guidance.
+    """
+    budget = citation_plan.citation_budget
+    lines: list[str] = [
+        f"## Citation Budget: ~{budget} references for this section",
+        "",
+    ]
+
+    def _paper_block(idx: int, citation: Any, ext: PaperExtraction | None) -> str:
+        guidance = citation.citation_guidance or ""
+        if ext:
+            findings = "; ".join(f.claim for f in ext.key_findings)
+            finding_text = findings if findings else "(no findings)"
+            strength = ext.key_findings[0].evidence_strength if ext.key_findings else "unknown"
+        else:
+            finding_text = "(extraction not available)"
+            strength = "unknown"
+        parts = [f"{idx}. [@{citation.paper_id}] — {finding_text}. Evidence: {strength}."]
+        if guidance:
+            parts.append(f" {guidance}")
+        return "".join(parts)
+
+    # PRIMARY tier
+    if citation_plan.primary_papers:
+        lines.append("### PRIMARY papers (discuss individually):")
+        for i, pc in enumerate(citation_plan.primary_papers, start=1):
+            lines.append(_paper_block(i, pc, extractions.get(pc.paper_id)))
+        lines.append("")
+
+    # SUPPORTING tier
+    if citation_plan.supporting_papers:
+        offset = len(citation_plan.primary_papers)
+        lines.append("### SUPPORTING papers (cite in clusters for shared claims):")
+        for i, pc in enumerate(citation_plan.supporting_papers, start=offset + 1):
+            lines.append(_paper_block(i, pc, extractions.get(pc.paper_id)))
+        lines.append("")
+
+    # CONTEXTUAL tier
+    if citation_plan.contextual_papers:
+        offset = len(citation_plan.primary_papers) + len(citation_plan.supporting_papers)
+        lines.append("### CONTEXTUAL papers (cite for background/framing):")
+        for i, pc in enumerate(citation_plan.contextual_papers, start=offset + 1):
+            lines.append(_paper_block(i, pc, extractions.get(pc.paper_id)))
+        lines.append("")
+
+    lines.append("### Citation instructions:")
+    lines.append("- You MUST cite all PRIMARY papers with individual discussion")
+    lines.append("- Cluster SUPPORTING papers where they support the same claim")
+    lines.append("- CONTEXTUAL papers are optional")
+    lines.append(f"- Target approximately {budget} total citations")
+
+    return (
+        "\n".join(lines)
+        if any(
+            [
+                citation_plan.primary_papers,
+                citation_plan.supporting_papers,
+                citation_plan.contextual_papers,
+            ]
+        )
+        else "(No citations assigned to this section)"
+    )
 
 
 def _generate_synthesis_directives(
@@ -242,10 +316,14 @@ class SectionWriter:
         directive: SectionNarrativeDirective | None = None,
         enrichment: SectionEnrichment | None = None,
         depth: DepthLevel | None = None,
+        citation_plan: SectionCitationPlan | None = None,
     ) -> SectionDraft:
         """Write a single section with full context."""
         outline_context = _format_outline_context(outline, current_section_id=section.id)
-        relevant = _format_extractions(section.paper_ids, extractions)
+        if citation_plan is not None:
+            relevant = _format_extractions_tiered(citation_plan, extractions)
+        else:
+            relevant = _format_extractions(section.paper_ids, extractions)
         directives = _generate_synthesis_directives(section, evidence_map, extractions)
 
         adjacent = ""
@@ -284,6 +362,14 @@ class SectionWriter:
             depth_instructions_text = get_depth_instructions(depth, section.estimated_word_count)
             max_tokens_override = get_depth_profile(depth).max_tokens_override
 
+        citation_tier_instructions = ""
+        if citation_plan is not None:
+            citation_tier_instructions = (
+                f"Citation budget for this section: ~{citation_plan.citation_budget} references. "
+                "Papers are tiered above (PRIMARY/SUPPORTING/CONTEXTUAL). "
+                "Follow the citation instructions in the extractions block."
+            )
+
         prompt = build_section_writing_prompt(
             section_id=section.id,
             section_title=section.title,
@@ -296,6 +382,7 @@ class SectionWriter:
             contextual_enrichment=enrichment_text,
             target_word_count=target_word_count,
             depth_instructions=depth_instructions_text,
+            citation_tier_instructions=citation_tier_instructions,
         )
 
         generate_kwargs: dict[str, Any] = dict(
@@ -392,6 +479,7 @@ class SectionWriter:
         narrative_plan: NarrativePlan | None = None,
         contextual_enrichment: dict[str, SectionEnrichment] | None = None,
         depth: DepthLevel | None = None,
+        citation_plan: Any = None,
     ) -> dict[str, SectionDraft]:
         """Write all sections sequentially with cross-section context."""
         drafts: dict[str, SectionDraft] = {}
@@ -409,6 +497,11 @@ class SectionWriter:
             directive = directive_map.get(section.id)
             enrichment = contextual_enrichment.get(section.id) if contextual_enrichment else None
 
+            # Look up per-section citation plan if a CitationPlan was provided
+            section_citation_plan: SectionCitationPlan | None = None
+            if citation_plan is not None:
+                section_citation_plan = citation_plan.sections.get(section.id)
+
             draft = await self.write_section(
                 section=section,
                 outline=outline,
@@ -419,6 +512,7 @@ class SectionWriter:
                 directive=directive,
                 enrichment=enrichment,
                 depth=depth,
+                citation_plan=section_citation_plan,
             )
             drafts[section.id] = draft
 

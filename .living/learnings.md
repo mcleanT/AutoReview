@@ -65,3 +65,37 @@
 
 ## 2026-03-17 — Push-only session trigger
 Push-only sessions trigger the mycelium stop hook even with no new code changes in the session — the hook detects prior-session work that was committed but not yet registered in .living/. Register significant commit batches even in push-only sessions.
+
+### 2026-03-19: Overnight batch run insights
+- macOS revokes Full Disk Access for terminals after extended sessions (~6h). Always implement /tmp fallback for overnight runs. Fix: System Settings > Privacy & Security > Full Disk Access > Terminal
+- CORE API (core.ac.uk) is unreliable for programmatic search — consistently empty across 10 diverse topics. Semantic Scholar + PubMed + OpenAlex is the reliable triple.
+- Niche topics (e.g., fractal squares topology) yield ~38 papers vs 70-110 for mainstream CS/AI. Pipeline handles gracefully but consider adaptive depth scaling.
+- 10-topic batch × 15 stages completed in ~6-8 hours overnight. Sequential execution was reliable; no rate-limit failures.
+
+---
+
+## 2026-03-19 — SearchAggregator Pipeline Run (arise_rag_v2)
+
+**Tags:** search, pipeline, performance, full-text-retrieval
+
+### MCP tools vs Python SearchAggregator: 27x search gap
+MCP tools default to `max_results=20/source`, which is a hard cap that severely limits pipeline search. Switching to Python SearchAggregator at 500/source yielded 40 → 1,095 initial candidates (27x) and 47 → 1,302 final corpus (28x), with 113 references cited in the output. This improvement cascades through every downstream stage: screening, extraction, clustering, and citation counts all scale proportionally.
+
+### Programmatic extraction is fast enough for 600+ papers
+Regex + keyword matching handled 634 papers in <3 seconds. LLM-based extraction at that scale would be prohibitively expensive. Use programmatic extraction for bulk passes; reserve LLM extraction for targeted high-value papers.
+
+### Full-text retrieval success rate and source breakdown
+73.5uccess across 634 papers. Top sources: arXiv (101), Unpaywall (95), S2 API (88), PMC (53), ACL Anthology (45). Source diversity matters — no single source dominates.
+
+### Gap search is an effective corpus multiplier for underrepresented subtopics
+Gap search filled the scalability/efficiency gap: 1 → 139 papers via targeted queries for underrepresented subtopics. Similarly, enrichment-derived corpus expansion added 487 papers. The enrichment → expansion pipeline is a significant multiplier and should not be skipped.
+
+### S2 rate limiting without API key adds ~25 min to gap search
+Semantic Scholar rate-limits unauthenticated requests aggressively. Obtaining `S2_API_KEY` would meaningfully reduce gap search wall time. Track as a configuration action item.
+
+### PDF generation is mandatory after pipeline completion
+- **date**: 2026-03-19
+- **tags**: pipeline, output, convention
+- **context**: User explicitly stated PDF conversion should always be done after a pipeline run produces a review.md
+- **learning**: Every completed pipeline run must automatically generate a PDF from the final review.md. This should be the last step before marking the run complete. Use pandoc with xelatex if available, fall back to other converters. The CLAUDE.md already mentions "Post-Pipeline PDF Generation" as a rule — this reinforces it as non-negotiable for local runs too.
+- **action**: The run-local skill's Stage 15 (Final Polish) should include PDF generation as a mandatory substep, not a separate manual action.

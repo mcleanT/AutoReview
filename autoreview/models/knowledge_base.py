@@ -34,6 +34,9 @@ class PipelinePhase(StrEnum):
     CONTEXTUAL_ENRICHMENT = "contextual_enrichment"
     CORPUS_EXPANSION = "corpus_expansion"
     GAP_SEARCH = "gap_search"
+    DRAFT_OUTLINE = "draft_outline"
+    FINAL_OUTLINE = "final_outline"
+    CITATION_SELECTION = "citation_selection"
     SECTION_WRITING = "section_writing"
     SECTION_CRITIQUE = "section_critique"
     PASSAGE_SEARCH = "passage_search"
@@ -74,6 +77,8 @@ class KnowledgeBase(TimestampedModel):
     extractions: dict[str, PaperExtraction] = Field(default_factory=dict)
     evidence_map: EvidenceMap | None = None
     outline: Any = None  # Will be ReviewOutline, use Any to avoid circular import
+    draft_outline: Any = None
+    citation_plan: Any = None
     narrative_plan: NarrativePlan | None = None
     contextual_enrichment: dict[str, SectionEnrichment] = Field(default_factory=dict)
     corpus_expansion_results: dict[str, CorpusExpansionResult] = Field(default_factory=dict)

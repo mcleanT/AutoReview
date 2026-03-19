@@ -106,6 +106,113 @@ class TestValidateFullDraft:
         assert "real" in report.valid_citations
 
 
+class TestValidateAgainstPlan:
+    def test_validate_against_plan_checks_primary_compliance(self):
+        from autoreview.validation.citation_validator import CitationValidator
+        from autoreview.writing.citation_selector import PaperCitation, SectionCitationPlan
+
+        validator = CitationValidator()
+        plan = SectionCitationPlan(
+            section_id="sec_3",
+            citation_budget=10,
+            primary_papers=[
+                PaperCitation(
+                    paper_id="p1", tier="primary", priority_score=0.9, citation_guidance=""
+                ),
+                PaperCitation(
+                    paper_id="p2", tier="primary", priority_score=0.8, citation_guidance=""
+                ),
+            ],
+            supporting_papers=[],
+            contextual_papers=[],
+            coverage_notes=[],
+        )
+        # Text only cites p1, missing p2
+        text = "Some findings [@p1] show results."
+        report = validator.validate_against_plan(text, plan)
+        assert "p2" in report.uncited_primary
+        assert "p1" not in report.uncited_primary
+
+    def test_validate_against_plan_budget_deviation(self):
+        from autoreview.validation.citation_validator import CitationValidator
+        from autoreview.writing.citation_selector import PaperCitation, SectionCitationPlan
+
+        validator = CitationValidator()
+        plan = SectionCitationPlan(
+            section_id="sec_1",
+            citation_budget=10,
+            primary_papers=[
+                PaperCitation(
+                    paper_id="p1", tier="primary", priority_score=0.9, citation_guidance=""
+                ),
+            ],
+            supporting_papers=[],
+            contextual_papers=[],
+            coverage_notes=[],
+        )
+        # Cite 15 papers (5 over budget)
+        text = " ".join(f"[@p{i}]" for i in range(1, 16))
+        report = validator.validate_against_plan(text, plan)
+        # deviation = (15 - 10) / 10 = 0.5
+        assert abs(report.budget_deviation - 0.5) < 1e-4
+        assert report.total_citations == 15
+        assert report.citation_budget == 10
+
+    def test_validate_against_plan_additive_citations(self):
+        """Citations outside the plan should be flagged as additive."""
+        from autoreview.validation.citation_validator import CitationValidator
+        from autoreview.writing.citation_selector import PaperCitation, SectionCitationPlan
+
+        validator = CitationValidator()
+        plan = SectionCitationPlan(
+            section_id="sec_2",
+            citation_budget=5,
+            primary_papers=[
+                PaperCitation(
+                    paper_id="p1", tier="primary", priority_score=0.9, citation_guidance=""
+                ),
+            ],
+            supporting_papers=[
+                PaperCitation(
+                    paper_id="p2", tier="supporting", priority_score=0.6, citation_guidance=""
+                ),
+            ],
+            contextual_papers=[],
+            coverage_notes=[],
+        )
+        # p3 is additive (not in plan)
+        text = "Results [@p1] and [@p2] plus extra [@p3]."
+        report = validator.validate_against_plan(text, plan)
+        assert "p3" in report.additive_citations
+        assert "p1" not in report.additive_citations
+        assert "p2" not in report.additive_citations
+
+    def test_validate_against_plan_all_primary_cited(self):
+        """No uncited_primary when all PRIMARY papers are cited."""
+        from autoreview.validation.citation_validator import CitationValidator
+        from autoreview.writing.citation_selector import PaperCitation, SectionCitationPlan
+
+        validator = CitationValidator()
+        plan = SectionCitationPlan(
+            section_id="sec_4",
+            citation_budget=5,
+            primary_papers=[
+                PaperCitation(
+                    paper_id="p1", tier="primary", priority_score=0.9, citation_guidance=""
+                ),
+                PaperCitation(
+                    paper_id="p2", tier="primary", priority_score=0.8, citation_guidance=""
+                ),
+            ],
+            supporting_papers=[],
+            contextual_papers=[],
+            coverage_notes=[],
+        )
+        text = "Results from [@p1] and [@p2] are clear."
+        report = validator.validate_against_plan(text, plan)
+        assert report.uncited_primary == []
+
+
 class TestToCritiqueIssues:
     def test_severity_mapping(self):
         report = CitationValidationReport(

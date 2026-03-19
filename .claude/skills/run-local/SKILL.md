@@ -92,15 +92,15 @@ Present a summary table of all settings. Wait for user confirmation before proce
 
 ---
 
-## COMPLETE Pipeline Architecture (15 Stages)
+## COMPLETE Pipeline Architecture (17 Stages)
 
 Every stage below is MANDATORY. Do not skip any unless the user explicitly says so.
-Stages are grouped into 6 phases. Within each phase, stages run sequentially.
+Stages are grouped into 7 phases. Within each phase, stages run sequentially.
 
 ```
 Phase 1: Literature Discovery
   ● 1. query_expansion
-  ● 2. search           (uses MCP tools for real searches)
+  ● 2. search           (uses direct Python pipeline search via SearchAggregator, 500/source)
   ● 3. screening
   ● 4. full_text_retrieval
   ● 5. extraction
@@ -109,21 +109,25 @@ Phase 2: Analysis
   ● 6. clustering
   ● 7. gap_search        (conditional — skips search if no gaps AND coverage ≥ threshold)
 
-Phase 3: Planning
-  ● 8. outline           (+ outline critique loop, + EvidenceWeightedAllocator for depth)
-  ● 9. narrative_planning
+Phase 3: Planning (Part 1)
+  ● 8a. draft_outline    (haiku — lightweight, for enrichment targeting; NO paper assignments)
 
 Phase 4: Enrichment
-  ● 10. contextual_enrichment
-  ● 11. corpus_expansion
+  ● 9. contextual_enrichment
+  ● 10. corpus_expansion
 
-Phase 5: Writing
-  ● 12. section_writing   (+ per-section critique loop)
-  ● 13. passage_search
+Phase 5: Planning (Part 2)
+  ● 8b. final_outline    (sonnet — full corpus, paper assignments, word allocation via EvidenceWeightedAllocator)
+  ● 11. narrative_planning
+  ● 12. citation_selection (deterministic Python for scoring, optional haiku for guidance)
 
-Phase 6: Assembly & Polish
-  ● 14. assembly          (+ holistic critique loop)
-  ● 15. final_polish
+Phase 6: Writing
+  ● 13. section_writing   (+ per-section critique loop; receives tiered paper lists from CitationPlan)
+  ● 14. passage_search
+
+Phase 7: Assembly & Polish
+  ● 15. assembly          (+ holistic critique loop)
+  ● 16. final_polish
 
 ```
 
@@ -156,13 +160,33 @@ Each stage includes: what to do, what model to use, available tools, and a
 ### Stage 2: Search
 
 **Model**: sonnet
-**Tools**: `search_pubmed`, `search_semantic_scholar`, `search_openalex` (MCP tools)
+**Tools**: `Bash (Python pipeline search)`
 
-**What to do**: Execute queries from Stage 1 against real search sources. Deduplicate
-results by DOI. Target: 200-500 raw candidates.
+**What to do**: Execute queries from Stage 1 against real search sources using the
+`SearchAggregator` directly. Deduplicate results by DOI. Target: 200-500 raw candidates.
 
 **Protocol**:
-1. Call each MCP search tool with the appropriate queries
+1. Run the Python pipeline search (gets full `max_results_per_source` from config, default 500 — vs. MCP tools which cap at 20):
+```python
+python3 -c "
+import asyncio, json
+from autoreview.config import load_config
+from autoreview.search.aggregator import SearchAggregator
+
+async def run():
+    config = load_config(domain='{domain}')
+    agg = SearchAggregator(
+        sources=config.search.sources,
+        date_range=config.search.date_range,
+    )
+    papers = await agg.search(
+        queries_by_source,  # from Stage 1
+        max_results_per_source=config.search.max_results_per_source,
+    )
+    # serialize and save to snapshot
+asyncio.run(run())
+"
+```
 2. Merge results, dedup by DOI (keep first seen)
 3. Log source counts
 
@@ -279,10 +303,11 @@ to assess whether the corpus adequately covers the scope.
 ### Stage 7: Gap Search
 
 **Model**: sonnet
-**Tools**: `search_pubmed`, `search_semantic_scholar`, `search_openalex`
+**Tools**: `Bash (Python pipeline search)`
 
 **What to do**: If gaps were identified in clustering, generate targeted queries and
-search for papers to fill them. Screen and extract new papers. Integrate into evidence map.
+search for papers to fill them using direct Python via `SearchAggregator`. Screen and
+extract new papers. Integrate into evidence map.
 
 The **remediation dispatcher** may also trigger during this stage — it can:
 - Expand queries (if comprehensiveness checks flagged under-coverage)
@@ -302,13 +327,68 @@ run (to evaluate whether search is needed).
 
 ---
 
-### Stage 8: Outline
+### Stage 8a: Draft Outline
+
+**Model**: haiku
+**Tools**: None
+
+**What to do**: Generate a lightweight topic-bucket outline from the evidence map and scope
+document. This is a fast, cheap pass to produce section structure for enrichment targeting.
+Do NOT assign papers to sections. Do NOT run EvidenceWeightedAllocator here.
+Just produce enough structure (section headings + brief descriptions) for enrichment queries
+to be targeted per section.
+
+**Validation gate**:
+- Has section structure with ≥4 topics
+- No paper assignments (those come in Stage 8b after enrichment)
+
+**Output**: `draft_outline` saved to `{output_dir}/snapshots/draft_outline.json`
+
+---
+
+### Stage 9: Contextual Enrichment
+
+**Model**: sonnet
+**Tools**: `Bash (Python pipeline search)`
+
+**What to do**: Using the draft_outline section structure, generate enrichment queries
+to find adjacent/contextual material for each section. Run queries through direct Python
+via `SearchAggregator`. Screen (threshold=2) and extract top 5 papers per section.
+This provides cross-field context for the writer.
+
+**Validation gate**:
+- Each section has an enrichment entry (even if empty)
+- Enrichment sources are distinct from primary corpus
+
+**Output**: `contextual_enrichment` dict (section_id → enrichment data)
+
+---
+
+### Stage 10: Corpus Expansion
+
+**Model**: sonnet
+**Tools**: `Bash (Python pipeline search)`
+
+**What to do**: Using insights from contextual enrichment (key concepts, cross-field
+connections), generate targeted queries to expand the primary research corpus. Run queries
+through direct Python via `SearchAggregator`. Screen, extract, and integrate new papers.
+
+**Validation gate**:
+- Stage executed
+- Any new papers integrated into extractions and evidence map
+
+**Output**: Updated corpus with additional papers
+
+---
+
+### Stage 8b: Final Outline
 
 **Model**: sonnet (generation), haiku (critique)
 **Tools**: None
 
-**What to do**:
-1. Generate hierarchical outline from evidence map + scope document
+**What to do**: Runs AFTER enrichment (Stages 9-10) and corpus expansion, seeing the full
+expanded corpus. Generate the definitive hierarchical outline:
+1. Generate hierarchical outline from evidence map + scope document + expanded corpus
 2. Apply depth-appropriate section descriptions:
    - `low`: emphasize critical takeaways
    - `medium`: standard descriptions
@@ -325,11 +405,11 @@ run (to evaluate whether search is needed).
 - `estimated_word_count` set on each section (from allocator)
 - Required sections present (Introduction, Methods of Review, Discussion, etc.)
 
-**Output**: `outline` with sections, paper assignments, word count allocations
+**Output**: `final_outline` with sections, paper assignments, word count allocations
 
 ---
 
-### Stage 9: Narrative Planning
+### Stage 11: Narrative Planning
 
 **Model**: sonnet
 **Tools**: None
@@ -350,57 +430,48 @@ run (to evaluate whether search is needed).
 
 ---
 
-### Stage 10: Contextual Enrichment
+### Stage 12: Citation Selection
 
-**Model**: sonnet
-**Tools**: `search_pubmed`, `search_semantic_scholar`, `search_openalex`
+**Model**: deterministic Python (no LLM needed for scoring); optional haiku for guidance
+**Tools**: None (pure algorithm)
 
-**What to do**: For each outline section, generate enrichment queries to find
-adjacent/contextual material. Search, screen (threshold=2), and extract top 5 papers
-per section. This provides cross-field context for the writer.
+**What to do**: Rank papers per section using priority weights and assign citation tiers:
+- Score each paper against its assigned section using the CitationSelector algorithm
+  (weights: evidence_strength 0.30, recency 0.25, relevance_score 0.25,
+  uniqueness 0.10, source_diversity 0.10)
+- Assign tiers: `primary` (top-ranked, must cite), `supporting` (should cite),
+  `contextual` (may cite if space)
+- Compute per-section citation budgets based on depth profile and section word count
+- Produce a `CitationPlan` object with a `SectionCitationPlan` per section
 
 **Validation gate**:
-- Each section has an enrichment entry (even if empty)
-- Enrichment sources are distinct from primary corpus
+- Every section has a `SectionCitationPlan` with ≥1 primary paper
+- All papers assigned to final_outline appear in at least one section's plan
+- Citation budgets are consistent with depth profile
 
-**Output**: `contextual_enrichment` dict (section_id → enrichment data)
+**Output**: `citation_plan` saved to `{output_dir}/snapshots/citation_selection.json`
 
 ---
 
-### Stage 11: Corpus Expansion
-
-**Model**: sonnet
-**Tools**: `search_pubmed`, `search_semantic_scholar`, `search_openalex`
-
-**What to do**: Using insights from contextual enrichment (key concepts, cross-field
-connections), generate targeted queries to expand the primary research corpus. Search,
-screen, extract, and integrate new papers.
-
-**Validation gate**:
-- Stage executed
-- Any new papers integrated into extractions and evidence map
-
-**Output**: Updated corpus with additional papers
-
----
-
-### Stage 12: Section Writing
+### Stage 13: Section Writing
 
 **Model**: sonnet (writing), haiku (critique)
 **Tools**: None
 
 **What to do**: Write each section with:
-- Assigned findings from extractions
+- Tiered paper lists from `CitationPlan` (primary / supporting / contextual) — NOT flat lists
 - Full outline context (for cross-section awareness)
-- Narrative directives from Stage 9
-- Contextual enrichment from Stage 10
+- Narrative directives from Stage 11
+- Contextual enrichment from Stage 9
 - Depth-specific instructions:
   - `low`: "Distill to critical findings. Target ~{word_count} words."
   - `medium`: "Balance thoroughness with readability. Target ~{word_count} words."
   - `deep`: "Exhaustively trace evidence chains. Target ~{word_count} words."
-- Word count target from the allocator (Stage 8)
+- Word count target from the allocator (Stage 8b)
+- Citation budget from Stage 12
 
 CRITICAL: Synthesize across papers — do NOT summarize paper-by-paper.
+CRITICAL: All PRIMARY papers in the CitationPlan for a section MUST be cited.
 
 For deep mode, `max_tokens` is automatically set to 16384 for section generation calls.
 
@@ -415,19 +486,21 @@ as extra issues to the critique.
 - Word counts approximately match allocator targets (±30%)
 - No section is pure paper-by-paper summary
 - Citation validation results logged
+- All PRIMARY papers cited in their assigned sections
 
 **Output**: `section_drafts` dict (section_id → text)
 
 ---
 
-### Stage 13: Passage Search
+### Stage 14: Passage Search
 
 **Model**: sonnet
-**Tools**: `search_pubmed`, `search_semantic_scholar`, `search_openalex`
+**Tools**: `Bash (Python pipeline search)`
 
 **What to do**: Mine written sections for undercited claims. For high/medium priority
-claims, generate targeted queries and search for supporting papers. Also identifies
-topic expansion opportunities from section content.
+claims, generate targeted queries and search for supporting papers via direct Python
+using `SearchAggregator`. Also identifies topic expansion opportunities from section
+content.
 
 **Validation gate**:
 - Stage executed
@@ -438,7 +511,7 @@ topic expansion opportunities from section content.
 
 ---
 
-### Stage 14: Assembly
+### Stage 15: Assembly
 
 **Model**: sonnet (assembly + revision), haiku (critique)
 **Tools**: None
@@ -458,7 +531,7 @@ topic expansion opportunities from section content.
 
 ---
 
-### Stage 15: Final Polish
+### Stage 16: Final Polish
 
 **Model**: sonnet
 **Tools**: Bash (for file writing)
@@ -511,33 +584,46 @@ Agent(
 **Model selection per stage**:
 | Model | Stages |
 |-------|--------|
-| opus | Complex topics: clustering (Stage 6), assembly critique (Stage 14) |
-| sonnet | Most stages: query expansion, search orchestration, screening, extraction, outline, narrative planning, enrichment, section writing, passage search, assembly, final polish |
-| haiku | Lightweight: full-text retrieval (Stage 4), critique evaluation, validation |
+| opus | Complex topics: clustering (Stage 6), assembly critique (Stage 15) |
+| sonnet | Most stages: query expansion, search orchestration, screening, extraction, final_outline (8b), narrative planning, enrichment, corpus expansion, section writing, passage search, assembly, final polish |
+| haiku | Lightweight: full-text retrieval (Stage 4), draft_outline (Stage 8a), critique evaluation, citation selection guidance, validation |
 
 ---
 
 ## Running Real Searches
 
-Use MCP tools for real searches when available:
-- `search_pubmed` — PubMed/MEDLINE via NCBI Entrez
-- `search_semantic_scholar` — Semantic Scholar API
-- `search_openalex` — OpenAlex API
+**Primary (pipeline stages): Use direct Python via `SearchAggregator`**
 
-If MCP tools are not available, fall back to Python scripts:
+All pipeline search stages (2, 7, 9, 10, 14) MUST use the Python pipeline directly.
+This respects `config.search.max_results_per_source` (default 500 per source), which
+is what enables reaching the 200-500 raw candidate target. MCP tools cap at 20 results
+per source and must NOT be used during pipeline runs.
 
 ```python
 python3 -c "
-import asyncio
-from autoreview.search.pubmed import PubMedSearch
+import asyncio, json
+from autoreview.config import load_config
+from autoreview.search.aggregator import SearchAggregator
+
 async def run():
-    s = PubMedSearch()
-    papers = await s.search(queries=['your query'], max_results=50)
-    for p in papers:
-        print(f'{p.title} | {p.year} | {p.doi}')
+    config = load_config(domain='{domain}')
+    agg = SearchAggregator(
+        sources=config.search.sources,
+        date_range=config.search.date_range,
+    )
+    papers = await agg.search(
+        queries_by_source,  # dict from Stage 1 output
+        max_results_per_source=config.search.max_results_per_source,
+    )
+    # serialize and save to snapshot
 asyncio.run(run())
 "
 ```
+
+**MCP tools (`search_pubmed`, `search_semantic_scholar`, `search_openalex`) are available
+for ad-hoc / interactive paper exploration outside the pipeline** — e.g., spot-checking
+a topic, answering a quick literature question in conversation. Do NOT invoke them during
+pipeline execution.
 
 ---
 
@@ -560,11 +646,13 @@ especially for deep-mode runs which consume significantly more tokens.
 | Mistake | Fix |
 |---------|-----|
 | Running `autoreview run` or `python -m autoreview` | Don't — that requires ANTHROPIC_API_KEY. Dispatch subagents instead |
-| Skipping stages | Run ALL 15 stages. Check the architecture diagram above |
-| Using synthetic/fake papers | Use MCP search tools for real papers only |
+| Skipping stages | Run ALL 17 stages (including 8a and 8b). Check the architecture diagram above |
+| Using MCP tools for pipeline search | Use direct Python SearchAggregator — MCP tools cap at 20 results/source vs 500 for the Python pipeline |
+| Using synthetic/fake papers | Use Python pipeline search for real papers only |
 | Extracting only from abstracts | Run full_text_retrieval (Stage 4) first |
-| Skipping enrichment stages | contextual_enrichment + corpus_expansion must run before writing |
-| Ignoring depth settings | Pass depth config to outline (allocator), narrative (insights range), and writing (instructions) |
+| Skipping enrichment stages | contextual_enrichment (Stage 9) + corpus_expansion (Stage 10) must run before final_outline (Stage 8b) |
+| Skipping citation_selection | Citation selection (Stage 12) is mandatory — it produces tiered paper lists that writers need |
+| Ignoring depth settings | Pass depth config to final_outline (allocator), narrative (insights range), and writing (instructions) |
 | Summarizing paper-by-paper | Section writing must SYNTHESIZE across papers |
 | Not saving snapshots | Save after every stage for crash recovery |
-| Running all subagents as opus | Use model selection table — haiku for validation, sonnet for most work |
+| Running all subagents as opus | Use model selection table — haiku for validation/draft_outline, sonnet for most work |

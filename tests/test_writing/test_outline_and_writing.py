@@ -200,6 +200,16 @@ class TestOutlineGenerator:
         assert outline.title == "Test Review"
         assert len(outline.sections) == 3
 
+    async def test_generate_draft(self):
+        llm = MockWritingLLM()
+        gen = OutlineGenerator(llm)
+        outline = await gen.generate_draft(_make_evidence_map(), "Test scope")
+        # Returns a valid ReviewOutline (same mock shape as full generate)
+        assert outline.title == "Test Review"
+        assert len(outline.sections) == 3
+        # Draft path should call generate_structured exactly once
+        assert llm.calls == ["generate_structured"]
+
 
 class TestOutlineCritic:
     async def test_critique(self):

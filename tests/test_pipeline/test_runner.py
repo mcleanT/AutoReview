@@ -26,10 +26,12 @@ class TestBuildPipeline:
             "extraction",
             "clustering",
             "gap_search",
-            "outline",
-            "narrative_planning",
+            "draft_outline",
             "contextual_enrichment",
             "corpus_expansion",
+            "final_outline",
+            "narrative_planning",
+            "citation_selection",
             "section_writing",
             "passage_search",
             "assembly",
@@ -37,6 +39,12 @@ class TestBuildPipeline:
         ]
         for name in expected_nodes:
             assert name in dag.nodes, f"Missing node: {name}"
+
+    def test_pipeline_does_not_have_old_outline_node(self):
+        """Old outline node must be absent from the new DAG."""
+        config = load_config(domain="biomedical")
+        dag, _ = build_pipeline(llm=None, config=config)
+        assert "outline" not in dag.nodes
 
     def test_pipeline_topology_is_valid(self):
         """Pipeline should have a valid topological order (no cycles)."""
@@ -46,7 +54,7 @@ class TestBuildPipeline:
         assert len(order) > 0
         # All nodes should appear in the sorted order
         flat = [name for level in order for name in level]
-        assert len(flat) == 15
+        assert len(flat) == 17
 
     def test_pipeline_dependencies(self):
         """Check key dependency relationships."""
@@ -70,12 +78,30 @@ class TestBuildPipeline:
 
     def test_corpus_expansion_dependencies(self):
         """corpus_expansion depends on contextual_enrichment;
-        section_writing depends on corpus_expansion.
+        section_writing depends on citation_selection (no longer directly on corpus_expansion).
         """
         config = load_config(domain="biomedical")
         dag, _ = build_pipeline(llm=None, config=config)
         assert "contextual_enrichment" in dag.nodes["corpus_expansion"].dependencies
-        assert "corpus_expansion" in dag.nodes["section_writing"].dependencies
+        assert "citation_selection" in dag.nodes["section_writing"].dependencies
+
+    def test_enrichment_depends_on_draft_outline(self):
+        """contextual_enrichment must depend on draft_outline."""
+        config = load_config(domain="biomedical")
+        dag, _ = build_pipeline(llm=None, config=config)
+        assert "draft_outline" in dag.nodes["contextual_enrichment"].dependencies
+
+    def test_final_outline_depends_on_corpus_expansion(self):
+        """final_outline must depend on corpus_expansion."""
+        config = load_config(domain="biomedical")
+        dag, _ = build_pipeline(llm=None, config=config)
+        assert "corpus_expansion" in dag.nodes["final_outline"].dependencies
+
+    def test_citation_selection_depends_on_narrative_planning(self):
+        """citation_selection must depend on narrative_planning."""
+        config = load_config(domain="biomedical")
+        dag, _ = build_pipeline(llm=None, config=config)
+        assert "narrative_planning" in dag.nodes["citation_selection"].dependencies
 
     def test_full_text_retrieval_dependencies(self):
         """full_text_retrieval depends on screening; extraction depends on full_text_retrieval."""

@@ -18,6 +18,14 @@ _OUTLINE_DEPTH_GUIDANCE: dict[DepthLevel, str] = {
         "comprehensive coverage: trace methodological evolution, compare conflicting "
         "findings, discuss edge cases, and explore secondary implications.\n"
     ),
+    DepthLevel.EXHAUSTIVE: (
+        "\n## DEPTH GUIDANCE\n\n"
+        "This is a book-chapter-depth review. Section descriptions should request "
+        "the most thorough possible coverage: full methodological history, all "
+        "conflicting findings with mechanistic explanations, every identified gap, "
+        "quantitative synthesis where possible, and prospective research directions "
+        "with specific experimental proposals.\n"
+    ),
 }
 
 
@@ -81,6 +89,50 @@ You are an expert scientific writer revising the outline for a comprehensive rev
 You have received specific critique feedback on the previous outline. Your task is to \
 address each issue while preserving the strengths of the existing structure. Do not \
 regenerate from scratch — make targeted improvements based on the feedback.
+"""
+
+DRAFT_OUTLINE_SYSTEM_PROMPT = """\
+You are an expert scientific writer creating a lightweight structural outline for a \
+review paper. Generate a hierarchical section structure with titles and topic descriptions. \
+Do not assign paper IDs or word counts — this is a draft for topic scoping only.
+"""
+
+
+def build_draft_outline_prompt(
+    scope_document: str,
+    evidence_summary: str,
+) -> str:
+    """Build a lightweight prompt for draft outline generation.
+
+    Unlike ``build_outline_prompt``, this prompt does NOT request paper ID
+    assignments or word count estimates.  It produces a topic-bucket skeleton
+    suitable for enrichment-query targeting before the full corpus is assembled.
+
+    Args:
+        scope_document: The review scope / research question text.
+        evidence_summary: A text summary of the current evidence map themes.
+
+    Returns:
+        A prompt string ready to pass to the LLM.
+    """
+    return f"""\
+## Review Scope
+{scope_document}
+
+## Evidence Summary
+{evidence_summary}
+
+Generate a hierarchical draft outline for this review paper. Each section needs:
+- A unique ID (e.g., "1", "1.1", "1.1.1")
+- A descriptive title
+- A brief description of what the section covers and which topics it should address
+
+Do NOT include paper IDs, theme_refs, or word count estimates — those will be \
+populated in a later stage. Focus on capturing the logical structure and topic \
+buckets so that targeted literature searches can be run for each section.
+
+Ensure all major themes from the evidence summary are covered and the outline \
+follows a logical narrative arc.
 """
 
 

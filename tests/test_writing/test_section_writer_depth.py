@@ -4,9 +4,11 @@ import pytest
 
 from autoreview.analysis.evidence_map import EvidenceMap
 from autoreview.config.models import DepthLevel
+from autoreview.extraction.models import EvidenceStrength, Finding, PaperExtraction
 from autoreview.llm.prompts.outline import OutlineSection, ReviewOutline
 from autoreview.llm.provider import LLMResponse
-from autoreview.writing.section_writer import SectionWriter
+from autoreview.writing.citation_selector import PaperCitation, SectionCitationPlan
+from autoreview.writing.section_writer import SectionWriter, _format_extractions_tiered
 
 
 @pytest.fixture
@@ -73,3 +75,61 @@ async def test_section_writer_medium_no_max_tokens_override(
     call_kwargs = mock_llm.generate.call_args
     # Medium has no override, max_tokens should NOT be in kwargs
     assert "max_tokens" not in call_kwargs.kwargs
+
+
+def test_format_extractions_with_citation_plan():
+    """When a CitationPlan is provided, extractions should be tiered."""
+    plan = SectionCitationPlan(
+        section_id="sec_3",
+        citation_budget=10,
+        primary_papers=[
+            PaperCitation(
+                paper_id="p1",
+                tier="primary",
+                priority_score=0.9,
+                citation_guidance="Discuss method",
+            )
+        ],
+        supporting_papers=[
+            PaperCitation(
+                paper_id="p2", tier="supporting", priority_score=0.6, citation_guidance=""
+            )
+        ],
+        contextual_papers=[],
+        coverage_notes=[],
+    )
+    extractions = {
+        "p1": PaperExtraction(
+            paper_id="p1",
+            key_findings=[
+                Finding(
+                    claim="Neural networks improve accuracy",
+                    evidence_strength=EvidenceStrength.STRONG,
+                    paper_id="p1",
+                )
+            ],
+            methods_summary="Deep learning",
+            limitations="Small dataset",
+            relationships=[],
+        ),
+        "p2": PaperExtraction(
+            paper_id="p2",
+            key_findings=[
+                Finding(
+                    claim="Transformer models generalise well",
+                    evidence_strength=EvidenceStrength.MODERATE,
+                    paper_id="p2",
+                )
+            ],
+            methods_summary="Transformers",
+            limitations="Compute cost",
+            relationships=[],
+        ),
+    }
+    result = _format_extractions_tiered(plan, extractions)
+    assert "PRIMARY" in result
+    assert "SUPPORTING" in result
+    assert "[@p1]" in result
+    assert "[@p2]" in result
+    assert "Citation Budget: ~10" in result
+    assert "Discuss method" in result

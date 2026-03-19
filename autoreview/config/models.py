@@ -5,11 +5,14 @@ from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from autoreview.config.citation import CitationConfig
+
 
 class DepthLevel(StrEnum):
     LOW = "low"
     MEDIUM = "medium"
     DEEP = "deep"
+    EXHAUSTIVE = "exhaustive"
 
 
 class SearchConfig(BaseModel):
@@ -121,6 +124,7 @@ class CritiqueConfig(BaseModel):
     score_threshold: float = 0.80
     max_revision_cycles: int = 3
     convergence_delta: float = 0.05
+    target_corpus_utilization: float = 0.25
 
 
 class WritingConfig(BaseModel):
@@ -134,6 +138,7 @@ class WritingConfig(BaseModel):
     analysis_temperature: float = 0.0
     depth: DepthLevel = DepthLevel.MEDIUM
     evidence_chains: bool = True
+    citation: CitationConfig = Field(default_factory=CitationConfig)
 
 
 class OutlineConfig(BaseModel):
@@ -151,6 +156,8 @@ class OutlineConfig(BaseModel):
         ]
     )
     max_critique_cycles: int = 2
+    draft_model: str = "haiku"
+    final_model: str = "sonnet"
 
 
 class LLMConfig(BaseModel):
