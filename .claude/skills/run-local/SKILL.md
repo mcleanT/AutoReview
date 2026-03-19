@@ -124,6 +124,7 @@ Phase 5: Writing
 Phase 6: Assembly & Polish
   ● 14. assembly          (+ holistic critique loop)
   ● 15. final_polish
+
 ```
 
 ---
@@ -196,13 +197,22 @@ document. Apply threshold (default: 3). Process in batches of 20.
 **Model**: haiku (lightweight)
 **Tools**: Bash (for HTTP requests to open-access sources)
 
-**What to do**: Attempt to retrieve full text for screened papers. Strategies:
-- Semantic Scholar `openAccessPdf`
-- PubMed Central JATS XML
-- arXiv/bioRxiv/medRxiv PDFs
-- Unpaywall API
+**What to do**: Attempt to retrieve full text for screened papers using the
+`FullTextResolver` from `autoreview/search/full_text.py`. The resolver chains
+18 strategies in priority order:
+
+1. Elsevier API, 2. Wiley TDM, 3. S2 cached PDF, 3b. S2 API DOI lookup,
+4. CORE, 4b. CrossRef links, 5. PMC, 5b. Europe PMC, 6. arXiv (incl. DOI prefix),
+7. bioRxiv/medRxiv, 8. PLOS, 9. MDPI, 9b. ACL Anthology, 9c. JMIR,
+10. Unpaywall, 11. Springer OA, 12. Springer institutional
 
 Even if no full texts are found, this stage must run and report results.
+
+**Retry strategy**: `resolve()` is idempotent — it skips papers that already
+have full text. After the initial pass, wait 30-60 seconds for rate limits to
+reset, then call `resolve()` again on the same paper list. The second pass only
+attempts papers still missing full text, recovering transient 429s and timeouts.
+Do this within Stage 4 before moving to extraction.
 
 **Validation gate**:
 - Stage executed (even if 0 full texts retrieved)

@@ -221,6 +221,74 @@ class TestElsevierApiStrategy:
 
 
 # ---------------------------------------------------------------------------
+# Strategy: Wiley TDM API
+# ---------------------------------------------------------------------------
+
+
+class TestWileyTdmStrategy:
+    @pytest.mark.asyncio
+    async def test_fetches_wiley_pdf(self):
+        sp = _make_screened(doi="10.1002/ana.25430")
+        resolver = FullTextResolver(wiley_tdm_token="test-token")
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.content = b"x" * 2000  # Simulate non-trivial PDF binary
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(return_value=mock_resp)
+
+        with patch(
+            "autoreview.search.full_text._extract_text_from_pdf",
+            return_value=_SAMPLE_PDF_TEXT,
+        ):
+            text = await resolver._try_wiley_tdm(sp.paper)
+
+        assert text == _SAMPLE_PDF_TEXT
+        resolver._client.get.assert_called_once()
+        call_args = resolver._client.get.call_args
+        assert "api.wiley.com" in call_args[0][0]
+        assert "10.1002" in call_args[0][0]
+        assert call_args[1]["headers"]["Wiley-TDM-Client-Token"] == "test-token"
+
+    @pytest.mark.asyncio
+    async def test_skips_non_wiley_doi(self):
+        sp = _make_screened(doi="10.1016/j.cell.2020.06.043")  # Elsevier DOI
+        resolver = FullTextResolver(wiley_tdm_token="test-token")
+        text = await resolver._try_wiley_tdm(sp.paper)
+        assert text is None
+
+    @pytest.mark.asyncio
+    @patch.dict(os.environ, {}, clear=False)
+    async def test_skips_without_token(self):
+        os.environ.pop("WILEY_TDM_TOKEN", None)
+        sp = _make_screened(doi="10.1002/ana.25430")
+        resolver = FullTextResolver(wiley_tdm_token=None)
+        text = await resolver._try_wiley_tdm(sp.paper)
+        assert text is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_on_auth_failure(self):
+        sp = _make_screened(doi="10.1111/j.1460-9568.2010.07380.x")
+        resolver = FullTextResolver(wiley_tdm_token="bad-token")
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 403
+        mock_resp.content = b"Forbidden"
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(return_value=mock_resp)
+
+        text = await resolver._try_wiley_tdm(sp.paper)
+        assert text is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_without_doi(self):
+        sp = _make_screened(doi=None)
+        resolver = FullTextResolver(wiley_tdm_token="test-token")
+        text = await resolver._try_wiley_tdm(sp.paper)
+        assert text is None
+
+
+# ---------------------------------------------------------------------------
 # Strategy: Springer Nature Open Access API
 # ---------------------------------------------------------------------------
 
@@ -350,6 +418,102 @@ class TestSpringerOaStrategy:
         resolver._client.get = AsyncMock(return_value=mock_resp)
 
         text = await resolver._try_springer_oa(sp.paper)
+        assert text is None
+
+
+# ---------------------------------------------------------------------------
+# Strategy: Springer/Nature institutional PDF
+# ---------------------------------------------------------------------------
+
+
+class TestSpringerInstitutionalStrategy:
+    @pytest.mark.asyncio
+    async def test_fetches_springer_pdf(self):
+        sp = _make_screened(doi="10.1007/s10787-025-01807-w")
+        resolver = FullTextResolver()
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.content = b"%PDF" + b"x" * 2000
+        mock_resp.headers = {"content-type": "application/pdf"}
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(return_value=mock_resp)
+
+        with patch(
+            "autoreview.search.full_text._extract_text_from_pdf",
+            return_value=_SAMPLE_PDF_TEXT,
+        ):
+            text = await resolver._try_springer_institutional(sp.paper)
+
+        assert text == _SAMPLE_PDF_TEXT
+        call_url = resolver._client.get.call_args[0][0]
+        assert "link.springer.com/content/pdf/" in call_url
+
+    @pytest.mark.asyncio
+    async def test_uses_nature_url_for_nature_doi(self):
+        sp = _make_screened(doi="10.1038/s41572-025-00674-7")
+        resolver = FullTextResolver()
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.content = b"%PDF" + b"x" * 2000
+        mock_resp.headers = {"content-type": "application/pdf"}
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(return_value=mock_resp)
+
+        with patch(
+            "autoreview.search.full_text._extract_text_from_pdf",
+            return_value=_SAMPLE_PDF_TEXT,
+        ):
+            text = await resolver._try_springer_institutional(sp.paper)
+
+        assert text == _SAMPLE_PDF_TEXT
+        call_url = resolver._client.get.call_args[0][0]
+        assert "nature.com/articles/" in call_url
+        assert call_url.endswith(".pdf")
+
+    @pytest.mark.asyncio
+    async def test_rejects_html_login_page(self):
+        """If not on VPN, Springer returns an HTML login page instead of PDF."""
+        sp = _make_screened(doi="10.1007/s12035-024-04421-z")
+        resolver = FullTextResolver()
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.content = b"<html><body>Please log in</body></html>"
+        mock_resp.headers = {"content-type": "text/html"}
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(return_value=mock_resp)
+
+        text = await resolver._try_springer_institutional(sp.paper)
+        assert text is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_on_403(self):
+        sp = _make_screened(doi="10.1007/s10286-025-01107-x")
+        resolver = FullTextResolver()
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 403
+        mock_resp.content = b"Forbidden"
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(return_value=mock_resp)
+
+        text = await resolver._try_springer_institutional(sp.paper)
+        assert text is None
+
+    @pytest.mark.asyncio
+    async def test_skips_non_springer_doi(self):
+        sp = _make_screened(doi="10.1002/ana.25430")  # Wiley DOI
+        resolver = FullTextResolver()
+        text = await resolver._try_springer_institutional(sp.paper)
+        assert text is None
+
+    @pytest.mark.asyncio
+    async def test_skips_without_doi(self):
+        sp = _make_screened(doi=None)
+        resolver = FullTextResolver()
+        text = await resolver._try_springer_institutional(sp.paper)
         assert text is None
 
 
@@ -1033,16 +1197,22 @@ class TestPlosStrategy:
 
 class TestMdpiStrategy:
     @pytest.mark.asyncio
-    async def test_fetches_mdpi_pdf(self):
+    async def test_fetches_mdpi_pdf_via_doi_resolve(self):
         doi = "10.3390/ijms24010123"
         sp = _make_screened(doi=doi)
 
         resolver = FullTextResolver()
-        mock_resp = MagicMock()
-        mock_resp.status_code = 200
-        mock_resp.content = b"x" * 2000
+        # Mock HEAD response (DOI resolution) with a redirect URL
+        mock_head_resp = MagicMock()
+        mock_head_resp.status_code = 200
+        mock_head_resp.url = "https://www.mdpi.com/1422-0067/24/1/123"
+        # Mock GET response (PDF download)
+        mock_get_resp = MagicMock()
+        mock_get_resp.status_code = 200
+        mock_get_resp.content = b"x" * 2000
         resolver._client = MagicMock()
-        resolver._client.get = AsyncMock(return_value=mock_resp)
+        resolver._client.head = AsyncMock(return_value=mock_head_resp)
+        resolver._client.get = AsyncMock(return_value=mock_get_resp)
 
         with patch(
             "autoreview.search.full_text._extract_text_from_pdf",
@@ -1051,11 +1221,24 @@ class TestMdpiStrategy:
             text = await resolver._try_mdpi(sp.paper)
 
         assert text == _SAMPLE_PDF_TEXT
-        call_args = resolver._client.get.call_args
-        assert "www.mdpi.com" in str(call_args)
-        # URL should contain the DOI suffix (everything after 10.3390/)
-        assert "ijms24010123" in str(call_args)
-        assert "/pdf" in str(call_args)
+        # PDF URL should be the resolved article URL + /pdf
+        get_call_args = resolver._client.get.call_args
+        assert "www.mdpi.com" in str(get_call_args)
+        assert "/pdf" in str(get_call_args)
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_doi_resolution_fails(self):
+        doi = "10.3390/ijms24010123"
+        sp = _make_screened(doi=doi)
+
+        resolver = FullTextResolver()
+        # HEAD fails (DOI resolution error) — should return None gracefully
+        resolver._client = MagicMock()
+        resolver._client.head = AsyncMock(side_effect=Exception("timeout"))
+
+        text = await resolver._try_mdpi(sp.paper)
+
+        assert text is None
 
     @pytest.mark.asyncio
     async def test_skips_non_mdpi_doi(self):
@@ -1069,10 +1252,16 @@ class TestMdpiStrategy:
         sp = _make_screened(doi="10.3390/cells11010001")
 
         resolver = FullTextResolver()
+        # HEAD resolves DOI
+        mock_head_resp = MagicMock()
+        mock_head_resp.status_code = 200
+        mock_head_resp.url = "https://www.mdpi.com/2073-4409/11/1/1"
+        # GET returns 403 (Akamai block) for both PDF and XML
         mock_resp = MagicMock()
         mock_resp.status_code = 403
         mock_resp.content = b""
         resolver._client = MagicMock()
+        resolver._client.head = AsyncMock(return_value=mock_head_resp)
         resolver._client.get = AsyncMock(return_value=mock_resp)
 
         text = await resolver._try_mdpi(sp.paper)
@@ -1191,8 +1380,13 @@ class TestFailureLogging:
         resolver = FullTextResolver()
         for attr in (
             "_try_elsevier_api",
+            "_try_wiley_tdm",
             "_try_s2_pdf",
+            "_try_s2_api_lookup",
+            "_try_core",
+            "_try_crossref",
             "_try_pmc",
+            "_try_europe_pmc",
             "_try_arxiv",
             "_try_biorxiv",
         ):
@@ -1305,6 +1499,238 @@ class TestGatherExceptionLogging:
         error_events = [e for e in cap_logs if "resolve_paper_exception" in e.get("event", "")]
         assert len(error_events) >= 1
         assert error_events[0].get("doi") == doi
+
+
+# ---------------------------------------------------------------------------
+# Strategy: arXiv DOI prefix extraction
+# ---------------------------------------------------------------------------
+
+
+class TestArxivDoiPrefix:
+    @pytest.mark.asyncio
+    async def test_arxiv_from_doi_prefix(self):
+        """DOI 10.48550/arXiv.XXXX with no 'arxiv' in external_ids → uses DOI."""
+        sp = _make_screened(
+            doi="10.48550/arXiv.2312.10997",
+            external_ids={},
+        )
+
+        resolver = FullTextResolver()
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.content = b"x" * 2000
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(return_value=mock_resp)
+
+        with patch(
+            "autoreview.search.full_text._extract_text_from_pdf",
+            return_value=_SAMPLE_PDF_TEXT,
+        ):
+            text = await resolver._try_arxiv(sp.paper)
+
+        assert text == _SAMPLE_PDF_TEXT
+        call_args = resolver._client.get.call_args
+        assert "arxiv.org/pdf/2312.10997" in str(call_args)
+
+    @pytest.mark.asyncio
+    async def test_arxiv_from_doi_prefix_lowercase(self):
+        """Lowercase DOI prefix 10.48550/arxiv.XXXX is handled case-insensitively."""
+        sp = _make_screened(
+            doi="10.48550/arxiv.2312.10997",
+            external_ids={},
+        )
+
+        resolver = FullTextResolver()
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.content = b"x" * 2000
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(return_value=mock_resp)
+
+        with patch(
+            "autoreview.search.full_text._extract_text_from_pdf",
+            return_value=_SAMPLE_PDF_TEXT,
+        ):
+            text = await resolver._try_arxiv(sp.paper)
+
+        assert text == _SAMPLE_PDF_TEXT
+        call_args = resolver._client.get.call_args
+        assert "arxiv.org/pdf/2312.10997" in str(call_args)
+
+    @pytest.mark.asyncio
+    async def test_arxiv_prefers_external_id(self):
+        """When external_ids has 'arxiv', it takes priority over DOI extraction."""
+        sp = _make_screened(
+            doi="10.48550/arXiv.9999.00000",
+            external_ids={"arxiv": "2312.10997"},
+        )
+
+        resolver = FullTextResolver()
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.content = b"x" * 2000
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(return_value=mock_resp)
+
+        with patch(
+            "autoreview.search.full_text._extract_text_from_pdf",
+            return_value=_SAMPLE_PDF_TEXT,
+        ):
+            text = await resolver._try_arxiv(sp.paper)
+
+        assert text == _SAMPLE_PDF_TEXT
+        call_args = resolver._client.get.call_args
+        # Should use the external_ids value, not the one embedded in the DOI
+        assert "arxiv.org/pdf/2312.10997" in str(call_args)
+        assert "9999.00000" not in str(call_args)
+
+
+# ---------------------------------------------------------------------------
+# Strategy: ACL Anthology
+# ---------------------------------------------------------------------------
+
+
+class TestAclAnthologyStrategy:
+    @pytest.mark.asyncio
+    async def test_fetches_acl_anthology_pdf(self):
+        """DOI 10.18653/v1/XXXX → fetches https://aclanthology.org/XXXX.pdf"""
+        doi = "10.18653/v1/2024.emnlp-main.519"
+        sp = _make_screened(doi=doi)
+
+        resolver = FullTextResolver()
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.content = b"x" * 2000
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(return_value=mock_resp)
+
+        with patch(
+            "autoreview.search.full_text._extract_text_from_pdf",
+            return_value=_SAMPLE_PDF_TEXT,
+        ):
+            text = await resolver._try_acl_anthology(sp.paper)
+
+        assert text == _SAMPLE_PDF_TEXT
+        call_args = resolver._client.get.call_args
+        assert "aclanthology.org/2024.emnlp-main.519.pdf" in str(call_args)
+
+    @pytest.mark.asyncio
+    async def test_skips_non_acl_doi(self):
+        """Non-ACL DOI → returns None without making any HTTP call."""
+        sp = _make_screened(doi="10.1038/s41586-020-2649-2")
+        resolver = FullTextResolver()
+        text = await resolver._try_acl_anthology(sp.paper)
+        assert text is None
+
+    @pytest.mark.asyncio
+    async def test_skips_acl_without_v1_prefix(self):
+        """ACL DOI with prefix other than 10.18653/v1/ → returns None."""
+        sp = _make_screened(doi="10.18653/other/xxx")
+        resolver = FullTextResolver()
+        text = await resolver._try_acl_anthology(sp.paper)
+        assert text is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_without_doi(self):
+        sp = _make_screened(doi=None)
+        resolver = FullTextResolver()
+        text = await resolver._try_acl_anthology(sp.paper)
+        assert text is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_on_http_error(self):
+        doi = "10.18653/v1/2023.acl-long.100"
+        sp = _make_screened(doi=doi)
+
+        resolver = FullTextResolver()
+        mock_resp = MagicMock()
+        mock_resp.status_code = 404
+        mock_resp.content = b""
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(return_value=mock_resp)
+
+        text = await resolver._try_acl_anthology(sp.paper)
+        assert text is None
+
+
+# ---------------------------------------------------------------------------
+# Strategy: JMIR
+# ---------------------------------------------------------------------------
+
+
+class TestJmirStrategy:
+    @pytest.mark.asyncio
+    async def test_fetches_jmir_xml(self):
+        """DOI 10.2196/38052 → fetches XML from https://www.jmir.org/api/download-xml/38052"""
+        doi = "10.2196/38052"
+        sp = _make_screened(doi=doi)
+
+        resolver = FullTextResolver()
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.content = _SAMPLE_JATS  # len > 500
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(return_value=mock_resp)
+
+        text = await resolver._try_jmir(sp.paper)
+
+        assert text is not None
+        call_args = resolver._client.get.call_args
+        assert "www.jmir.org/api/download-xml/38052" in str(call_args)
+
+    @pytest.mark.asyncio
+    async def test_jmir_pdf_fallback(self):
+        """When XML fetch fails, falls back to DOI resolution + PDF."""
+        doi = "10.2196/38052"
+        sp = _make_screened(doi=doi)
+
+        resolver = FullTextResolver()
+
+        # XML fetch fails (short/empty response)
+        xml_fail_resp = MagicMock()
+        xml_fail_resp.status_code = 200
+        xml_fail_resp.content = b"<err/>"  # len < 500, skipped
+
+        # HEAD (DOI resolution) redirects to a jmir.org URL
+        head_resp = MagicMock()
+        head_resp.status_code = 200
+        head_resp.url = "https://www.jmir.org/2022/1/e38052"
+
+        # GET (PDF download) succeeds
+        pdf_resp = MagicMock()
+        pdf_resp.status_code = 200
+        pdf_resp.content = b"x" * 2000
+
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(side_effect=[xml_fail_resp, pdf_resp])
+        resolver._client.head = AsyncMock(return_value=head_resp)
+
+        with patch(
+            "autoreview.search.full_text._extract_text_from_pdf",
+            return_value=_SAMPLE_PDF_TEXT,
+        ):
+            text = await resolver._try_jmir(sp.paper)
+
+        assert text == _SAMPLE_PDF_TEXT
+        # HEAD should have been called for DOI resolution
+        resolver._client.head.assert_called_once()
+        head_call = resolver._client.head.call_args
+        assert f"doi.org/{doi}" in str(head_call)
+
+    @pytest.mark.asyncio
+    async def test_skips_non_jmir_doi(self):
+        """Non-JMIR DOI → returns None without any HTTP call."""
+        sp = _make_screened(doi="10.1038/s41586-020-2649-2")
+        resolver = FullTextResolver()
+        text = await resolver._try_jmir(sp.paper)
+        assert text is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_without_doi(self):
+        sp = _make_screened(doi=None)
+        resolver = FullTextResolver()
+        text = await resolver._try_jmir(sp.paper)
+        assert text is None
 
 
 # ---------------------------------------------------------------------------
@@ -1746,3 +2172,384 @@ class TestEuropePmcStrategy:
         assert call_order.index("europe_pmc") > call_order.index("pmc")
         # arxiv should NOT have been called (europe_pmc succeeded first)
         assert "arxiv" not in call_order
+
+
+# ---------------------------------------------------------------------------
+# Strategy: Semantic Scholar API lookup (_try_s2_api_lookup)
+# ---------------------------------------------------------------------------
+
+
+class TestS2ApiLookupStrategy:
+    @pytest.mark.asyncio
+    async def test_discovers_oa_pdf(self):
+        """S2 API returns openAccessPdf.url → fetches PDF and returns text."""
+        sp = _make_screened(doi="10.1109/CVPR.2020.12345")
+        resolver = FullTextResolver()
+
+        s2_api_resp = MagicMock()
+        s2_api_resp.status_code = 200
+        s2_api_resp.json.return_value = {
+            "openAccessPdf": {"url": "http://example.com/paper.pdf"},
+            "externalIds": {},
+        }
+
+        pdf_resp = MagicMock()
+        pdf_resp.status_code = 200
+        pdf_resp.content = b"x" * 2000
+
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(side_effect=[s2_api_resp, pdf_resp])
+
+        with patch(
+            "autoreview.search.full_text._extract_text_from_pdf",
+            return_value=_SAMPLE_PDF_TEXT,
+        ):
+            text = await resolver._try_s2_api_lookup(sp.paper)
+
+        assert text == _SAMPLE_PDF_TEXT
+
+    @pytest.mark.asyncio
+    async def test_discovers_arxiv_mirror(self):
+        """S2 API returns externalIds.ArXiv but no openAccessPdf → fetches from arxiv.org."""
+        sp = _make_screened(doi="10.1109/CVPR.2020.12345")
+        resolver = FullTextResolver()
+
+        s2_api_resp = MagicMock()
+        s2_api_resp.status_code = 200
+        s2_api_resp.json.return_value = {
+            "openAccessPdf": None,
+            "externalIds": {"ArXiv": "2310.00259"},
+        }
+
+        arxiv_resp = MagicMock()
+        arxiv_resp.status_code = 200
+        arxiv_resp.content = b"x" * 2000
+
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(side_effect=[s2_api_resp, arxiv_resp])
+
+        with patch(
+            "autoreview.search.full_text._extract_text_from_pdf",
+            return_value=_SAMPLE_PDF_TEXT,
+        ):
+            text = await resolver._try_s2_api_lookup(sp.paper)
+
+        assert text == _SAMPLE_PDF_TEXT
+        # Verify the arXiv URL was used for the second call
+        second_call_url = resolver._client.get.call_args_list[1][0][0]
+        assert second_call_url == "https://arxiv.org/pdf/2310.00259"
+
+    @pytest.mark.asyncio
+    async def test_skips_without_doi(self):
+        """Paper with no DOI → returns None immediately without any HTTP call."""
+        sp = _make_screened(doi=None)
+        resolver = FullTextResolver()
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock()
+
+        text = await resolver._try_s2_api_lookup(sp.paper)
+
+        assert text is None
+        resolver._client.get.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_handles_429_with_retry(self):
+        """S2 API returns 429 rate-limit → retries with backoff, returns None after exhausting."""
+        sp = _make_screened(doi="10.1109/CVPR.2020.12345")
+        resolver = FullTextResolver()
+
+        rate_limit_resp = MagicMock()
+        rate_limit_resp.status_code = 429
+
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(return_value=rate_limit_resp)
+
+        text = await resolver._try_s2_api_lookup(sp.paper)
+
+        assert text is None
+        # 3 calls: 1 initial + 2 retries (default max_retries=2)
+        assert resolver._client.get.call_count == 3
+
+    @pytest.mark.asyncio
+    async def test_handles_404(self):
+        """S2 API returns 404 (paper not in S2) → returns None."""
+        sp = _make_screened(doi="10.9999/does-not-exist")
+        resolver = FullTextResolver()
+
+        not_found_resp = MagicMock()
+        not_found_resp.status_code = 404
+
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(return_value=not_found_resp)
+
+        text = await resolver._try_s2_api_lookup(sp.paper)
+
+        assert text is None
+
+    @pytest.mark.asyncio
+    async def test_oa_pdf_fallback_to_arxiv(self):
+        """S2 returns both openAccessPdf.url and ArXiv; OA PDF download fails → falls back to arXiv."""
+        sp = _make_screened(doi="10.1109/CVPR.2020.12345")
+        resolver = FullTextResolver()
+
+        s2_api_resp = MagicMock()
+        s2_api_resp.status_code = 200
+        s2_api_resp.json.return_value = {
+            "openAccessPdf": {"url": "http://example.com/paper.pdf"},
+            "externalIds": {"ArXiv": "2310.00259"},
+        }
+
+        # OA PDF fetch fails (non-200)
+        oa_pdf_resp = MagicMock()
+        oa_pdf_resp.status_code = 403
+        oa_pdf_resp.content = b""
+
+        # arXiv fetch succeeds
+        arxiv_resp = MagicMock()
+        arxiv_resp.status_code = 200
+        arxiv_resp.content = b"x" * 2000
+
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(side_effect=[s2_api_resp, oa_pdf_resp, arxiv_resp])
+
+        with patch(
+            "autoreview.search.full_text._extract_text_from_pdf",
+            return_value=_SAMPLE_PDF_TEXT,
+        ):
+            text = await resolver._try_s2_api_lookup(sp.paper)
+
+        assert text == _SAMPLE_PDF_TEXT
+        # Three calls: S2 API + OA PDF attempt + arXiv fallback
+        assert resolver._client.get.call_count == 3
+        # arXiv URL used for the third call
+        third_call_url = resolver._client.get.call_args_list[2][0][0]
+        assert third_call_url == "https://arxiv.org/pdf/2310.00259"
+
+
+# ---------------------------------------------------------------------------
+# DOI → PMID/PMCID enrichment
+# ---------------------------------------------------------------------------
+
+
+_NCBI_IDCONV_RESPONSE = {
+    "records": [
+        {"doi": "10.1234/test.001", "pmid": "11111111", "pmcid": "PMC1111111"},
+        {"doi": "10.1234/test.002", "pmid": "22222222", "pmcid": ""},
+        {"doi": "10.1234/test.003", "pmid": "", "pmcid": ""},  # Not in PubMed
+    ]
+}
+
+
+class TestDOIToPMIDEnrichment:
+    """Tests for _enrich_doi_to_pmid bulk DOI→PMID/PMCID step."""
+
+    @pytest.mark.asyncio
+    async def test_enriches_papers_with_pmids(self):
+        """Papers with DOIs get PMID/PMCID written into external_ids."""
+        papers = [
+            _make_screened(doi="10.1234/test.001"),
+            _make_screened(doi="10.1234/test.002"),
+            _make_screened(doi="10.1234/test.003"),
+        ]
+        resolver = FullTextResolver()
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = _NCBI_IDCONV_RESPONSE
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(return_value=mock_resp)
+
+        await resolver._enrich_doi_to_pmid(papers)
+
+        p0 = papers[0].paper
+        assert p0.external_ids["pmid"] == "11111111"
+        assert p0.external_ids["pmcid"] == "PMC1111111"
+
+        p1 = papers[1].paper
+        assert p1.external_ids["pmid"] == "22222222"
+        assert "pmcid" not in p1.external_ids  # empty string not stored
+
+        p2 = papers[2].paper
+        assert "pmid" not in p2.external_ids
+        assert "pmcid" not in p2.external_ids
+
+    @pytest.mark.asyncio
+    async def test_skips_papers_with_existing_pmid(self):
+        """Papers that already have a pmid in external_ids are not re-queried."""
+        papers = [
+            _make_screened(doi="10.1234/test.001", external_ids={"pmid": "99999999"}),
+        ]
+        resolver = FullTextResolver()
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock()
+
+        await resolver._enrich_doi_to_pmid(papers)
+
+        # Should not make any HTTP call — all candidates were filtered out
+        resolver._client.get.assert_not_called()
+        # Existing PMID unchanged
+        assert papers[0].paper.external_ids["pmid"] == "99999999"
+
+    @pytest.mark.asyncio
+    async def test_handles_api_failure_gracefully(self):
+        """If the NCBI API returns a non-200 status, the method continues without error."""
+        papers = [_make_screened(doi="10.1234/test.001")]
+        resolver = FullTextResolver()
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 503
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(return_value=mock_resp)
+
+        # Should not raise
+        await resolver._enrich_doi_to_pmid(papers)
+
+        # No IDs written
+        assert "pmid" not in papers[0].paper.external_ids
+
+    @pytest.mark.asyncio
+    async def test_handles_network_exception_gracefully(self):
+        """If the HTTP call raises an exception, the method continues without error."""
+        papers = [_make_screened(doi="10.1234/test.001")]
+        resolver = FullTextResolver()
+
+        import httpx
+
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(side_effect=httpx.ConnectError("timeout"))
+
+        # Should not raise
+        await resolver._enrich_doi_to_pmid(papers)
+
+        assert "pmid" not in papers[0].paper.external_ids
+
+    @pytest.mark.asyncio
+    async def test_batches_large_sets(self):
+        """More than 200 DOIs are split into multiple API calls."""
+        # 450 papers → 3 batches (200 + 200 + 50)
+        papers = [_make_screened(doi=f"10.9999/paper.{i:04d}") for i in range(450)]
+        resolver = FullTextResolver()
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"records": []}  # Empty — just testing batch count
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(return_value=mock_resp)
+
+        await resolver._enrich_doi_to_pmid(papers)
+
+        # 3 batches × 1 call each, plus the rate-limiter acquire calls
+        assert resolver._client.get.call_count == 3
+
+    @pytest.mark.asyncio
+    async def test_skips_papers_without_doi(self):
+        """Papers with no DOI are silently skipped."""
+        papers = [
+            _make_screened(doi=None),
+            _make_screened(doi="10.1234/test.001"),
+        ]
+        resolver = FullTextResolver()
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "records": [
+                {"doi": "10.1234/test.001", "pmid": "11111111", "pmcid": "PMC1111111"},
+            ]
+        }
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(return_value=mock_resp)
+
+        await resolver._enrich_doi_to_pmid(papers)
+
+        # Only one HTTP call for the paper that has a DOI
+        assert resolver._client.get.call_count == 1
+        # Paper with DOI got enriched
+        assert papers[1].paper.external_ids["pmid"] == "11111111"
+
+
+# ---------------------------------------------------------------------------
+# Europe PMC: DOI-based fallback lookup
+# ---------------------------------------------------------------------------
+
+
+class TestEuropePMCDOIFallback:
+    """Tests for the DOI-based search path in _try_europe_pmc."""
+
+    @pytest.mark.asyncio
+    async def test_doi_lookup_fetches_full_text_when_no_pmcid(self):
+        """When PMCID is absent, Europe PMC search API is used to discover it."""
+        sp = _make_screened(doi="10.1234/test.001")
+        resolver = FullTextResolver()
+
+        # First call: Europe PMC search returns a hit with a PMCID
+        search_resp = MagicMock()
+        search_resp.status_code = 200
+        search_resp.json.return_value = {"resultList": {"result": [{"pmcid": "PMC9999999"}]}}
+
+        # Second call: full-text XML endpoint
+        xml_resp = MagicMock()
+        xml_resp.status_code = 200
+        xml_resp.content = _SAMPLE_JATS
+
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(side_effect=[search_resp, xml_resp])
+
+        text = await resolver._try_europe_pmc(sp.paper)
+
+        assert text is not None
+        assert "introduction paragraph" in text.lower()
+        # PMCID stored for future pipeline steps
+        assert sp.paper.external_ids["pmcid"] == "PMC9999999"
+
+    @pytest.mark.asyncio
+    async def test_doi_lookup_returns_none_when_not_in_europe_pmc(self):
+        """When DOI search returns no results, returns None without error."""
+        sp = _make_screened(doi="10.9999/not-in-pmc")
+        resolver = FullTextResolver()
+
+        search_resp = MagicMock()
+        search_resp.status_code = 200
+        search_resp.json.return_value = {"resultList": {"result": []}}
+
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(return_value=search_resp)
+
+        text = await resolver._try_europe_pmc(sp.paper)
+
+        assert text is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_no_pmcid_and_no_doi(self):
+        """Paper with neither PMCID nor DOI is immediately skipped."""
+        sp = _make_screened(doi=None)
+        resolver = FullTextResolver()
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock()
+
+        text = await resolver._try_europe_pmc(sp.paper)
+
+        assert text is None
+        resolver._client.get.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_pmcid_path_still_works(self):
+        """Existing PMCID path continues to function correctly."""
+        sp = _make_screened(doi="10.1234/test.001", external_ids={"pmcid": "PMC1234567"})
+        resolver = FullTextResolver()
+
+        xml_resp = MagicMock()
+        xml_resp.status_code = 200
+        xml_resp.content = _SAMPLE_JATS
+
+        resolver._client = MagicMock()
+        resolver._client.get = AsyncMock(return_value=xml_resp)
+
+        text = await resolver._try_europe_pmc(sp.paper)
+
+        assert text is not None
+        assert "introduction paragraph" in text.lower()
+        # Only one call — straight to the full-text XML endpoint
+        resolver._client.get.assert_called_once()
+        call_url = resolver._client.get.call_args[0][0]
+        assert "PMC1234567" in call_url

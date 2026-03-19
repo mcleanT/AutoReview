@@ -26,6 +26,7 @@ def _papers_to_dicts(papers: list[Any]) -> list[dict[str, Any]]:
                 "doi": p.doi,
                 "abstract": p.abstract,
                 "source": p.source_database,
+                "external_ids": p.external_ids,
             }
         )
     return results
