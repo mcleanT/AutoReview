@@ -37,6 +37,16 @@ htmlcov/
 /output/
 /snapshots/
 
+# Reference PDFs (large binaries, not tracked in git)
+paper/references/*.pdf
+
+# One-off scripts
+run_full_text_*.py
+
+# Session state
+.claude/session-*.tmp
+.claude/last-session.md
+
 # Environment
 .env
 .env.local
