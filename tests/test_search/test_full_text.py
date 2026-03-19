@@ -61,7 +61,7 @@ _SAMPLE_JATS = b"""<?xml version="1.0" encoding="UTF-8"?>
 </article>
 """
 
-_SAMPLE_PDF_TEXT = "A" * 200  # Simulates extracted PDF text > 100 chars
+_SAMPLE_PDF_TEXT = "A" * 600  # Simulates extracted PDF text > 500 chars (quality threshold)
 
 
 # ---------------------------------------------------------------------------
@@ -958,7 +958,7 @@ class TestResolveIntegration:
         resolver._try_s2_pdf = AsyncMock(return_value=None)
         resolver._try_core = AsyncMock(return_value=None)
         resolver._try_crossref = AsyncMock(return_value=None)
-        resolver._try_pmc = AsyncMock(return_value="PMC full text content here " * 10)
+        resolver._try_pmc = AsyncMock(return_value="PMC full text content here " * 20)
         resolver._try_europe_pmc = AsyncMock(return_value=None)
         resolver._try_arxiv = AsyncMock(return_value=None)
         resolver._try_biorxiv = AsyncMock(return_value=None)
@@ -2049,6 +2049,240 @@ class TestCrossRefStrategy:
 
 
 # ---------------------------------------------------------------------------
+# Per-API rate limiters
+# ---------------------------------------------------------------------------
+
+
+class TestPerAPIRateLimiters:
+    def test_semantic_scholar_gets_own_limiter(self):
+        resolver = FullTextResolver()
+        limiter = resolver._get_limiter("semantic_scholar")
+        assert limiter is not resolver._limiter
+        assert limiter is resolver._limiters["semantic_scholar"]
+
+    def test_unknown_api_gets_default_limiter(self):
+        resolver = FullTextResolver()
+        limiter = resolver._get_limiter("unknown_api_xyz")
+        assert limiter is resolver._limiter
+
+    def test_springer_oa_limiter_exists(self):
+        resolver = FullTextResolver()
+        limiter = resolver._get_limiter("springer_oa")
+        assert limiter is not None
+        assert limiter is resolver._limiters["springer_oa"]
+
+    def test_ncbi_limiter_exists(self):
+        resolver = FullTextResolver()
+        limiter = resolver._get_limiter("ncbi")
+        assert limiter is not None
+        assert limiter is resolver._limiters["ncbi"]
+
+
+# ---------------------------------------------------------------------------
+# Paywall / error-page detection
+# ---------------------------------------------------------------------------
+
+
+class TestPaywallDetection:
+    def setup_method(self):
+        self.resolver = FullTextResolver()
+
+    def test_short_paywall_text_detected(self):
+        text = "Access Denied. You do not have permission to view this page."
+        assert self.resolver._is_paywall_or_error_text(text) is True
+
+    def test_long_text_with_paywall_phrase_not_flagged(self):
+        # Long text (>= 2000 chars) with "access denied" embedded — should NOT be flagged
+        filler = (
+            "This is a detailed scientific paper discussing various access denied patterns " * 30
+        )
+        assert len(filler) >= 2000
+        assert self.resolver._is_paywall_or_error_text(filler) is False
+
+    def test_subscription_required_detected(self):
+        text = "Subscription required to read this article. Please subscribe."
+        assert self.resolver._is_paywall_or_error_text(text) is True
+
+    def test_institutional_login_detected(self):
+        text = "Please use institutional login to access the full text."
+        assert self.resolver._is_paywall_or_error_text(text) is True
+
+    def test_normal_short_text_not_flagged(self):
+        text = "Neurons migrate along radial glial fibers during cortical development."
+        assert self.resolver._is_paywall_or_error_text(text) is False
+
+    def test_please_sign_in_detected(self):
+        text = "Please sign in to access the full content of this article."
+        assert self.resolver._is_paywall_or_error_text(text) is True
+
+    def test_403_forbidden_detected(self):
+        text = "403 Forbidden. Your IP address has been blocked."
+        assert self.resolver._is_paywall_or_error_text(text) is True
+
+    def test_subscribers_combo_detected(self):
+        text = "This content is available to subscribers only. Please login."
+        assert self.resolver._is_paywall_or_error_text(text) is True
+
+    def test_empty_text_not_flagged(self):
+        assert self.resolver._is_paywall_or_error_text("") is False
+
+
+# ---------------------------------------------------------------------------
+# Text quality validation
+# ---------------------------------------------------------------------------
+
+
+class TestTextQualityValidation:
+    def setup_method(self):
+        self.resolver = FullTextResolver()
+
+    def test_valid_long_text_passes(self):
+        # Normal scientific text, well above 500 char minimum
+        text = (
+            "During brain development, neural progenitor cells generate diverse "
+            "populations of neurons that migrate to their correct positions. "
+            "This process is tightly regulated by a combination of intrinsic "
+            "transcription factors and extrinsic signalling cues. Disruption of "
+            "these mechanisms leads to neurodevelopmental disorders. "
+        ) * 5  # ~1250 chars
+        assert len(text) >= 1000
+        assert self.resolver._validate_extracted_text(text, "Test Paper") is True
+
+    def test_too_short_text_fails(self):
+        text = "A" * 200  # Below the 500-char minimum
+        assert self.resolver._validate_extracted_text(text, "Test Paper") is False
+
+    def test_binary_garbage_fails(self):
+        # >50% non-printable characters (simulates garbled PDF extraction).
+        # chr(1)–chr(8) are control chars that are not printable and not \n/\r/\t.
+        non_printable = "".join(chr(i) for i in range(1, 9))  # 8 truly non-printable chars
+        # Build a chunk: 2 printable + 80 non-printable → ~97% non-printable per chunk
+        chunk = "AB" + non_printable * 10
+        text = chunk * 7  # 574 chars total, well above 500-char minimum
+        assert len(text) >= 500
+        # Sanity check: confirm ratio is above 50%
+        np_count = sum(1 for ch in text if not ch.isprintable() and ch not in ("\n", "\r", "\t"))
+        assert np_count / len(text) > 0.50
+        assert self.resolver._validate_extracted_text(text, "Test Paper") is False
+
+    def test_reference_list_only_fails(self):
+        # >60% of lines start with digits (reference list).
+        # Use 30 ref lines + 5 body lines = 35 total → 85% refs, well above 60% threshold.
+        # Each ref line is long enough that total length easily exceeds 500 chars.
+        ref_lines = [f"{i}. Author A, Author B. Title. Journal. 2020." for i in range(1, 31)]
+        body_lines = ["This paper presents findings on neural circuits."] * 5
+        text = "\n".join(ref_lines + body_lines)
+        assert len(text) >= 500
+        # Confirm ratio before calling the validator
+        lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+        ref_count = sum(1 for ln in lines if ln[:1].isdigit() or ln.startswith("["))
+        assert ref_count / len(lines) > 0.60
+        assert self.resolver._validate_extracted_text(text, "Test Paper") is False
+
+    def test_normal_text_with_some_refs_passes(self):
+        # <60% reference-like lines — should pass
+        body_lines = ["This paper examines the role of cortical neurons in cognition."] * 15
+        ref_lines = [f"{i}. Author. Title. 2020." for i in range(1, 6)]
+        # 5 ref lines + 15 body lines → 25% refs → passes
+        text = "\n".join(body_lines + ref_lines)
+        # Ensure length >= 500
+        text = text + (" Neural circuits are complex systems. " * 10)
+        assert self.resolver._validate_extracted_text(text, "Test Paper") is True
+
+
+# ---------------------------------------------------------------------------
+# Paywall filter wired into _try_all / resolve()
+# ---------------------------------------------------------------------------
+
+
+class TestPaywallFilterInResolve:
+    @pytest.mark.asyncio
+    async def test_paywall_text_cleared_during_resolve(self):
+        """A strategy returning paywall text should NOT set full_text on the paper."""
+        sp = _make_screened(doi="10.1234/test")
+
+        resolver = FullTextResolver()
+        resolver._batch_pmid_to_pmcid = AsyncMock(return_value={})
+        resolver._enrich_doi_to_pmid = AsyncMock(return_value=None)
+
+        # Strategy returns a short paywall page
+        paywall_text = "Access Denied. Please log in to access this article."
+        assert len(paywall_text) < 2000
+
+        # All strategies return None except one that returns paywall text
+        for attr in (
+            "_try_elsevier_api",
+            "_try_wiley_tdm",
+            "_try_s2_pdf",
+            "_try_s2_api_lookup",
+            "_try_core",
+            "_try_crossref",
+            "_try_pmc",
+            "_try_europe_pmc",
+            "_try_arxiv",
+            "_try_biorxiv",
+            "_try_plos",
+            "_try_mdpi",
+            "_try_frontiers",
+            "_try_acl_anthology",
+            "_try_jmir",
+            "_try_unpaywall",
+            "_try_springer_oa",
+            "_try_springer_inst",
+        ):
+            setattr(resolver, attr, AsyncMock(return_value=None))
+
+        # Inject paywall text via the first strategy that returns something
+        resolver._try_elsevier_api = AsyncMock(return_value=paywall_text)
+
+        source_counts = await resolver.resolve([sp])
+
+        # The paywall text should have been rejected — paper.full_text stays None
+        assert sp.paper.full_text is None
+        # Source counts should be 0 (nothing was accepted)
+        assert sum(source_counts.values()) == 0
+
+
+# ---------------------------------------------------------------------------
+# CrossRef retry helper
+# ---------------------------------------------------------------------------
+
+
+class TestCrossRefRetry:
+    @pytest.mark.asyncio
+    async def test_crossref_uses_retry_wrapper(self):
+        """_try_crossref calls _http_get_with_retry, not _client.get directly."""
+        import json
+
+        links = [{"content-type": "application/pdf", "URL": "https://example.com/paper.pdf"}]
+        sp = _make_screened(external_ids={"crossref_links": json.dumps(links)})
+
+        resolver = FullTextResolver()
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.content = b"x" * 2000
+
+        with (
+            patch.object(
+                resolver,
+                "_http_get_with_retry",
+                new=AsyncMock(return_value=mock_resp),
+            ) as mock_retry,
+            patch(
+                "autoreview.search.full_text._extract_text_from_pdf",
+                return_value=_SAMPLE_PDF_TEXT,
+            ),
+        ):
+            text = await resolver._try_crossref(sp.paper)
+
+        assert text == _SAMPLE_PDF_TEXT
+        mock_retry.assert_called_once()
+        call_url = mock_retry.call_args[0][0]
+        assert call_url == "https://example.com/paper.pdf"
+
+
+# ---------------------------------------------------------------------------
 # Strategy: Europe PMC full-text XML
 # ---------------------------------------------------------------------------
 
@@ -2288,7 +2522,7 @@ class TestS2ApiLookupStrategy:
 
     @pytest.mark.asyncio
     async def test_oa_pdf_fallback_to_arxiv(self):
-        """S2 returns both openAccessPdf.url and ArXiv; OA PDF download fails → falls back to arXiv."""
+        """S2 returns OA PDF + ArXiv; OA PDF fails → falls back to arXiv."""
         sp = _make_screened(doi="10.1109/CVPR.2020.12345")
         resolver = FullTextResolver()
 

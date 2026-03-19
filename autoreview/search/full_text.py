@@ -33,9 +33,6 @@ from typing import Any
 import httpx
 import structlog
 
-# Transient HTTP status codes worth retrying
-_RETRYABLE_STATUS_CODES = frozenset({429, 500, 502, 503, 504})
-
 from autoreview.models.paper import CandidatePaper, ScreenedPaper
 from autoreview.search.rate_limiter import RateLimiter
 
@@ -43,6 +40,9 @@ from autoreview.search.rate_limiter import RateLimiter
 from autoreview.search.unpaywall import _extract_text_from_pdf
 
 logger = structlog.get_logger()
+
+# Transient HTTP status codes worth retrying
+_RETRYABLE_STATUS_CODES = frozenset({429, 500, 502, 503, 504})
 
 _MAX_TEXT_CHARS = 200_000
 
@@ -243,6 +243,17 @@ class FullTextResolver:
         )
         self._limiter = RateLimiter(requests_per_second)
 
+        # Per-API rate limiters reflecting documented limits.
+        # Semantic Scholar anonymous: 1 req/s; with API key: 10 req/s.
+        # Springer OA API: 500 calls/day ≈ 0.35 req/s.
+        # NCBI/PubMed: 3 req/s without key, 10 req/s with key.
+        _s2_rps = 10.0 if self._s2_api_key else 1.0
+        self._limiters: dict[str, RateLimiter] = {
+            "semantic_scholar": RateLimiter(_s2_rps),
+            "springer_oa": RateLimiter(0.35),
+            "ncbi": RateLimiter(10.0 if os.environ.get("NCBI_API_KEY") else 3.0),
+        }
+
         # Lazy-initialised Unpaywall client
         self._unpaywall: Any | None = None
 
@@ -317,6 +328,85 @@ class FullTextResolver:
         if self._unpaywall is not None:
             await self._unpaywall.close()
 
+    def _get_limiter(self, api_name: str) -> RateLimiter:
+        """Return the per-API RateLimiter, falling back to the default limiter."""
+        return self._limiters.get(api_name, self._limiter)
+
+    # ------------------------------------------------------------------
+    # Text validation helpers
+    # ------------------------------------------------------------------
+
+    def _is_paywall_or_error_text(self, text: str) -> bool:
+        """Check if extracted text is actually a paywall page or error message.
+
+        Only flags short texts (< 2000 chars) — long texts with these phrases
+        embedded are likely real papers that merely discuss access issues.
+        """
+        if len(text) >= 2000:
+            return False
+
+        lower = text.lower()
+        patterns = [
+            "access denied",
+            "please log in",
+            "please sign in",
+            "please login",
+            "subscribe to",
+            "subscription required",
+            "purchase this article",
+            "buy this article",
+            "institutional login",
+            "institutional access",
+            "403 forbidden",
+            "401 unauthorized",
+            "you do not have access",
+            "sign in to access",
+        ]
+        for pattern in patterns:
+            if pattern in lower:
+                return True
+
+        # "This content is available" + "subscribers" in same short text
+        return "this content is available" in lower and "subscribers" in lower
+
+    def _validate_extracted_text(self, text: str, paper_title: str) -> bool:
+        """Validate that extracted text is usable for analysis.
+
+        Returns True when the text passes all quality checks, False otherwise.
+        Checks performed:
+        - Minimum length of 500 chars (100-char threshold is just metadata).
+        - Not predominantly non-printable chars (binary/PDF extraction failure).
+        - Not just a reference list (>60% of lines starting with a number or "[").
+        """
+        if len(text) < 500:
+            return False
+
+        # Non-ASCII / non-printable check: reject if >50% of chars are non-printable
+        non_printable = sum(
+            1 for ch in text if not ch.isprintable() and ch not in ("\n", "\r", "\t")
+        )
+        if non_printable / len(text) > 0.50:
+            logger.debug(
+                "full_text.text_quality_non_printable",
+                paper_title=paper_title[:60],
+                ratio=round(non_printable / len(text), 2),
+            )
+            return False
+
+        # Reference-list heuristic: skip texts where >60% of lines look like citations
+        lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+        if lines:
+            ref_lines = sum(1 for ln in lines if ln[:1].isdigit() or ln.startswith("["))
+            if ref_lines / len(lines) > 0.60:
+                logger.debug(
+                    "full_text.text_quality_mostly_references",
+                    paper_title=paper_title[:60],
+                    ratio=round(ref_lines / len(lines), 2),
+                )
+                return False
+
+        return True
+
     # ------------------------------------------------------------------
     # Strategy chain
     # ------------------------------------------------------------------
@@ -371,6 +461,26 @@ class FullTextResolver:
                     continue
                 attempted.append(name)
                 if len(text) > 100:
+                    # Fix 2: Paywall / error-page detection
+                    if self._is_paywall_or_error_text(text):
+                        logger.warning(
+                            "full_text.strategy_paywall_detected",
+                            strategy=name,
+                            doi=paper.doi,
+                            paper_id=paper.id,
+                            chars=len(text),
+                        )
+                        continue
+                    # Fix 4: Text quality validation
+                    if not self._validate_extracted_text(text, paper.title or ""):
+                        logger.warning(
+                            "full_text.strategy_text_quality_failed",
+                            strategy=name,
+                            doi=paper.doi,
+                            paper_id=paper.id,
+                            chars=len(text),
+                        )
+                        continue
                     logger.info(
                         "full_text.strategy_succeeded",
                         strategy=name,
@@ -610,7 +720,7 @@ class FullTextResolver:
         if not paper.doi.startswith(_SPRINGER_NATURE_DOI_PREFIXES):
             return None
 
-        await self._limiter.acquire()
+        await self._get_limiter("springer_oa").acquire()
         try:
             resp = await self._client.get(
                 "https://api.springernature.com/openaccess/jats",
@@ -724,7 +834,7 @@ class FullTextResolver:
         if not url:
             return None
 
-        await self._limiter.acquire()
+        await self._get_limiter("semantic_scholar").acquire()
         try:
             resp = await self._client.get(url)
             if resp.status_code != 200 or len(resp.content) < 1000:
@@ -772,7 +882,7 @@ class FullTextResolver:
             oa_pdf = data.get("openAccessPdf")
             if oa_pdf and oa_pdf.get("url"):
                 pdf_url = oa_pdf["url"]
-                await self._limiter.acquire()
+                await self._get_limiter("semantic_scholar").acquire()
                 pdf_resp = await self._client.get(pdf_url)
                 if pdf_resp.status_code == 200 and len(pdf_resp.content) >= 1000:
                     text = _extract_text_from_pdf(pdf_resp.content)
@@ -792,7 +902,7 @@ class FullTextResolver:
             if arxiv_id:
                 clean_id = re.sub(r"v\d+$", "", arxiv_id)
                 arxiv_url = f"https://arxiv.org/pdf/{clean_id}"
-                await self._limiter.acquire()
+                await self._get_limiter("semantic_scholar").acquire()
                 arxiv_resp = await self._client.get(arxiv_url)
                 if arxiv_resp.status_code == 200 and len(arxiv_resp.content) >= 1000:
                     text = _extract_text_from_pdf(arxiv_resp.content)
@@ -923,9 +1033,9 @@ class FullTextResolver:
             if _priority(link) == 3:
                 continue
 
-            await self._limiter.acquire()
             try:
-                resp = await self._client.get(
+                # Fix 3: use retry helper so transient failures are retried
+                resp = await self._http_get_with_retry(
                     url,
                     headers={
                         "User-Agent": (
@@ -1093,7 +1203,7 @@ class FullTextResolver:
         base_url = "https://www.ncbi.nlm.nih.gov/pmc/utils/idconv/v1.0/"
         for i in range(0, len(pmids_to_lookup), 200):
             batch = pmids_to_lookup[i : i + 200]
-            await self._limiter.acquire()
+            await self._get_limiter("ncbi").acquire()
             try:
                 resp = await self._client.get(
                     base_url,
@@ -1138,7 +1248,7 @@ class FullTextResolver:
         if not pmcid.upper().startswith("PMC"):
             pmcid = f"PMC{pmcid}"
 
-        await self._limiter.acquire()
+        await self._get_limiter("ncbi").acquire()
         try:
             resp = await self._client.get(
                 "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi",
