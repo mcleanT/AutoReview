@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass
 from typing import Any
 
 import structlog
@@ -20,6 +21,14 @@ from autoreview.llm.prompts.screening import (
 from autoreview.models.paper import CandidatePaper, ScreenedPaper
 
 logger = structlog.get_logger()
+
+
+@dataclass
+class ExtractionFailure:
+    """Record of a single paper extraction failure."""
+
+    paper_id: str
+    error: str
 
 
 class PaperScreener:
@@ -210,3 +219,50 @@ class PaperExtractor:
             failed=len(papers) - len(extractions),
         )
         return extractions
+
+    async def extract_batch_safe(
+        self,
+        papers: list[CandidatePaper] | list[ScreenedPaper],
+    ) -> tuple[list[PaperExtraction], list[ExtractionFailure]]:
+        """Extract from a batch of papers, collecting failures instead of silently dropping them.
+
+        Unlike ``extract_batch``, this method returns a typed list of
+        :class:`ExtractionFailure` records so callers can inspect or log
+        which papers could not be extracted and why.
+
+        Returns:
+            A 2-tuple of (successful extractions, failures).
+        """
+        extractions: list[PaperExtraction] = []
+        failures: list[ExtractionFailure] = []
+
+        for item in papers:
+            if isinstance(item, ScreenedPaper):
+                paper_id = item.paper.id
+                coro = self.extract_from_screened(item)
+            else:
+                paper_id = item.id
+                coro = self.extract_one(item)
+
+            try:
+                extraction = await coro
+                extractions.append(extraction)
+            except Exception as exc:
+                error_msg = str(exc)
+                logger.error(
+                    "extraction.paper_failed",
+                    paper_id=paper_id,
+                    error=error_msg,
+                )
+                failures.append(ExtractionFailure(paper_id=paper_id, error=error_msg))
+
+        total = len(papers)
+        successful = len(extractions)
+        logger.info(
+            "extraction.batch_safe_complete",
+            total=total,
+            successful=successful,
+            failed=len(failures),
+            success_rate=round(successful / total, 3) if total else 1.0,
+        )
+        return extractions, failures
