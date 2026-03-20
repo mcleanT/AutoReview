@@ -32,6 +32,7 @@ class DepthProfile:
     citation_density: str = "standard"
     target_citations_per_1k_words: float = 9.0
     min_total_citations: int = 50
+    quality_threshold: float = 0.80
 
 
 _DEPTH_PROFILES: dict[DepthLevel, DepthProfile] = {
@@ -51,6 +52,7 @@ _DEPTH_PROFILES: dict[DepthLevel, DepthProfile] = {
         citation_density="sparse",
         target_citations_per_1k_words=6.0,
         min_total_citations=25,
+        quality_threshold=0.70,
     ),
     DepthLevel.MEDIUM: DepthProfile(
         base_word_multiplier=1.0,
@@ -68,6 +70,7 @@ _DEPTH_PROFILES: dict[DepthLevel, DepthProfile] = {
         citation_density="standard",
         target_citations_per_1k_words=9.0,
         min_total_citations=75,
+        quality_threshold=0.80,
     ),
     DepthLevel.DEEP: DepthProfile(
         base_word_multiplier=2.5,
@@ -85,6 +88,7 @@ _DEPTH_PROFILES: dict[DepthLevel, DepthProfile] = {
         citation_density="dense",
         target_citations_per_1k_words=12.0,
         min_total_citations=150,
+        quality_threshold=0.85,
     ),
     DepthLevel.EXHAUSTIVE: DepthProfile(
         base_word_multiplier=4.0,
@@ -102,6 +106,7 @@ _DEPTH_PROFILES: dict[DepthLevel, DepthProfile] = {
         citation_density="exhaustive",
         target_citations_per_1k_words=16.0,
         min_total_citations=300,
+        quality_threshold=0.90,
     ),
 }
 

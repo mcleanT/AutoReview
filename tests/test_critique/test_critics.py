@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from autoreview.config.depth import get_depth_profile
+from autoreview.config.models import DepthLevel
 from autoreview.critique.holistic_critic import HolisticCritic
 from autoreview.critique.models import (
     CritiqueIssue,
@@ -562,3 +564,64 @@ class TestHolisticCritic:
         assert report.passed is False
         assert len(report.issues) == 2
         assert report.overall_score == 0.55
+
+
+# ===========================================================================
+# Depth-dependent threshold tests
+# ===========================================================================
+
+
+class TestDepthDependentThresholds:
+    """Tests verifying that quality thresholds are tied to depth profiles."""
+
+    def test_low_depth_uses_lower_threshold(self):
+        """LOW depth should have a permissive threshold (0.70)."""
+        profile = get_depth_profile(DepthLevel.LOW)
+        assert profile.quality_threshold == 0.70
+
+    def test_medium_depth_uses_standard_threshold(self):
+        """MEDIUM depth should use the standard threshold (0.80)."""
+        profile = get_depth_profile(DepthLevel.MEDIUM)
+        assert profile.quality_threshold == 0.80
+
+    def test_deep_depth_uses_higher_threshold(self):
+        """DEEP depth should enforce a stricter threshold (0.85)."""
+        profile = get_depth_profile(DepthLevel.DEEP)
+        assert profile.quality_threshold == 0.85
+
+    def test_exhaustive_depth_uses_highest_threshold(self):
+        """EXHAUSTIVE depth should enforce the highest threshold (0.90)."""
+        profile = get_depth_profile(DepthLevel.EXHAUSTIVE)
+        assert profile.quality_threshold == 0.90
+
+    def test_thresholds_are_monotonically_increasing(self):
+        """Quality thresholds should increase with depth level."""
+        low = get_depth_profile(DepthLevel.LOW).quality_threshold
+        medium = get_depth_profile(DepthLevel.MEDIUM).quality_threshold
+        deep = get_depth_profile(DepthLevel.DEEP).quality_threshold
+        exhaustive = get_depth_profile(DepthLevel.EXHAUSTIVE).quality_threshold
+        assert low < medium < deep < exhaustive
+
+    def test_section_loop_uses_profile_threshold_when_no_explicit_threshold(self):
+        """section_critique_loop effective_threshold falls back to depth_profile.quality_threshold."""
+        # Verify the function signature accepts depth_profile parameter
+        import inspect
+
+        from autoreview.critique.section_critic import section_critique_loop
+
+        sig = inspect.signature(section_critique_loop)
+        assert "depth_profile" in sig.parameters
+        assert "threshold" in sig.parameters
+        # threshold default should be None now
+        assert sig.parameters["threshold"].default is None
+
+    def test_holistic_loop_uses_profile_threshold_when_no_explicit_threshold(self):
+        """holistic_critique_loop effective_threshold falls back to depth_profile.quality_threshold."""
+        import inspect
+
+        from autoreview.critique.holistic_critic import holistic_critique_loop
+
+        sig = inspect.signature(holistic_critique_loop)
+        assert "depth_profile" in sig.parameters
+        assert "threshold" in sig.parameters
+        assert sig.parameters["threshold"].default is None

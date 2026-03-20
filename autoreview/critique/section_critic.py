@@ -4,6 +4,7 @@ from typing import Any
 
 import structlog
 
+from autoreview.config.depth import DepthProfile
 from autoreview.critique.dimension_gates import DEFAULT_SECTION_GATES, check_dimension_gates
 from autoreview.critique.models import (
     CritiqueIssue,
@@ -94,10 +95,16 @@ async def section_critique_loop(
     outline: ReviewOutline,
     adjacent_text: str = "",
     max_cycles: int = 2,
-    threshold: float = 0.80,
+    threshold: float | None = None,
+    depth_profile: DepthProfile | None = None,
     extra_issues: list[CritiqueIssue] | None = None,
 ) -> tuple[SectionDraft, list[CritiqueReport]]:
     """Run critique → revision loop for a single section."""
+    effective_threshold = (
+        threshold
+        if threshold is not None
+        else (depth_profile.quality_threshold if depth_profile else 0.80)
+    )
     critiques: list[CritiqueReport] = []
     scores: list[float] = []
     current_draft = draft
@@ -154,7 +161,7 @@ async def section_critique_loop(
             )
 
         if report.passed or not should_continue_revision(
-            scores, threshold=threshold, max_iterations=max_cycles
+            scores, threshold=effective_threshold, max_iterations=max_cycles
         ):
             break
 

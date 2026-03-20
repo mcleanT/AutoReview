@@ -4,6 +4,7 @@ from typing import Any
 
 import structlog
 
+from autoreview.config.depth import DepthProfile
 from autoreview.critique.dimension_gates import DEFAULT_HOLISTIC_GATES, check_dimension_gates
 from autoreview.critique.models import (
     CritiqueIssue,
@@ -62,11 +63,17 @@ async def holistic_critique_loop(
     full_draft: str,
     scope_document: str,
     max_cycles: int = 3,
-    threshold: float = 0.80,
+    threshold: float | None = None,
+    depth_profile: DepthProfile | None = None,
     convergence_delta: float = 0.02,
     extra_issues: list[CritiqueIssue] | None = None,
 ) -> tuple[str, list[CritiqueReport]]:
     """Run holistic critique → cross-section revision loop."""
+    effective_threshold = (
+        threshold
+        if threshold is not None
+        else (depth_profile.quality_threshold if depth_profile else 0.80)
+    )
     critiques: list[CritiqueReport] = []
     scores: list[float] = []
     current_draft = full_draft
@@ -122,7 +129,7 @@ async def holistic_critique_loop(
 
         if report.passed or not should_continue_revision(
             scores,
-            threshold=threshold,
+            threshold=effective_threshold,
             convergence_delta=convergence_delta,
             max_iterations=max_cycles,
         ):
