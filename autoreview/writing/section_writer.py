@@ -19,6 +19,7 @@ from autoreview.llm.prompts.writing import (
 from autoreview.models.base import AutoReviewModel
 from autoreview.models.enrichment import SectionEnrichment
 from autoreview.models.narrative import NarrativePlan, SectionNarrativeDirective
+from autoreview.writing.citation_scope import validate_citation_scope  # noqa: F401 — used below
 
 logger = structlog.get_logger()
 
@@ -396,6 +397,28 @@ class SectionWriter:
 
         citations = _extract_citations(response.content)
 
+        # Determine assigned paper IDs for scope validation
+        if citation_plan is not None:
+            assigned_ids = [
+                pc.paper_id
+                for tier in (
+                    citation_plan.primary_papers,
+                    citation_plan.supporting_papers,
+                    citation_plan.contextual_papers,
+                )
+                for pc in tier
+            ]
+        else:
+            assigned_ids = list(section.paper_ids)
+
+        scope_result = validate_citation_scope(citations, assigned_ids)
+        if not scope_result.all_in_scope:
+            logger.warning(
+                "section_writer.out_of_scope_citations",
+                section_id=section.id,
+                out_of_scope=scope_result.out_of_scope,
+            )
+
         draft = SectionDraft(
             section_id=section.id,
             title=section.title,
@@ -409,6 +432,7 @@ class SectionWriter:
             title=section.title,
             word_count=len(response.content.split()),
             citations=len(citations),
+            citation_utilization_rate=scope_result.utilization_rate,
             input_tokens=response.input_tokens,
             output_tokens=response.output_tokens,
         )
