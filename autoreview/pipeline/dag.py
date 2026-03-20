@@ -107,9 +107,10 @@ class DAGRunner:
     a specific node for resume/restart scenarios.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, budget_monitor: TokenBudgetMonitor | None = None) -> None:
         self.nodes: dict[str, DAGNode] = {}
         self._results: dict[str, Any] = {}
+        self._budget_monitor = budget_monitor
 
     def add_node(
         self,
@@ -211,6 +212,7 @@ class DAGRunner:
         on_node_error: Callable[[str, Exception], Coroutine[Any, Any, None]] | None = None,
         on_node_start: Callable[[str], Coroutine[Any, Any, None]] | None = None,
         skip_nodes: set[str] | None = None,
+        get_token_count: Callable[[], int] | None = None,
     ) -> dict[str, Any]:
         """Execute the DAG.
 
@@ -224,6 +226,8 @@ class DAGRunner:
             on_node_start: Optional async callback before each node starts.
             skip_nodes: Optional set of node names to skip (bypass execution).
                         Skipped nodes are not executed but their dependents still run.
+            get_token_count: Optional callable returning current total tokens used.
+                             Used by the budget monitor (if set) after each node completes.
 
         Returns:
             Dict mapping node names to their return values.
@@ -276,6 +280,25 @@ class DAGRunner:
 
                     if on_node_complete:
                         await on_node_complete(name, result)
+
+                    # Token budget monitoring — runs after every node completion
+                    if self._budget_monitor is not None and get_token_count is not None:
+                        tokens_used = get_token_count()
+                        action = self._budget_monitor.check(tokens_used)
+                        if action == BudgetAction.SAVE_AND_STOP:
+                            raise DAGExecutionError(
+                                name,
+                                RuntimeError("Token budget exhausted"),
+                            )
+                        elif action == BudgetAction.DEGRADE:
+                            logger.warning(
+                                "dag.budget.degrade",
+                                node=name,
+                                tokens_used=tokens_used,
+                            )
+                            if isinstance(context, dict):
+                                context["depth_override"] = "low"
+                        # BudgetAction.WARN is handled (logged) inside TokenBudgetMonitor.check()
 
                 except DAGExecutionError:
                     raise
