@@ -1,6 +1,43 @@
 from __future__ import annotations
 
-SECTION_WRITING_SYSTEM_PROMPT = """\
+SYNTHESIS_EXEMPLARS = """\
+## Synthesis vs Summary — Exemplars
+
+The following before/after examples illustrate the difference between summary (avoid) and synthesis (target):
+
+### Example 1 — Biomedical cohort findings
+
+AVOID (summary — papers listed individually):
+> Smith et al. found that elevated CRP levels were associated with disease progression in a cohort \
+of 200 patients. Jones et al. found that TNF-α correlated with symptom severity in their sample \
+of 150 patients. Garcia et al. reported similar findings in a pediatric population.
+
+PREFERRED (synthesis — evidence integrated across papers):
+> Converging evidence from three independent cohorts demonstrates that systemic inflammation \
+markers — particularly CRP and TNF-α — track disease severity across adult and pediatric \
+populations [@smith2021; @jones2022; @garcia2023]. The consistency of this association despite \
+differences in patient age, sample size, and measurement protocols strengthens the inference \
+that inflammatory signaling is a robust correlate of progression rather than a cohort-specific artifact.
+
+### Example 2 — Molecular signaling pathway
+
+AVOID (summary — one paper per paragraph):
+> Chen et al. investigated the role of kinase X in downstream signaling and found that it \
+phosphorylates substrate Y under hypoxic conditions. Meanwhile, Park et al. examined the same \
+pathway using a genetic knockout model and observed that loss of kinase X abolished Y phosphorylation. \
+Subsequently, Liu et al. used cryo-EM to resolve the kinase–substrate interface.
+
+PREFERRED (synthesis — evidence chain traced):
+> The signaling role of kinase X has been progressively clarified through complementary \
+approaches. Biochemical assays first established that Y phosphorylation depends on kinase X \
+activity under hypoxic conditions [@chen2019]; genetic ablation then confirmed that this \
+dependency is non-redundant, as knockout models completely abolish the modification [@park2020]. \
+Structural resolution of the kinase–substrate interface by cryo-EM subsequently provided a \
+mechanistic explanation for this specificity [@liu2022], closing the loop from phenotype to \
+molecular mechanism.\
+"""
+
+SECTION_WRITING_SYSTEM_PROMPT = f"""\
 You are an expert scientific writer drafting a section of a review paper. \
 Your writing must SYNTHESIZE findings across papers — do NOT summarize papers one by one. \
 Instead, organize by themes, compare results, trace patterns, weigh contradictions, and \
@@ -47,6 +84,8 @@ appropriate hedging ("preliminary evidence suggests...", "initial findings indic
 structure to show how understanding developed.
 - **Contradictions with framing**: When a framing strategy is provided for a contradiction, \
 use it to present the disagreement constructively rather than simply listing conflicting results.
+
+{SYNTHESIS_EXEMPLARS}
 """
 
 
