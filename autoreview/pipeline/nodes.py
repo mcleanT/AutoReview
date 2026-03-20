@@ -342,6 +342,34 @@ class PipelineNodes:
             tracker.usage,
         )
 
+        # After screening is complete, snowball top papers for additional candidates
+        from autoreview.search.snowballing import SnowballConfig, snowball_papers
+
+        if len(kb.screened_papers) >= 10:
+            top_papers = sorted(
+                kb.screened_papers,
+                key=lambda p: getattr(p, "relevance_score", 0),
+                reverse=True,
+            )[:10]
+            existing_dois = {p.doi for p in kb.candidate_papers if p.doi}
+            existing_titles = {
+                "".join(c for c in p.title.lower() if c.isalnum() or c == " ").strip()
+                for p in kb.candidate_papers
+                if p.title
+            }
+            try:
+                new_candidates = await snowball_papers(
+                    seed_papers=[sp.paper for sp in top_papers],
+                    config=SnowballConfig(max_seed_papers=10),
+                    existing_dois=existing_dois,
+                    existing_titles=existing_titles,
+                )
+                if new_candidates:
+                    kb.candidate_papers.extend(new_candidates)
+                    logger.info("screening.snowball_added", new_count=len(new_candidates))
+            except Exception as e:
+                logger.warning("screening.snowball_failed", error=str(e))
+
     async def full_text_retrieval(
         self,
         kb: KnowledgeBase,
@@ -441,8 +469,15 @@ class PipelineNodes:
                 total=total_batches,
                 papers=len(batch),
             )
-            results = await extractor.extract_batch(batch)
-            kb.extractions.update(results)
+            results, failures = await extractor.extract_batch_safe(batch)
+            kb.extractions.update({r.paper_id: r for r in results})
+            if failures:
+                logger.warning(
+                    "extraction.batch_failures",
+                    batch=batch_num,
+                    failed=len(failures),
+                    failed_ids=[f.paper_id for f in failures],
+                )
             kb.save_snapshot(f"extraction_batch_{batch_num}")
 
         kb.current_phase = PipelinePhase.EXTRACTION
