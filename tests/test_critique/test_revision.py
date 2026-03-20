@@ -807,9 +807,11 @@ class TestSectionCritiqueLoop:
 
     async def test_extra_issues_injected_on_first_cycle(self):
         """Extra issues (e.g. citation validation) should be injected into first cycle's report."""
+        # Use score=0.70: above dimension gate floors (0.65/0.60) but below overall threshold (0.80)
+        # so the loop continues without gate-injected issues inflating the issue count.
         failing = _make_critique_report(
             passed=False,
-            score=0.55,
+            score=0.70,
             target=CritiqueTarget.SECTION,
             issues=[
                 CritiqueIssue(
@@ -952,9 +954,11 @@ class TestHolisticCritiqueLoop:
 
     async def test_extra_issues_on_first_cycle(self):
         """Extra issues should be injected into the first cycle's critique."""
+        # Use score=0.70: above dimension gate floors (0.65/0.60) but below overall threshold (0.80)
+        # so the loop continues without gate-injected issues inflating the issue count.
         failing = _make_critique_report(
             passed=False,
-            score=0.55,
+            score=0.70,
             target=CritiqueTarget.FULL_DRAFT,
             issues=[
                 CritiqueIssue(

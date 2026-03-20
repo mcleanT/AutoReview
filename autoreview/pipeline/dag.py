@@ -18,6 +18,7 @@ class DAGNode:
     name: str
     func: Callable[..., Coroutine[Any, Any, Any]]
     dependencies: list[str] = field(default_factory=list)
+    timeout_seconds: float = 300.0
 
 
 class DAGExecutionError(Exception):
@@ -46,6 +47,7 @@ class DAGRunner:
         name: str,
         func: Callable[..., Coroutine[Any, Any, Any]],
         dependencies: list[str] | None = None,
+        timeout_seconds: float = 300.0,
     ) -> None:
         """Register a node in the DAG."""
         if name in self.nodes:
@@ -54,6 +56,7 @@ class DAGRunner:
             name=name,
             func=func,
             dependencies=dependencies or [],
+            timeout_seconds=timeout_seconds,
         )
 
     def _topological_levels(self, start_from: str | None = None) -> list[list[str]]:
@@ -184,7 +187,13 @@ class DAGRunner:
                     await on_node_start(name)
                 logger.info("dag.node.start", node=name)
                 try:
-                    result = await node.func(context)
+                    try:
+                        result = await asyncio.wait_for(
+                            node.func(context), timeout=node.timeout_seconds
+                        )
+                    except TimeoutError:
+                        timeout_err = TimeoutError(f"timed out after {node.timeout_seconds}s")
+                        raise DAGExecutionError(node.name, timeout_err)
                     elapsed = time.monotonic() - start_time
                     self._results[name] = result
                     completed += 1
@@ -199,6 +208,8 @@ class DAGRunner:
                     if on_node_complete:
                         await on_node_complete(name, result)
 
+                except DAGExecutionError:
+                    raise
                 except Exception as e:
                     elapsed = time.monotonic() - start_time
                     logger.error(

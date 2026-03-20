@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 
 from autoreview.pipeline.dag import DAGExecutionError, DAGRunner
@@ -109,3 +111,27 @@ class TestDAGRunner:
     @staticmethod
     async def _noop(ctx):
         pass
+
+
+class TestDAGTimeout:
+    async def test_node_timeout_raises_error(self):
+        """A node that exceeds its timeout should raise DAGExecutionError."""
+        dag = DAGRunner()
+
+        async def slow_node(ctx):
+            await asyncio.sleep(10)
+
+        dag.add_node("slow", slow_node, timeout_seconds=0.1)
+        with pytest.raises(DAGExecutionError, match="slow"):
+            await dag.execute(context=None)
+
+    async def test_node_without_timeout_uses_default(self):
+        """A fast node completes normally using the default timeout."""
+        dag = DAGRunner()
+
+        async def fast_node(ctx):
+            return "done"
+
+        dag.add_node("fast", fast_node)
+        results = await dag.execute(context=None)
+        assert results["fast"] == "done"

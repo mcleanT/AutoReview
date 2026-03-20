@@ -4,7 +4,13 @@ from typing import Any
 
 import structlog
 
-from autoreview.critique.models import CritiqueIssue, CritiqueReport, CritiqueTarget
+from autoreview.critique.dimension_gates import DEFAULT_SECTION_GATES, check_dimension_gates
+from autoreview.critique.models import (
+    CritiqueIssue,
+    CritiqueReport,
+    CritiqueSeverity,
+    CritiqueTarget,
+)
 from autoreview.critique.revision import revise_text, should_continue_revision
 from autoreview.llm.prompts.critique import (
     build_section_critique_prompt,
@@ -119,6 +125,33 @@ async def section_critique_loop(
             score=report.overall_score,
             passed=report.passed,
         )
+
+        # Apply per-dimension minimum floors before the break check.
+        # A section that passes overall but fails a dimension gate is marked as
+        # not passed and given a MAJOR issue for each failing dimension.
+        gate_result = check_dimension_gates(report.dimension_scores, DEFAULT_SECTION_GATES)
+        if not gate_result.passed:
+            report.passed = False
+            for failure in gate_result.failures:
+                report.issues = list(report.issues) + [
+                    CritiqueIssue(
+                        severity=CritiqueSeverity.MAJOR,
+                        location=failure.dimension,
+                        description=(
+                            f"Dimension '{failure.dimension}' scored {failure.score:.2f}, "
+                            f"below the required minimum of {failure.minimum:.2f}."
+                        ),
+                        suggested_fix=(
+                            f"Improve {failure.dimension} to reach the {failure.minimum:.2f} floor."
+                        ),
+                    )
+                ]
+            logger.info(
+                "section_critique_loop.dimension_gate_failed",
+                section=current_draft.section_id,
+                cycle=cycle + 1,
+                failures=[f.dimension for f in gate_result.failures],
+            )
 
         if report.passed or not should_continue_revision(
             scores, threshold=threshold, max_iterations=max_cycles

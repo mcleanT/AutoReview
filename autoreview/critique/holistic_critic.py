@@ -4,7 +4,13 @@ from typing import Any
 
 import structlog
 
-from autoreview.critique.models import CritiqueIssue, CritiqueReport, CritiqueTarget
+from autoreview.critique.dimension_gates import DEFAULT_HOLISTIC_GATES, check_dimension_gates
+from autoreview.critique.models import (
+    CritiqueIssue,
+    CritiqueReport,
+    CritiqueSeverity,
+    CritiqueTarget,
+)
 from autoreview.critique.revision import revise_text, should_continue_revision
 from autoreview.llm.prompts.critique import (
     build_holistic_critique_prompt,
@@ -87,6 +93,32 @@ async def holistic_critique_loop(
             passed=report.passed,
             issues=len(report.issues),
         )
+
+        # Apply per-dimension minimum floors before the break check.
+        # A draft that passes overall but fails a dimension gate is marked as
+        # not passed and given a MAJOR issue for each failing dimension.
+        gate_result = check_dimension_gates(report.dimension_scores, DEFAULT_HOLISTIC_GATES)
+        if not gate_result.passed:
+            report.passed = False
+            for failure in gate_result.failures:
+                report.issues = list(report.issues) + [
+                    CritiqueIssue(
+                        severity=CritiqueSeverity.MAJOR,
+                        location=failure.dimension,
+                        description=(
+                            f"Dimension '{failure.dimension}' scored {failure.score:.2f}, "
+                            f"below the required minimum of {failure.minimum:.2f}."
+                        ),
+                        suggested_fix=(
+                            f"Improve {failure.dimension} to reach the {failure.minimum:.2f} floor."
+                        ),
+                    )
+                ]
+            logger.info(
+                "holistic_critique_loop.dimension_gate_failed",
+                cycle=cycle + 1,
+                failures=[f.dimension for f in gate_result.failures],
+            )
 
         if report.passed or not should_continue_revision(
             scores,
