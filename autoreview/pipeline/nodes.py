@@ -31,6 +31,7 @@ from autoreview.validation.citation_validator import CitationValidator
 from autoreview.writing.assembler import DraftAssembler
 from autoreview.writing.narrative_architect import NarrativeArchitect
 from autoreview.writing.outliner import OutlineGenerator
+from autoreview.writing.polish import find_duplicate_claims, find_inconsistencies
 from autoreview.writing.section_writer import SectionWriter
 
 logger = structlog.get_logger()
@@ -1393,6 +1394,26 @@ class PipelineNodes:
 
         assembler = DraftAssembler()
         full_draft = assembler.assemble(outline, section_drafts)
+
+        # Polish analysis: terminology consistency and duplicate claim detection
+        sections_dict = {draft.title: draft.text for draft in section_drafts.values()}
+        inconsistencies = find_inconsistencies(sections_dict)
+        duplicates = find_duplicate_claims(sections_dict)
+        if inconsistencies:
+            logger.info(
+                "polish.inconsistencies_found",
+                count=len(inconsistencies),
+                details=[
+                    {"term_a": i.term_a, "term_b": i.term_b, "desc": i.description}
+                    for i in inconsistencies[:5]  # Log first 5
+                ],
+            )
+        if duplicates:
+            logger.warning(
+                "polish.duplicate_claims_found",
+                count=len(duplicates),
+                details=duplicates[:3],  # Log first 3
+            )
 
         # Citation validation on full draft
         citation_validator = CitationValidator()
