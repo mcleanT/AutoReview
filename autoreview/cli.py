@@ -54,6 +54,45 @@ def _setup_logging(verbose: bool = False) -> None:
 
 
 @app.command()
+def check(
+    domain: str = typer.Option(
+        "general", "--domain", "-d", help="Domain preset to validate against"
+    ),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose output"),
+) -> None:
+    """Run pre-flight validation checks."""
+    from autoreview.pipeline.preflight import check_api_keys, check_output_dir
+
+    _setup_logging(verbose)
+
+    all_ok = True
+
+    api_result = check_api_keys(["ANTHROPIC_API_KEY"])
+    if api_result.ok:
+        typer.echo("  [OK] API keys: ANTHROPIC_API_KEY present")
+    else:
+        typer.echo(f"  [FAIL] Missing API keys: {', '.join(api_result.missing)}", err=True)
+        all_ok = False
+
+    output_path = Path("output")
+    if not output_path.exists():
+        output_path.mkdir(parents=True, exist_ok=True)
+    dir_result = check_output_dir(output_path)
+    if dir_result.ok:
+        typer.echo(f"  [OK] Output directory: {output_path} is writable")
+    else:
+        typer.echo(f"  [FAIL] Output directory issues: {', '.join(dir_result.missing)}", err=True)
+        all_ok = False
+
+    if all_ok:
+        typer.echo("Pre-flight checks passed.")
+        raise typer.Exit(code=0)
+    else:
+        typer.echo("Pre-flight checks failed.", err=True)
+        raise typer.Exit(code=1)
+
+
+@app.command()
 def run(
     topic: str = typer.Argument(..., help="Research topic or question for the review"),
     domain: str = typer.Option(
@@ -79,6 +118,18 @@ def run(
     """Run the full AutoReview pipeline to generate a review paper."""
     _setup_logging(verbose)
     logger = structlog.get_logger()
+
+    from autoreview.pipeline.preflight import check_api_keys, check_output_dir
+
+    preflight_keys = check_api_keys(["ANTHROPIC_API_KEY"])
+    if not preflight_keys.ok:
+        typer.echo(f"Missing API keys: {', '.join(preflight_keys.missing)}", err=True)
+        raise typer.Exit(code=1)
+
+    preflight_dir = check_output_dir(Path(output_dir)) if Path(output_dir).exists() else None
+    if preflight_dir is not None and not preflight_dir.ok:
+        typer.echo(f"Output directory not writable: {', '.join(preflight_dir.missing)}", err=True)
+        raise typer.Exit(code=1)
 
     if fresh:
         _clear_output_dir(output_dir)

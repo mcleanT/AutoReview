@@ -13,7 +13,8 @@ class TestDateRangeCLI:
     @patch("autoreview.pipeline.runner.run_pipeline")
     @patch("autoreview.llm.factory.create_llm_provider")
     @patch("autoreview.config.load_config")
-    def test_run_passes_date_range_to_config(self, mock_load, mock_llm, mock_run):
+    @patch("autoreview.pipeline.preflight.check_api_keys")
+    def test_run_passes_date_range_to_config(self, mock_preflight, mock_load, mock_llm, mock_run):
         mock_config = MagicMock()
         mock_config.llm = MagicMock()
         mock_config.writing.citation_format = "apa"
