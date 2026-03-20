@@ -20,6 +20,7 @@ from autoreview.models.base import AutoReviewModel
 from autoreview.models.enrichment import SectionEnrichment
 from autoreview.models.narrative import NarrativePlan, SectionNarrativeDirective
 from autoreview.writing.citation_scope import validate_citation_scope  # noqa: F401 — used below
+from autoreview.writing.transition_repair import extract_boundary
 
 logger = structlog.get_logger()
 
@@ -539,6 +540,23 @@ class SectionWriter:
                 citation_plan=section_citation_plan,
             )
             drafts[section.id] = draft
+
+            if i > 0:
+                prev_section = top_level[i - 1]
+                prev_draft = drafts[prev_section.id]
+                boundary = extract_boundary(
+                    prev_draft.text,
+                    draft.text,
+                    section_a_id=prev_section.title,
+                    section_b_id=section.title,
+                )
+                logger.info(
+                    "transition.boundary_extracted",
+                    from_section=prev_section.title,
+                    to_section=section.title,
+                    ending_chars=len(boundary.ending_text),
+                    opening_chars=len(boundary.opening_text),
+                )
 
         logger.info("section_writer.all_complete", sections=len(drafts))
         return drafts
