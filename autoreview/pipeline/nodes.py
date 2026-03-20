@@ -27,7 +27,6 @@ from autoreview.llm.prompts.outline import ReviewOutline
 from autoreview.models.enrichment import CorpusExpansionResult, SectionEnrichment
 from autoreview.models.knowledge_base import KnowledgeBase, PipelinePhase
 from autoreview.models.paper import CandidatePaper
-from autoreview.search.base import SearchSource
 from autoreview.validation.citation_validator import CitationValidator
 from autoreview.writing.assembler import DraftAssembler
 from autoreview.writing.narrative_architect import NarrativeArchitect
@@ -261,29 +260,15 @@ class PipelineNodes:
         """Node: Execute multi-source search."""
         from autoreview.search.aggregator import SearchAggregator
 
-        sources: list[SearchSource] = []
         all_dbs = (
             self.config.databases.get("primary", [])
             + self.config.databases.get("secondary", [])
             + self.config.databases.get("discovery", [])
         )
 
-        for db in all_dbs:
-            try:
-                if db == "pubmed":
-                    from autoreview.search.pubmed import PubMedSearch
+        from autoreview.pipeline.search_factory import build_search_sources
 
-                    sources.append(PubMedSearch())
-                elif db == "semantic_scholar":
-                    from autoreview.search.semantic_scholar import SemanticScholarSearch
-
-                    sources.append(SemanticScholarSearch())
-                elif db == "openalex":
-                    from autoreview.search.openalex import OpenAlexSearch
-
-                    sources.append(OpenAlexSearch())
-            except Exception as e:
-                logger.warning("search.source_init_failed", source=db, error=str(e))
+        sources = build_search_sources(all_dbs)
 
         agg = SearchAggregator(sources=sources, date_range=self.config.search.date_range)
         kb.candidate_papers = await agg.search(
@@ -568,25 +553,10 @@ class PipelineNodes:
                 gap_queries[db].extend(gap.suggested_queries)
 
         # Re-use search infrastructure
+        from autoreview.pipeline.search_factory import build_search_sources
         from autoreview.search.aggregator import SearchAggregator
 
-        sources: list[SearchSource] = []
-        for db in gap_dbs:
-            try:
-                if db == "semantic_scholar":
-                    from autoreview.search.semantic_scholar import SemanticScholarSearch
-
-                    sources.append(SemanticScholarSearch())
-                elif db == "pubmed":
-                    from autoreview.search.pubmed import PubMedSearch
-
-                    sources.append(PubMedSearch())
-                elif db == "openalex":
-                    from autoreview.search.openalex import OpenAlexSearch
-
-                    sources.append(OpenAlexSearch())
-            except Exception:
-                pass
+        sources = build_search_sources(gap_dbs)
 
         if not sources:
             await self._run_benchmark_validation(kb)
@@ -878,23 +848,9 @@ class PipelineNodes:
             + self.config.databases.get("secondary", [])
             + self.config.databases.get("discovery", [])
         )
-        sources: list[SearchSource] = []
-        for db in all_dbs:
-            try:
-                if db == "pubmed":
-                    from autoreview.search.pubmed import PubMedSearch
+        from autoreview.pipeline.search_factory import build_search_sources
 
-                    sources.append(PubMedSearch())
-                elif db == "semantic_scholar":
-                    from autoreview.search.semantic_scholar import SemanticScholarSearch
-
-                    sources.append(SemanticScholarSearch())
-                elif db == "openalex":
-                    from autoreview.search.openalex import OpenAlexSearch
-
-                    sources.append(OpenAlexSearch())
-            except Exception as e:
-                logger.warning("contextual_enrichment.source_init_failed", source=db, error=str(e))
+        sources = build_search_sources(all_dbs)
 
         if not sources:
             kb.current_phase = PipelinePhase.CONTEXTUAL_ENRICHMENT
@@ -1083,23 +1039,9 @@ class PipelineNodes:
             + self.config.databases.get("secondary", [])
             + self.config.databases.get("discovery", [])
         )
-        sources: list[SearchSource] = []
-        for db in all_dbs:
-            try:
-                if db == "pubmed":
-                    from autoreview.search.pubmed import PubMedSearch
+        from autoreview.pipeline.search_factory import build_search_sources
 
-                    sources.append(PubMedSearch())
-                elif db == "semantic_scholar":
-                    from autoreview.search.semantic_scholar import SemanticScholarSearch
-
-                    sources.append(SemanticScholarSearch())
-                elif db == "openalex":
-                    from autoreview.search.openalex import OpenAlexSearch
-
-                    sources.append(OpenAlexSearch())
-            except Exception as e:
-                logger.warning("corpus_expansion.source_init_failed", source=db, error=str(e))
+        sources = build_search_sources(all_dbs)
 
         if not sources:
             kb.current_phase = PipelinePhase.CORPUS_EXPANSION
@@ -1295,23 +1237,9 @@ class PipelineNodes:
         queries_by_source: dict[str, list[str]] = {db: queries for db in all_dbs}
 
         # 4. Search across all databases
-        sources: list[SearchSource] = []
-        for db in all_dbs:
-            try:
-                if db == "pubmed":
-                    from autoreview.search.pubmed import PubMedSearch
+        from autoreview.pipeline.search_factory import build_search_sources
 
-                    sources.append(PubMedSearch())
-                elif db == "semantic_scholar":
-                    from autoreview.search.semantic_scholar import SemanticScholarSearch
-
-                    sources.append(SemanticScholarSearch())
-                elif db == "openalex":
-                    from autoreview.search.openalex import OpenAlexSearch
-
-                    sources.append(OpenAlexSearch())
-            except Exception as e:
-                logger.warning("passage_search.source_init_failed", source=db, error=str(e))
+        sources = build_search_sources(all_dbs)
 
         new_papers: list[CandidatePaper] = []
         if sources:

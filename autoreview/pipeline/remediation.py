@@ -9,7 +9,6 @@ import structlog
 from autoreview.analysis.comprehensiveness import ComprehensiveCheckResult
 from autoreview.config.models import DomainConfig
 from autoreview.models.knowledge_base import KnowledgeBase
-from autoreview.search.base import SearchSource
 
 logger = structlog.get_logger()
 
@@ -190,23 +189,9 @@ class RemediationDispatcher:
         gap_dbs = self.config.databases.get("primary", []) + self.config.databases.get(
             "secondary", []
         )
-        sources: list[SearchSource] = []
-        for db in gap_dbs:
-            try:
-                if db == "semantic_scholar":
-                    from autoreview.search.semantic_scholar import SemanticScholarSearch
+        from autoreview.pipeline.search_factory import build_search_sources
 
-                    sources.append(SemanticScholarSearch())
-                elif db == "pubmed":
-                    from autoreview.search.pubmed import PubMedSearch
-
-                    sources.append(PubMedSearch())
-                elif db == "openalex":
-                    from autoreview.search.openalex import OpenAlexSearch
-
-                    sources.append(OpenAlexSearch())
-            except Exception:
-                pass
+        sources = build_search_sources(gap_dbs)
 
         if not sources:
             return False
