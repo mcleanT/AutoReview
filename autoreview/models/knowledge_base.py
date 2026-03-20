@@ -70,7 +70,7 @@ class AuditEntry(AutoReviewModel):
     token_usage: dict[str, int] = Field(default_factory=dict)
 
 
-def _compute_checksum(data: dict) -> str:
+def _compute_checksum(data: dict[str, Any]) -> str:
     """Compute SHA256 checksum of a dict, excluding the ``_checksum`` key.
 
     The dict is serialised to JSON with sorted keys for determinism.
@@ -172,7 +172,7 @@ class KnowledgeBase(TimestampedModel):
                 "screened_papers": {"__all__": {"paper": {"full_text"}}},
             },
         )
-        data: dict = json.loads(raw_json)
+        data: dict[str, Any] = json.loads(raw_json)
         data["_schema_version"] = 1
         checksum = _compute_checksum(data)
         data["_checksum"] = checksum
@@ -199,7 +199,7 @@ class KnowledgeBase(TimestampedModel):
                 match the recomputed digest of the file content.
         """
         raw = Path(path).read_text()
-        data: dict = json.loads(raw)
+        data: dict[str, Any] = json.loads(raw)
 
         stored_checksum = data.get("_checksum")
         if stored_checksum is None:

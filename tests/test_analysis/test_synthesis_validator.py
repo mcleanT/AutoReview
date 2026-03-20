@@ -65,7 +65,7 @@ class TestComputeSynthesisRatio:
             total_cited_sentences=3,
             synthesis_ratio=2 / 3,
         )
-        with pytest.raises(Exception):
+        with pytest.raises(AttributeError):
             metrics.multi_paper_sentences = 5  # type: ignore[misc]
 
     def test_mixed_cited_and_uncited(self):

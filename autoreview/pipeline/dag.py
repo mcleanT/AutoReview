@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import time
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
@@ -266,7 +267,7 @@ class DAGRunner:
                         )
                     except TimeoutError:
                         timeout_err = TimeoutError(f"timed out after {node.timeout_seconds}s")
-                        raise DAGExecutionError(node.name, timeout_err)
+                        raise DAGExecutionError(node.name, timeout_err) from timeout_err
                     elapsed = time.monotonic() - start_time
                     self._results[name] = result
                     completed += 1
@@ -291,10 +292,8 @@ class DAGRunner:
                                 RuntimeError("Token budget exhausted"),
                             )
                         elif action == BudgetAction.DEGRADE:
-                            try:
+                            with contextlib.suppress(AttributeError, TypeError):
                                 context.depth_override = "low"
-                            except (AttributeError, TypeError):
-                                pass  # Context doesn't support attribute setting
                             logger.warning(
                                 "dag.depth_degraded",
                                 reason="token budget at 95%",

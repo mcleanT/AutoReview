@@ -130,3 +130,20 @@ Primary search ran at 500/source; enrichment and corpus expansion queries ran at
 
 ### 11 clustering themes consolidated to 5 body sections (medium-depth)
 The clustering stage produced 11 themes; these were consolidated into 5 body sections for the medium-depth review format. Medium-depth (~8K words) cannot support 11 distinct sections without superficiality — consolidation is necessary and correct at this depth level.
+
+## 2026-03-20: Pipeline Quality Hardening — 16-task implementation
+
+**Context**: Comprehensive audit found 28 gaps between pipeline output and human-written reviews. Implemented fixes across 4 phases.
+
+**Decisions**:
+1. CrossRef + Europe PMC wired into pipeline; CORE intentionally excluded (unreliable per 2026-03-19 evidence)
+2. Per-dimension critique gates: synthesis_quality >= 0.65, citation_accuracy >= 0.60 as hard floors
+3. Citation scope validation logs warnings (not errors) for out-of-scope citations — enforcement deferred
+4. Per-node timeouts default 300s, configurable — prevents hung pipeline on API failures
+5. StudyDesign enum (12 values) + quality_score + sample_size added as Optional fields to PaperExtraction
+6. Snowballing uses S2 REST API directly (not SemanticScholarSearch class) — httpx + RateLimiter
+7. Contradiction resolver uses evidence-weighted formula: design*0.4 + quality*0.4 + sample_size*0.2
+8. Synthesis validation metric: multi-paper/single-paper citation sentence ratio (target >= 0.4)
+9. Depth-dependent critique thresholds: LOW=0.70, MEDIUM=0.80, DEEP=0.85, EXHAUSTIVE=0.90
+10. Snapshot integrity: SHA256 checksum + schema_version, backward-compatible with legacy snapshots
+11. Modules built-but-not-wired: snowballing, contradiction resolver, extract_batch_safe, token budget monitor, polish, transition repair — ready for integration

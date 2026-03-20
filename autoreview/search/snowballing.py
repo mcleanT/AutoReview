@@ -112,7 +112,7 @@ async def _fetch_related(
         List of raw paper dicts extracted from the S2 API response.
     """
     url = f"{S2_API_BASE}/paper/{paper_id}/{endpoint}"
-    params = {"fields": S2_PAPER_FIELDS, "limit": min(limit, 500)}
+    params: dict[str, str | int] = {"fields": S2_PAPER_FIELDS, "limit": min(limit, 500)}
 
     await limiter.acquire()
     try:

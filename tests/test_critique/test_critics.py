@@ -603,7 +603,7 @@ class TestDepthDependentThresholds:
         assert low < medium < deep < exhaustive
 
     def test_section_loop_uses_profile_threshold_when_no_explicit_threshold(self):
-        """section_critique_loop effective_threshold falls back to depth_profile.quality_threshold."""
+        """section_critique_loop falls back to depth_profile.quality_threshold."""
         # Verify the function signature accepts depth_profile parameter
         import inspect
 
@@ -616,7 +616,7 @@ class TestDepthDependentThresholds:
         assert sig.parameters["threshold"].default is None
 
     def test_holistic_loop_uses_profile_threshold_when_no_explicit_threshold(self):
-        """holistic_critique_loop effective_threshold falls back to depth_profile.quality_threshold."""
+        """holistic_critique_loop falls back to depth_profile.quality_threshold."""
         import inspect
 
         from autoreview.critique.holistic_critic import holistic_critique_loop

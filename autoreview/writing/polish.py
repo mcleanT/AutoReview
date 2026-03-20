@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from collections import Counter
 from dataclasses import dataclass, field
+from typing import Any
 
 import structlog
 
@@ -111,7 +112,7 @@ def _jaccard(a: frozenset[str], b: frozenset[str]) -> float:
 def find_duplicate_claims(
     sections: dict[str, str],
     threshold: float = 0.8,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Detect near-duplicate sentences across sections using Jaccard similarity.
 
     Only sentences longer than 40 characters are compared.
@@ -133,7 +134,7 @@ def find_duplicate_claims(
             if len(sentence) > 40:
                 sentence_pairs.append((sec_name, sentence))
 
-    duplicates: list[dict] = []
+    duplicates: list[dict[str, Any]] = []
     for i, (sec_a, sent_a) in enumerate(sentence_pairs):
         tokens_a = _sentence_tokens(sent_a)
         for sec_b, sent_b in sentence_pairs[i + 1 :]:

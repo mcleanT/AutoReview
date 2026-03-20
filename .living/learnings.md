@@ -99,3 +99,16 @@ Semantic Scholar rate-limits unauthenticated requests aggressively. Obtaining `S
 - **context**: User explicitly stated PDF conversion should always be done after a pipeline run produces a review.md
 - **learning**: Every completed pipeline run must automatically generate a PDF from the final review.md. This should be the last step before marking the run complete. Use pandoc with xelatex if available, fall back to other converters. The CLAUDE.md already mentions "Post-Pipeline PDF Generation" as a rule — this reinforces it as non-negotiable for local runs too.
 - **action**: The run-local skill's Stage 15 (Final Polish) should include PDF generation as a mandatory substep, not a separate manual action.
+
+## 2026-03-20: Pipeline hardening implementation learnings
+
+**Tags**: [subagent-development, testing, pipeline-architecture]
+
+**What happened**: 16 tasks implemented via parallel subagent dispatch across 4 phases. All completed successfully with 117 new tests.
+
+**Lessons**:
+- Subagent dispatch with explicit "do NOT wire into pipeline" keeps scope focused and prevents merge conflicts when 4 agents edit simultaneously
+- StrEnum values stored by Pydantic as plain strings at runtime — `ext.study_design.value` raises AttributeError, use `str(ext.study_design)` instead
+- Pyright reportMissingImports false positives appear during concurrent edits — safe to ignore when tests pass
+- Building capabilities as standalone tested modules first, then wiring separately, is safer than wiring during implementation
+- Task 14 (snapshot integrity) required restructuring tests/test_models.py into tests/test_models/ package — be aware of test file→package migrations

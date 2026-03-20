@@ -66,7 +66,7 @@ class TestExtractBoundary:
     def test_frozen_dataclass(self) -> None:
         """SectionBoundary is immutable."""
         boundary = extract_boundary("a", "b")
-        with pytest.raises(Exception):
+        with pytest.raises(AttributeError):
             boundary.ending_text = "new"  # type: ignore[misc]
 
 

@@ -36,10 +36,7 @@ def validate_citation_scope(
     out_of_scope = sorted(cited_set - assigned_set)
     uncited_assigned = sorted(assigned_set - cited_set)
 
-    if assigned_set:
-        utilization_rate = len(cited_set & assigned_set) / len(assigned_set)
-    else:
-        utilization_rate = 1.0
+    utilization_rate = len(cited_set & assigned_set) / len(assigned_set) if assigned_set else 1.0
 
     all_in_scope = len(out_of_scope) == 0
 
