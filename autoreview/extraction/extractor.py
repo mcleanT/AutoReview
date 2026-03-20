@@ -236,25 +236,29 @@ class PaperExtractor:
         extractions: list[PaperExtraction] = []
         failures: list[ExtractionFailure] = []
 
+        coros = []
+        paper_ids: list[str] = []
         for item in papers:
             if isinstance(item, ScreenedPaper):
-                paper_id = item.paper.id
-                coro = self.extract_from_screened(item)
+                paper_ids.append(item.paper.id)
+                coros.append(self.extract_from_screened(item))
             else:
-                paper_id = item.id
-                coro = self.extract_one(item)
+                paper_ids.append(item.id)
+                coros.append(self.extract_one(item))
 
-            try:
-                extraction = await coro
-                extractions.append(extraction)
-            except Exception as exc:
-                error_msg = str(exc)
+        results = await asyncio.gather(*coros, return_exceptions=True)
+
+        for paper_id, result in zip(paper_ids, results, strict=False):
+            if isinstance(result, BaseException):
+                error_msg = str(result)
                 logger.error(
                     "extraction.paper_failed",
                     paper_id=paper_id,
                     error=error_msg,
                 )
                 failures.append(ExtractionFailure(paper_id=paper_id, error=error_msg))
+            else:
+                extractions.append(result)
 
         total = len(papers)
         successful = len(extractions)

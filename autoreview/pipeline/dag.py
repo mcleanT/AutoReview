@@ -44,7 +44,7 @@ class TokenBudgetMonitor:
         Returns:
             BudgetAction indicating what the caller should do.
         """
-        if self._budget is None:
+        if self._budget is None or self._budget <= 0:
             return BudgetAction.CONTINUE
 
         ratio = tokens_used / self._budget
@@ -291,13 +291,16 @@ class DAGRunner:
                                 RuntimeError("Token budget exhausted"),
                             )
                         elif action == BudgetAction.DEGRADE:
+                            try:
+                                context.depth_override = "low"
+                            except (AttributeError, TypeError):
+                                pass  # Context doesn't support attribute setting
                             logger.warning(
-                                "dag.budget.degrade",
+                                "dag.depth_degraded",
+                                reason="token budget at 95%",
                                 node=name,
                                 tokens_used=tokens_used,
                             )
-                            if isinstance(context, dict):
-                                context["depth_override"] = "low"
                         # BudgetAction.WARN is handled (logged) inside TokenBudgetMonitor.check()
 
                 except DAGExecutionError:

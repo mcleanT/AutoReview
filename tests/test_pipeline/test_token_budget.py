@@ -63,3 +63,10 @@ def test_exactly_below_95_warns_not_degrades() -> None:
     monitor = TokenBudgetMonitor(budget=1000)
     monitor.check(800)  # WARN + set _warned=True
     assert monitor.check(949) == BudgetAction.CONTINUE
+
+
+def test_zero_budget_continues() -> None:
+    """A budget of 0 should never divide by zero — always return CONTINUE."""
+    monitor = TokenBudgetMonitor(budget=0)
+    action = monitor.check(tokens_used=100)
+    assert action == BudgetAction.CONTINUE

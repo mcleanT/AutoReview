@@ -368,6 +368,26 @@ class PipelineNodes:
                 if new_candidates:
                     kb.candidate_papers.extend(new_candidates)
                     logger.info("screening.snowball_added", new_count=len(new_candidates))
+                    # Screen the snowballed candidates so they enter the pipeline
+                    # TODO: ideally use the same tracker/screener for token accounting,
+                    #       but screener is still in scope here so reuse it directly.
+                    try:
+                        screened_new = await screener.screen(
+                            new_candidates,
+                            scope_document=kb.scope_document or "",
+                            threshold=self.config.search.relevance_threshold,
+                        )
+                        kb.screened_papers.extend(screened_new)
+                        logger.info(
+                            "screening.snowball_screened",
+                            added=len(screened_new),
+                            from_snowball=len(new_candidates),
+                        )
+                    except Exception as screen_err:
+                        logger.warning(
+                            "screening.snowball_screen_failed",
+                            error=str(screen_err),
+                        )
             except Exception as e:
                 logger.warning("screening.snowball_failed", error=str(e))
 
