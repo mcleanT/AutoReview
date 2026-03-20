@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
+import logging
+import warnings
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
@@ -17,6 +21,12 @@ from autoreview.models.base import AutoReviewModel, TimestampedModel
 from autoreview.models.enrichment import CorpusExpansionResult, SectionEnrichment
 from autoreview.models.narrative import NarrativePlan
 from autoreview.models.paper import CandidatePaper, ScreenedPaper
+
+logger = logging.getLogger(__name__)
+
+
+class SnapshotIntegrityError(Exception):
+    """Raised when a snapshot's checksum does not match its content."""
 
 
 class PipelinePhase(StrEnum):
@@ -58,6 +68,22 @@ class AuditEntry(AutoReviewModel):
     action: str
     details: str = ""
     token_usage: dict[str, int] = Field(default_factory=dict)
+
+
+def _compute_checksum(data: dict) -> str:
+    """Compute SHA256 checksum of a dict, excluding the ``_checksum`` key.
+
+    The dict is serialised to JSON with sorted keys for determinism.
+
+    Args:
+        data: Parsed JSON dict.  The ``_checksum`` key, if present, is ignored.
+
+    Returns:
+        Hex-encoded SHA256 digest.
+    """
+    payload = {k: v for k, v in data.items() if k != "_checksum"}
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode()).hexdigest()
 
 
 class KnowledgeBase(TimestampedModel):
@@ -122,6 +148,11 @@ class KnowledgeBase(TimestampedModel):
         - A timestamped snapshot: ``{output_dir}/snapshots/{timestamp}_{node_name}.json``
         - A latest pointer: ``{output_dir}/snapshots/latest.json``
 
+        The saved JSON includes two metadata fields injected at the top level:
+
+        - ``_schema_version`` (int): version marker for migration logic.
+        - ``_checksum`` (str): SHA256 of the remaining content for integrity checks.
+
         Directories are created automatically if they do not exist.
 
         Args:
@@ -134,13 +165,19 @@ class KnowledgeBase(TimestampedModel):
         snapshot_path = snapshots_dir / f"{timestamp}_{node_name}.json"
         latest_path = snapshots_dir / "latest.json"
 
-        json_data = self.model_dump_json(
+        raw_json = self.model_dump_json(
             indent=2,
             exclude={
                 "candidate_papers": {"__all__": {"full_text"}},
                 "screened_papers": {"__all__": {"paper": {"full_text"}}},
             },
         )
+        data: dict = json.loads(raw_json)
+        data["_schema_version"] = 1
+        checksum = _compute_checksum(data)
+        data["_checksum"] = checksum
+
+        json_data = json.dumps(data, indent=2)
         snapshot_path.write_text(json_data)
         latest_path.write_text(json_data)
 
@@ -148,14 +185,45 @@ class KnowledgeBase(TimestampedModel):
     def load_snapshot(cls, path: str) -> KnowledgeBase:
         """Load a KnowledgeBase from a JSON snapshot file.
 
+        Validates the ``_checksum`` field if present.  Legacy snapshots without
+        a checksum are loaded with a warning.
+
         Args:
             path: Filesystem path to the snapshot JSON file.
 
         Returns:
             A KnowledgeBase instance reconstructed from the snapshot.
+
+        Raises:
+            SnapshotIntegrityError: If ``_checksum`` is present but does not
+                match the recomputed digest of the file content.
         """
-        json_data = Path(path).read_text()
-        return cls.model_validate_json(json_data)
+        raw = Path(path).read_text()
+        data: dict = json.loads(raw)
+
+        stored_checksum = data.get("_checksum")
+        if stored_checksum is None:
+            warnings.warn(
+                f"Snapshot at '{path}' has no checksum — skipping integrity check "
+                "(legacy snapshot).",
+                stacklevel=2,
+            )
+        else:
+            recomputed = _compute_checksum(data)
+            if recomputed != stored_checksum:
+                raise SnapshotIntegrityError(
+                    f"Snapshot integrity check failed for '{path}': "
+                    f"stored checksum {stored_checksum!r} does not match "
+                    f"recomputed checksum {recomputed!r}."
+                )
+
+        # Strip metadata keys before deserialisation — KnowledgeBase does not
+        # define these fields (extra="ignore" handles them, but being explicit
+        # avoids any future config change breaking loads).
+        for key in ("_schema_version", "_checksum"):
+            data.pop(key, None)
+
+        return cls.model_validate(data)
 
     def total_tokens(self) -> dict[str, int]:
         """Sum token usage across all audit log entries.
