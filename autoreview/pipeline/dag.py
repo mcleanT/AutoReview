@@ -4,11 +4,80 @@ import asyncio
 import time
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
+from enum import StrEnum
 from typing import Any
 
 import structlog
 
 logger = structlog.get_logger()
+
+
+class BudgetAction(StrEnum):
+    """Action to take based on current token budget consumption."""
+
+    CONTINUE = "continue"
+    WARN = "warn"
+    DEGRADE = "degrade"
+    SAVE_AND_STOP = "save_and_stop"
+
+
+class TokenBudgetMonitor:
+    """Monitors token consumption against a budget and recommends actions.
+
+    Thresholds (checked in order, highest first):
+      - ratio >= 1.00 → SAVE_AND_STOP (budget exhausted)
+      - ratio >= 0.95 → DEGRADE      (near-exhausted, reduce quality)
+      - ratio >= 0.80 → WARN         (once per instance)
+      - else          → CONTINUE
+    """
+
+    def __init__(self, budget: int | None = None) -> None:
+        self._budget = budget
+        self._warned = False
+
+    def check(self, tokens_used: int) -> BudgetAction:
+        """Return the recommended action given current token consumption.
+
+        Args:
+            tokens_used: Total tokens consumed so far.
+
+        Returns:
+            BudgetAction indicating what the caller should do.
+        """
+        if self._budget is None:
+            return BudgetAction.CONTINUE
+
+        ratio = tokens_used / self._budget
+
+        if ratio >= 1.0:
+            logger.error(
+                "token_budget.exhausted",
+                tokens_used=tokens_used,
+                budget=self._budget,
+                ratio=round(ratio, 3),
+            )
+            return BudgetAction.SAVE_AND_STOP
+
+        if ratio >= 0.95:
+            logger.warning(
+                "token_budget.near_exhausted",
+                tokens_used=tokens_used,
+                budget=self._budget,
+                ratio=round(ratio, 3),
+            )
+            return BudgetAction.DEGRADE
+
+        if ratio >= 0.80 and not self._warned:
+            logger.warning(
+                "token_budget.high_usage",
+                tokens_used=tokens_used,
+                budget=self._budget,
+                ratio=round(ratio, 3),
+            )
+            self._warned = True
+            return BudgetAction.WARN
+
+        return BudgetAction.CONTINUE
 
 
 @dataclass
