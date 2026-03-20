@@ -54,4 +54,9 @@ def build_extraction_prompt(
 {domain_section}
 
 Extract all key findings, methodology details, limitations, and relationships to other work.
+
+Additionally, classify the study design and quality:
+- study_design: One of: rct, cohort, case_control, cross_sectional, case_series, case_report, in_vitro, computational, meta_analysis, systematic_review, narrative_review, other
+- quality_score: Rate 0.0-1.0 based on methodology rigor (1.0 = highest rigor, e.g. large RCT or meta-analysis; 0.0 = minimal rigor)
+- sample_size: Total number of subjects/samples if reported, otherwise null
 """

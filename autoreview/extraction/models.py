@@ -10,6 +10,23 @@ from pydantic import Field
 from autoreview.models.base import AutoReviewModel, TimestampedModel
 
 
+class StudyDesign(StrEnum):
+    """Study design classification for a paper."""
+
+    RCT = "rct"
+    COHORT = "cohort"
+    CASE_CONTROL = "case_control"
+    CROSS_SECTIONAL = "cross_sectional"
+    CASE_SERIES = "case_series"
+    CASE_REPORT = "case_report"
+    IN_VITRO = "in_vitro"
+    COMPUTATIONAL = "computational"
+    META_ANALYSIS = "meta_analysis"
+    SYSTEMATIC_REVIEW = "systematic_review"
+    NARRATIVE_REVIEW = "narrative_review"
+    OTHER = "other"
+
+
 class EvidenceStrength(StrEnum):
     """Strength of evidence supporting a finding."""
 
@@ -82,3 +99,6 @@ class PaperExtraction(TimestampedModel):
     relationships: list[RelationshipClaim] = Field(default_factory=list)
     methodology_details: MethodologyRecord | None = None
     domain_specific_fields: dict[str, Any] = Field(default_factory=dict)
+    study_design: StudyDesign | None = None
+    quality_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    sample_size: int | None = None
