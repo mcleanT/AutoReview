@@ -4,6 +4,7 @@ from typing import Any
 
 import structlog
 
+from autoreview.analysis.contradiction_resolver import resolve_contradiction
 from autoreview.analysis.evidence_map import (
     ConsensusClaim,
     Contradiction,
@@ -133,6 +134,14 @@ class ThematicClusterer:
                 )
 
             for ci in result.contradictions:
+                side_a = [extractions[pid] for pid in ci.paper_ids_a if pid in extractions]
+                side_b = [extractions[pid] for pid in ci.paper_ids_b if pid in extractions]
+                resolution = resolve_contradiction(
+                    claim_a=ci.claim_a,
+                    claim_b=ci.claim_b,
+                    side_a_extractions=side_a,
+                    side_b_extractions=side_b,
+                )
                 all_contradictions.append(
                     Contradiction(
                         claim_a=ci.claim_a,
@@ -141,6 +150,7 @@ class ThematicClusterer:
                         paper_ids_b=ci.paper_ids_b,
                         possible_explanation=ci.possible_explanation,
                         theme=theme.name,
+                        resolution=resolution,
                     )
                 )
 

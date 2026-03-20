@@ -54,6 +54,8 @@ class Contradiction(AutoReviewModel):
 
     Captures conflicting findings in the literature along with
     a hypothesis about why the disagreement exists.
+    The ``resolution`` field holds the output of
+    ``contradiction_resolver.resolve_contradiction()`` when available.
     """
 
     claim_a: str
@@ -62,6 +64,13 @@ class Contradiction(AutoReviewModel):
     paper_ids_b: list[str]
     possible_explanation: str | None = None
     theme: str | None = None
+    resolution: Any = Field(
+        default=None,
+        description=(
+            "ContradictionResolution dataclass produced by resolve_contradiction(), "
+            "or None if resolution was not attempted."
+        ),
+    )
 
 
 class GapSeverity(StrEnum):
