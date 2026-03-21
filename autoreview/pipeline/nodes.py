@@ -1593,3 +1593,73 @@ class PipelineNodes:
             "complete",
             token_usage=tracker.usage,
         )
+
+    async def figure_generation(self, kb: KnowledgeBase) -> None:
+        """Node: Generate publication-quality figures from pipeline data."""
+        from autoreview.figures.generators import generate_all_figures
+
+        logger.info("figure_generation.start")
+        kb.figures = generate_all_figures(kb)
+        kb.current_phase = PipelinePhase.FIGURE_GENERATION
+        kb.add_audit_entry("figure_generation", "complete", f"{len(kb.figures)} figures generated")
+        logger.info("figure_generation.complete", n_figures=len(kb.figures))
+
+    async def table_generation(self, kb: KnowledgeBase) -> None:
+        """Node: Generate summary tables from pipeline data."""
+        from autoreview.tables.generators import generate_all_tables
+
+        logger.info("table_generation.start")
+        kb.tables = generate_all_tables(kb, llm=self.llm)
+        kb.current_phase = PipelinePhase.TABLE_GENERATION
+        kb.add_audit_entry("table_generation", "complete", f"{len(kb.tables)} tables generated")
+        logger.info("table_generation.complete", n_tables=len(kb.tables))
+
+    async def visual_audit(self, kb: KnowledgeBase) -> None:
+        """Node: Audit figure/table references in assembled draft.
+
+        Uses deterministic regex checks (reference completeness and orphan
+        detection). Caption consistency and data accuracy checks are deferred
+        to a future iteration.
+        """
+        logger.info("visual_audit.start")
+        issues: list[dict[str, str]] = []
+
+        if not kb.full_draft:
+            kb.visual_audit_report = {"issues": [], "status": "skipped", "reason": "no draft"}
+            return
+
+        # Check every figure is referenced (use caption prefix e.g. "Figure 1")
+        for key, fig in kb.figures.items():
+            fig_label = fig.caption.split(".")[0]  # e.g. "Figure 1"
+            if fig_label not in kb.full_draft:
+                issues.append(
+                    {
+                        "type": "orphaned_figure",
+                        "key": key,
+                        "severity": "critical",
+                        "detail": f"{fig_label} not referenced in draft",
+                    }
+                )
+
+        # Check every table is referenced
+        for key, tbl in kb.tables.items():
+            tbl_label = tbl.caption.split(".")[0]  # e.g. "Table 1"
+            if tbl_label not in kb.full_draft:
+                issues.append(
+                    {
+                        "type": "orphaned_table",
+                        "key": key,
+                        "severity": "critical",
+                        "detail": f"{tbl_label} not referenced in draft",
+                    }
+                )
+
+        kb.visual_audit_report = {
+            "issues": issues,
+            "status": "complete",
+            "n_figures": len(kb.figures),
+            "n_tables": len(kb.tables),
+        }
+        kb.current_phase = PipelinePhase.VISUAL_AUDIT
+        kb.add_audit_entry("visual_audit", "complete", f"{len(issues)} issues found")
+        logger.info("visual_audit.complete", n_issues=len(issues))

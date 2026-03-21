@@ -54,7 +54,7 @@ class TestBuildPipeline:
         assert len(order) > 0
         # All nodes should appear in the sorted order
         flat = [name for level in order for name in level]
-        assert len(flat) == 17
+        assert len(flat) == 20
 
     def test_pipeline_dependencies(self):
         """Check key dependency relationships."""
@@ -65,8 +65,9 @@ class TestBuildPipeline:
         assert "query_expansion" in dag.nodes["search"].dependencies
         # screening depends on search
         assert "search" in dag.nodes["screening"].dependencies
-        # final_polish depends on assembly
-        assert "assembly" in dag.nodes["final_polish"].dependencies
+        # visual_audit depends on assembly; final_polish depends on visual_audit
+        assert "assembly" in dag.nodes["visual_audit"].dependencies
+        assert "visual_audit" in dag.nodes["final_polish"].dependencies
 
     def test_pipeline_different_domains(self):
         """Pipeline builds correctly for all domains."""

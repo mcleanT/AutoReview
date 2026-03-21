@@ -55,6 +55,11 @@ def _node_summary(name: str, kb: KnowledgeBase) -> str:
         "section_writing": f"{len(kb.section_drafts)} sections drafted",
         "passage_search": "supporting passages found",
         "assembly": "draft assembled",
+        "figure_generation": f"{len(kb.figures)} figures generated",
+        "table_generation": f"{len(kb.tables)} tables generated",
+        "visual_audit": (
+            f"audit: {len(kb.visual_audit_report.get('issues', [])) if kb.visual_audit_report else 0} issues"
+        ),
         "final_polish": "final polish complete",
     }
     return summaries.get(name, "done")
@@ -123,21 +128,34 @@ def build_pipeline(llm: Any, config: DomainConfig) -> tuple[DAGRunner, PipelineN
     dag.add_node("full_text_retrieval", nodes.full_text_retrieval, dependencies=["screening"])
     dag.add_node("extraction", nodes.extraction, dependencies=["full_text_retrieval"])
     dag.add_node("clustering", nodes.clustering, dependencies=["extraction"])
-    dag.add_node("gap_search", nodes.gap_search, dependencies=["clustering"])
+    dag.add_node(
+        "figure_generation",
+        nodes.figure_generation,
+        dependencies=["clustering"],
+        timeout_seconds=60,
+    )
+    dag.add_node("gap_search", nodes.gap_search, dependencies=["figure_generation"])
     dag.add_node("draft_outline", nodes.draft_outline, dependencies=["gap_search"])
     dag.add_node(
         "contextual_enrichment", nodes.contextual_enrichment, dependencies=["draft_outline"]
     )
     dag.add_node("corpus_expansion", nodes.corpus_expansion, dependencies=["contextual_enrichment"])
     dag.add_node("final_outline", nodes.final_outline, dependencies=["corpus_expansion"])
-    dag.add_node("narrative_planning", nodes.narrative_planning, dependencies=["final_outline"])
+    dag.add_node(
+        "table_generation",
+        nodes.table_generation,
+        dependencies=["final_outline"],
+        timeout_seconds=120,
+    )
+    dag.add_node("narrative_planning", nodes.narrative_planning, dependencies=["table_generation"])
     dag.add_node(
         "citation_selection", nodes.citation_selection, dependencies=["narrative_planning"]
     )
     dag.add_node("section_writing", nodes.section_writing, dependencies=["citation_selection"])
     dag.add_node("passage_search", nodes.passage_search, dependencies=["section_writing"])
     dag.add_node("assembly", nodes.assembly, dependencies=["passage_search"])
-    dag.add_node("final_polish", nodes.final_polish, dependencies=["assembly"])
+    dag.add_node("visual_audit", nodes.visual_audit, dependencies=["assembly"], timeout_seconds=300)
+    dag.add_node("final_polish", nodes.final_polish, dependencies=["visual_audit"])
 
     return dag, nodes
 
