@@ -644,6 +644,13 @@ class PipelineNodes:
         evidence_map.temporal_progressions = [t.model_dump() for t in progressions]
 
         kb.evidence_map = evidence_map
+
+        # Generate figures from clustering data (sub-step, no LLM calls)
+        from autoreview.figures.generators import generate_all_figures
+
+        kb.figures = generate_all_figures(kb)
+        logger.info("clustering.figures_generated", n_figures=len(kb.figures))
+
         kb.current_phase = PipelinePhase.CLUSTERING
         kb.add_audit_entry(
             "clustering",
@@ -848,6 +855,13 @@ class PipelineNodes:
 
         kb.outline = review_outline.model_dump()
         kb.critique_history.extend(critiques)
+
+        # Generate tables from outline data (sub-step)
+        from autoreview.tables.generators import generate_all_tables
+
+        kb.tables = generate_all_tables(kb, llm=self.llm)
+        logger.info("final_outline.tables_generated", n_tables=len(kb.tables))
+
         kb.current_phase = PipelinePhase.FINAL_OUTLINE
         kb.add_audit_entry(
             "final_outline",
@@ -1546,6 +1560,39 @@ class PipelineNodes:
             convergence_delta=self.config.critique.convergence_delta,
             extra_issues=cv_issues,
         )
+
+        # Visual audit (sub-step — check references after critique)
+        audit_issues: list[dict[str, str]] = []
+        for key, fig in kb.figures.items():
+            fig_label = fig.caption.split(".")[0]
+            if fig_label not in final_draft:
+                audit_issues.append(
+                    {
+                        "type": "orphaned_figure",
+                        "key": key,
+                        "severity": "critical",
+                        "detail": f"{fig_label} not referenced in draft",
+                    }
+                )
+        for key, tbl in kb.tables.items():
+            tbl_label = tbl.caption.split(".")[0]
+            if tbl_label not in final_draft:
+                audit_issues.append(
+                    {
+                        "type": "orphaned_table",
+                        "key": key,
+                        "severity": "critical",
+                        "detail": f"{tbl_label} not referenced in draft",
+                    }
+                )
+        kb.visual_audit_report = {
+            "issues": audit_issues,
+            "status": "complete",
+            "n_figures": len(kb.figures),
+            "n_tables": len(kb.tables),
+        }
+        if audit_issues:
+            logger.warning("assembly.visual_audit_issues", n_issues=len(audit_issues))
 
         kb.full_draft = final_draft
         kb.critique_history.extend(critiques)
