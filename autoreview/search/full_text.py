@@ -244,10 +244,10 @@ class FullTextResolver:
         self._limiter = RateLimiter(requests_per_second)
 
         # Per-API rate limiters reflecting documented limits.
-        # Semantic Scholar anonymous: 1 req/s; with API key: 10 req/s.
+        # Semantic Scholar: 1 req/s (free-tier API key).
         # Springer OA API: 500 calls/day ≈ 0.35 req/s.
         # NCBI/PubMed: 3 req/s without key, 10 req/s with key.
-        _s2_rps = 10.0 if self._s2_api_key else 1.0
+        _s2_rps = 1.0
         self._limiters: dict[str, RateLimiter] = {
             "semantic_scholar": RateLimiter(_s2_rps),
             "springer_oa": RateLimiter(0.35),

@@ -172,8 +172,8 @@ async def snowball_papers(
     seen_titles: set[str] = set(existing_titles or [])
 
     api_key = os.environ.get("S2_API_KEY")
-    # With API key: 10 req/s; without: 1 req/s
-    rate = 10.0 if api_key else 1.0
+    # With API key: 1 req/s; without: 1 req/s (free tier)
+    rate = 1.0 if api_key else 1.0
     limiter = RateLimiter(rate)
 
     headers: dict[str, str] = {}
