@@ -21,6 +21,7 @@ from autoreview.models.base import AutoReviewModel, TimestampedModel
 from autoreview.models.enrichment import CorpusExpansionResult, SectionEnrichment
 from autoreview.models.narrative import NarrativePlan
 from autoreview.models.paper import CandidatePaper, ScreenedPaper
+from autoreview.models.visuals import FigureMetadata, TableMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +55,9 @@ class PipelinePhase(StrEnum):
     FINAL_POLISH = "final_polish"
     COMPLETE = "complete"
     FAILED = "failed"
+    FIGURE_GENERATION = "figure_generation"
+    TABLE_GENERATION = "table_generation"
+    VISUAL_AUDIT = "visual_audit"
 
 
 class AuditEntry(AutoReviewModel):
@@ -116,6 +120,9 @@ class KnowledgeBase(TimestampedModel):
     iteration_counts: dict[str, int] = Field(default_factory=dict)
     audit_log: list[AuditEntry] = Field(default_factory=list)
     output_dir: str = "output"
+    figures: dict[str, FigureMetadata] = Field(default_factory=dict)
+    tables: dict[str, TableMetadata] = Field(default_factory=dict)
+    visual_audit_report: dict[str, Any] | None = None
 
     def add_audit_entry(
         self,
