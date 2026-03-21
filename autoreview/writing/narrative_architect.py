@@ -36,6 +36,8 @@ class NarrativeArchitect:
         evidence_map: EvidenceMap,
         scope_document: str,
         depth: DepthLevel | None = None,
+        figures: dict[str, Any] | None = None,
+        tables: dict[str, Any] | None = None,
     ) -> NarrativePlan:
         """Generate a narrative plan for the review paper.
 
@@ -44,11 +46,20 @@ class NarrativeArchitect:
             evidence_map: The full evidence map from clustering.
             scope_document: The scope document from query expansion.
             depth: Optional depth level controlling narrative detail.
+            figures: Optional dict of figure metadata keyed by figure ID.
+            tables: Optional dict of table metadata keyed by table ID.
 
         Returns:
             A NarrativePlan with directives for all outline sections.
         """
-        prompt = build_narrative_planning_prompt(outline, evidence_map, scope_document, depth=depth)
+        prompt = build_narrative_planning_prompt(
+            outline,
+            evidence_map,
+            scope_document,
+            depth=depth,
+            figures=figures,
+            tables=tables,
+        )
 
         response = await self.llm.generate_structured(
             prompt=prompt,

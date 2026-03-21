@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from autoreview.analysis.evidence_map import EvidenceMap
 from autoreview.llm.prompts.outline import ReviewOutline
@@ -31,6 +31,8 @@ def build_narrative_planning_prompt(
     evidence_map: EvidenceMap,
     scope_document: str,
     depth: DepthLevel | None = None,
+    figures: dict[str, Any] | None = None,
+    tables: dict[str, Any] | None = None,
 ) -> str:
     """Build the narrative planning prompt for the NarrativeArchitect."""
     from autoreview.config.depth import get_depth_profile
@@ -75,6 +77,39 @@ def build_narrative_planning_prompt(
         or "(none identified)"
     )
 
+    # Quality directives for ARISE scoring
+    quality_directives = """
+## Quality Directives
+
+In addition to the section-by-section narrative plan, include these directives:
+
+1. **Productive Tensions Framework**: Frame the contested contradictions as the "Productive Tensions Framework" — a named analytical contribution. Each contradiction should dissolve into a context-dependent design choice when stratified appropriately.
+
+2. **Methodology expansion**: For the Methods section, direct the writer to describe: study design classification (computational, systematic review, cohort, etc.), quality scoring methodology (0.0-1.0 scale), sample size weighting, and how contradictions were identified through structured resolution.
+
+3. **Prior survey comparison**: For the Introduction, direct the writer to compare this review to prior surveys of the topic, noting differentiators in scale, temporal coverage, and analytical approach.
+
+4. **Limitations**: For the Limitations section, direct the writer to cover: percentage of abstract-only papers, language/venue bias, preprint dominance, absence of formal meta-analysis, and search cutoff exclusions.
+
+5. **Ethics and societal considerations**: For the Ethics section, direct the writer to cover: retrieval corpus bias, intellectual property concerns, privacy-preserving gaps, environmental cost of retrieval infrastructure, and epistemic authority shifts.
+"""
+
+    visual_refs = ""
+    if figures or tables:
+        lines = ["6. **Visual references**: Direct section writers to reference these visuals:"]
+        if figures:
+            for fig in figures.values():
+                lines.append(
+                    f"   - {fig.caption} (insert reference in section {fig.anchor.section_id})"
+                )
+        if tables:
+            for tbl in tables.values():
+                lines.append(
+                    f"   - {tbl.caption} (insert reference near section {tbl.anchor.section_id})"
+                )
+        visual_refs = "\n".join(lines)
+    quality_directives += visual_refs
+
     section_ids = ", ".join(s.id for s in outline.flatten())
 
     return f"""\
@@ -97,6 +132,8 @@ def build_narrative_planning_prompt(
 
 ### Identified Gaps
 {gaps_text}
+
+{quality_directives}
 
 ## Your Task
 

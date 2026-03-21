@@ -152,6 +152,8 @@ class OutlineConfig(BaseModel):
             "Methods of Review",
             "Results",
             "Discussion",
+            "Ethical and Societal Considerations",
+            "Limitations of This Review",
             "Future Directions",
         ]
     )

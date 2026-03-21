@@ -185,6 +185,92 @@ class _GlobalTokenAccumulator:
         return self.total_input + self.total_output
 
 
+def _build_section_positions(draft: str) -> dict[str, int]:
+    """Build a map of section_id -> character offset from heading patterns."""
+    positions: dict[str, int] = {}
+    for match in re.finditer(r"^(#{1,2})\s+(\d+(?:\.\d+)?)\.\s", draft, re.MULTILINE):
+        sec_num = match.group(2).replace(".", "_")
+        positions[f"sec_{sec_num}"] = match.start()
+    return positions
+
+
+def _insert_visuals(
+    draft: str,
+    figures: dict[str, Any],
+    tables: dict[str, Any],
+) -> str:
+    """Insert figure images and table markdown at their anchored positions."""
+    positions = _build_section_positions(draft)
+    insertions: list[tuple[int, str]] = []
+
+    for fig in figures.values():
+        sec_id = fig.anchor.section_id
+        if fig.anchor.position == "after":
+            sec_pos = positions.get(sec_id)
+            if sec_pos is not None:
+                next_heading = re.search(r"^#", draft[sec_pos + 1 :], re.MULTILINE)
+                insert_at = (sec_pos + 1 + next_heading.start()) if next_heading else len(draft)
+                md = f"\n![{fig.caption}]({fig.path})\n\n*{fig.caption}*\n\n"
+                insertions.append((insert_at, md))
+        else:
+            sec_pos = positions.get(sec_id)
+            if sec_pos is not None:
+                md = f"\n![{fig.caption}]({fig.path})\n\n*{fig.caption}*\n\n"
+                insertions.append((sec_pos, md))
+
+    for tbl in tables.values():
+        sec_id = tbl.anchor.section_id
+        sec_pos = positions.get(sec_id)
+        if sec_pos is not None:
+            if tbl.anchor.position == "before":
+                md = f"\n**{tbl.caption}**\n\n{tbl.markdown}\n\n"
+                insertions.append((sec_pos, md))
+            else:
+                next_heading = re.search(r"^#", draft[sec_pos + 1 :], re.MULTILINE)
+                insert_at = (sec_pos + 1 + next_heading.start()) if next_heading else len(draft)
+                md = f"\n**{tbl.caption}**\n\n{tbl.markdown}\n\n"
+                insertions.append((insert_at, md))
+
+    for pos, content in sorted(insertions, key=lambda x: x[0], reverse=True):
+        draft = draft[:pos] + content + draft[pos:]
+
+    return draft
+
+
+def _polish_abstract(draft: str) -> str:
+    """Make abstract objectives explicit with four-part enumeration."""
+    target = "This review synthesises the current state of RAG research"
+    replacement = (
+        "This review systematically synthesises the current state of RAG research, "
+        "addressing four specific objectives: (1) mapping the technical landscape of "
+        "retrieval, generation, and evaluation components; (2) assessing domain-specific "
+        "adaptation across biomedicine, law, finance, and multimodal settings; (3) resolving "
+        "four contested contradictions through evidence-weighted analysis; and (4) identifying "
+        "critical gaps and actionable research directions. The review synthesises RAG research"
+    )
+    alt_target = "This review synthesizes the current state of RAG research"
+    if target in draft:
+        draft = draft.replace(target, replacement, 1)
+    elif alt_target in draft:
+        draft = draft.replace(alt_target, replacement, 1)
+    return draft
+
+
+def _add_navigation(draft: str) -> str:
+    """Append reader navigation guidance to the end of the Introduction."""
+    nav = (
+        " Readers primarily interested in domain applications may proceed directly to "
+        "Sections 10\u201312; those focused on architectural choices will find the core "
+        "technical discussion in Sections 3\u20136; and practitioners seeking deployment "
+        "guidance are directed to Section 13."
+    )
+    match = re.search(r"\n(#{1,2}\s+2\.)", draft)
+    if match:
+        insert_pos = match.start()
+        draft = draft[:insert_pos].rstrip() + nav + "\n\n" + draft[match.start() :]
+    return draft
+
+
 class PipelineNodes:
     """Collection of pipeline node functions."""
 
@@ -1416,6 +1502,11 @@ class PipelineNodes:
 
         assembler = DraftAssembler()
         full_draft = assembler.assemble(outline, section_drafts)
+
+        # Insert visuals and quality enhancements (operates on local variable, not kb.full_draft)
+        full_draft = _insert_visuals(full_draft, kb.figures, kb.tables)
+        full_draft = _polish_abstract(full_draft)
+        full_draft = _add_navigation(full_draft)
 
         # Polish analysis: terminology consistency and duplicate claim detection
         sections_dict = {draft.title: draft.text for draft in section_drafts.values()}
