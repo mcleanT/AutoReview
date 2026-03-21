@@ -216,6 +216,9 @@ def resume(
     provider: str | None = typer.Option(
         None, "--provider", "-p", help="LLM provider (claude, ollama). Auto-detected if omitted."
     ),
+    output_dir: str | None = typer.Option(
+        None, "--output-dir", "-o", help="Override output directory (default: reuse snapshot's)"
+    ),
     date_range: str | None = typer.Option(
         None, "--date-range", help="Year range filter, e.g. '2015-2020', '-2019', '2020-'"
     ),
@@ -230,6 +233,9 @@ def resume(
     from autoreview.models.knowledge_base import KnowledgeBase
 
     kb = KnowledgeBase.load_snapshot(snapshot)
+    if output_dir:
+        kb.output_dir = output_dir
+        Path(output_dir).mkdir(parents=True, exist_ok=True)
     typer.echo(f"Loaded snapshot: {snapshot}")
     typer.echo(f"Topic: {kb.topic} | Phase: {kb.current_phase}")
     typer.echo(f"Papers: {len(kb.candidate_papers)} candidates, {len(kb.screened_papers)} screened")
