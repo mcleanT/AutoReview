@@ -365,31 +365,42 @@ def generate_all_figures(kb: Any) -> dict[str, FigureMetadata]:
     if themes_data:
         generate_evidence_chart(themes_data, output_dir)
 
-    return {
-        "fig1_rag_pipeline": FigureMetadata(
-            key="fig1_rag_pipeline",
-            path="figures/fig1_rag_pipeline.png",
-            caption="Figure 1. Canonical RAG pipeline architecture showing the progression from naive single-retrieval to agentic multi-tool systems.",
-            anchor=VisualInsertionAnchor(section_id="sec_1", position="after"),
-        ),
-        "fig2_temporal": FigureMetadata(
+    figures: dict[str, FigureMetadata] = {}
+
+    figures["fig1_rag_pipeline"] = FigureMetadata(
+        key="fig1_rag_pipeline",
+        path="figures/fig1_rag_pipeline.png",
+        caption="Figure 1. Canonical RAG pipeline architecture showing the progression from naive single-retrieval to agentic multi-tool systems.",
+        anchor=VisualInsertionAnchor(section_id="sec_1", position="after"),
+    )
+
+    if year_counts:
+        figures["fig2_temporal"] = FigureMetadata(
             key="fig2_temporal",
             path="figures/fig2_temporal.png",
             caption="Figure 2. Temporal distribution of reviewed papers, showing the inflection point driven by ChatGPT-era deployment interest.",
             anchor=VisualInsertionAnchor(section_id="sec_2", position="after"),
             data_driven=True,
-        ),
-        "fig3_taxonomy": FigureMetadata(
-            key="fig3_taxonomy",
-            path="figures/fig3_taxonomy.png",
-            caption="Figure 3. Taxonomy of RAG architectural variants from naive single-pass to autonomous agentic systems.",
-            anchor=VisualInsertionAnchor(section_id="sec_6", position="before"),
-        ),
-        "fig4_evidence": FigureMetadata(
+        )
+    else:
+        logger.warning("figure.skipped", figure="fig2_temporal", reason="year_counts is empty")
+
+    figures["fig3_taxonomy"] = FigureMetadata(
+        key="fig3_taxonomy",
+        path="figures/fig3_taxonomy.png",
+        caption="Figure 3. Taxonomy of RAG architectural variants from naive single-pass to autonomous agentic systems.",
+        anchor=VisualInsertionAnchor(section_id="sec_6", position="before"),
+    )
+
+    if themes_data:
+        figures["fig4_evidence"] = FigureMetadata(
             key="fig4_evidence",
             path="figures/fig4_evidence.png",
             caption="Figure 4. Evidence strength distribution across thematic clusters identified in the reviewed corpus.",
             anchor=VisualInsertionAnchor(section_id="sec_13", position="before"),
             data_driven=True,
-        ),
-    }
+        )
+    else:
+        logger.warning("figure.skipped", figure="fig4_evidence", reason="themes_data is empty")
+
+    return figures

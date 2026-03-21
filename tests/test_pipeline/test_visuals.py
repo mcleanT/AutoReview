@@ -107,6 +107,36 @@ def test_generate_all_figures(tmp_path):
     mock_kb.evidence_map = MagicMock()
     mock_kb.evidence_map.themes = []
 
+    # With empty screened_papers and empty themes, data-driven figures are skipped
+    figures = generate_all_figures(mock_kb)
+    assert isinstance(figures, dict)
+    assert all(isinstance(v, FigureMetadata) for v in figures.values())
+    assert "fig1_rag_pipeline" in figures
+    assert "fig3_taxonomy" in figures
+    assert "fig2_temporal" not in figures
+    assert "fig4_evidence" not in figures
+    assert len(figures) == 2
+
+
+def test_generate_all_figures_with_data(tmp_path):
+    from autoreview.figures.generators import generate_all_figures
+    from autoreview.models.visuals import FigureMetadata
+
+    mock_paper = MagicMock()
+    mock_paper.paper = MagicMock()
+    mock_paper.paper.year = 2023
+
+    mock_theme = MagicMock()
+    mock_theme.name = "Retrieval"
+    mock_theme.evidence_strength_distribution = {"strong": 5, "moderate": 3, "weak": 1}
+
+    mock_kb = MagicMock()
+    mock_kb.output_dir = str(tmp_path)
+    mock_kb.screened_papers = [mock_paper]
+    mock_kb.evidence_map = MagicMock()
+    mock_kb.evidence_map.themes = [mock_theme]
+
+    # With populated data, all 4 figures should be generated
     figures = generate_all_figures(mock_kb)
     assert isinstance(figures, dict)
     assert all(isinstance(v, FigureMetadata) for v in figures.values())

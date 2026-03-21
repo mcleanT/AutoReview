@@ -141,7 +141,11 @@ def generate_all_tables(kb: Any, llm: Any | None = None) -> dict[str, TableMetad
             count = len(t.paper_ids) if hasattr(t, "paper_ids") else 0
             theme_counts[name] = count
 
-    outline = kb.outline if isinstance(kb.outline, dict) else {}
+    if isinstance(kb.outline, dict):
+        outline = kb.outline
+    else:
+        logger.warning("table_generation.outline_not_dict", type=type(kb.outline).__name__)
+        outline = {}
 
     return {
         "table1_retrieval": generate_retrieval_table(),
