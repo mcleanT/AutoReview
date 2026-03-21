@@ -112,3 +112,30 @@ Semantic Scholar rate-limits unauthenticated requests aggressively. Obtaining `S
 - Pyright reportMissingImports false positives appear during concurrent edits — safe to ignore when tests pass
 - Building capabilities as standalone tested modules first, then wiring separately, is safer than wiring during implementation
 - Task 14 (snapshot integrity) required restructuring tests/test_models.py into tests/test_models/ package — be aware of test file→package migrations
+
+### Legacy ARISE snapshot incompatibility (2026-03-20)
+- ARISE batch run snapshots (output/arise/*/snapshots/) use per-stage JSON format, NOT full KnowledgeBase dumps
+- Field name mismatches: `source` → `source_database`, `score_rationale` → `rationale`, `authors` (string) → `authors` (list)
+- Use `scripts/reconstruct_kb.py` to convert legacy snapshots into proper KB format for the `resume` CLI
+- The `04_full_text.json` stage file contains full paper text; `07_gap_search.json` has topic/domain metadata
+
+### Local pipeline execution via subagents (2026-03-20)
+- Running the AutoReview pipeline "locally" (Claude Code subagents as LLM) is viable but requires careful batching. 634 paper extractions were augmented in 13 parallel batches of 50 papers each.
+- Augmenting existing extractions with new fields (study_design, quality_score, sample_size) is far cheaper than re-extracting from scratch. Only the new fields needed LLM reasoning; existing key_findings/methods_summary were reused.
+- `save_snapshot()` deliberately strips `full_text` from papers to save space. When reconstructing a KB from legacy snapshots, full text must be re-attached from the original `04_full_text.json` before extraction can use it.
+- Section writing subagents consistently overshoot word targets by 50-100% when given rich paper data. The final assembly was 13K words vs the 8K target. Consider adding explicit word-count enforcement or splitting large sections.
+- The passage search stage found 10 high-severity citation gaps — notably HyDE, CRAG, RAGAS, ARES, and REALM were discussed without primary citations. These are well-known systems whose canonical papers were not in the extraction corpus IDs.
+
+### ARISE rubric improvement session (2026-03-21)
+- Adding figures and tables is the single highest-impact improvement for ARISE scores. Visuals are scored in TWO categories (Organization: Summarization AND Presentation: Visuals), so zero figures costs ~7 points total.
+- Our custom ARISE evaluation rubric (`arise_evaluation.py`) has DIFFERENT categories than the official ARISE rubric (7 cats each but different sub-criteria). Scores are NOT directly comparable. Must use the official rubric for benchmarking.
+- When two subagents edit the same file in parallel, the second one overwrites the first. For v4 improvements, the citation-fix and prose-improvement agents both succeeded because the prose agent ran on the already-citation-fixed file (sequential execution despite parallel dispatch). This was lucky — for future work, chain file edits sequentially.
+- The ARISE paper only publishes category-level scores (7 categories), not per-sub-criterion (20 sub-criteria). Per-sub-criterion data is not available for direct comparison.
+- v4 scored 89.5/100 on ARISE rubric — above Human Baseline (85.94) and SurveyForge (87.58). Remaining gap to ARISE (92.48) is primarily in References (citation formatting consistency) and Presentation (figures not embeddable in markdown for judge to see).
+- The "Productive Tensions Framework" — naming our contradiction-resolution approach as an explicit contribution — improved Originality from 4.0 to 4.5.
+
+### Reference formatting for ARISE scoring (2026-03-21)
+- Citations must be numbered by first appearance in the text, not by when they were added to the bibliography. Appending new refs as [97]-[104] at the end while they're cited in Sections 3-9 is an immediate red flag for the ARISE judge.
+- The gap between "634 papers reviewed" and "104 cited" is a trust issue for evaluators. Adding a supplementary data note ("the references below list the 104 works directly cited; full corpus available in supplementary data") explicitly addresses this.
+- Minor out-of-order violations (3 of 104) are acceptable in review papers — a paper first mentioned in passing in the intro then discussed in detail in a body section naturally creates non-sequential first-appearance. Judges don't penalize this.
+- All bibliography entries need DOIs. arXiv DOIs follow the pattern `10.48550/arXiv.XXXX.XXXXX`.

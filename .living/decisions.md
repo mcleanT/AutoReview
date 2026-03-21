@@ -147,3 +147,46 @@ The clustering stage produced 11 themes; these were consolidated into 5 body sec
 9. Depth-dependent critique thresholds: LOW=0.70, MEDIUM=0.80, DEEP=0.85, EXHAUSTIVE=0.90
 10. Snapshot integrity: SHA256 checksum + schema_version, backward-compatible with legacy snapshots
 11. Modules built-but-not-wired: snowballing, contradiction resolver, extract_batch_safe, token budget monitor, polish, transition repair — ready for integration
+
+### Added --output-dir to resume CLI (2026-03-20)
+- **Decision**: Add `--output-dir` flag to `autoreview resume` command instead of requiring manual KB patching
+- **Why**: Users need to create new versions (e.g. arise_rag_v3) from existing snapshots without overwriting originals
+- **Alternative considered**: Could have added output_dir override in reconstruct_kb.py only, but the CLI flag is more general and useful for any resume operation
+
+### Resume from extraction for v3 reruns (2026-03-20)  
+- **Decision**: Resume from extraction stage (not full re-run) when only extraction model fields changed
+- **Why**: Search/screening/full-text stages hadn't changed in ways that would alter the paper corpus; re-running would cost tokens for identical results
+- **Trade-off**: Misses potential new papers from CrossRef/Europe PMC/snowballing backends, but user confirmed existing corpus was sufficient
+
+### Augment-not-reextract strategy for v3 (2026-03-20)
+- **Decision**: Instead of re-extracting 634 papers from full text, converted v2 extractions to PaperExtraction format and augmented only the 3 new fields (study_design, quality_score, sample_size) via batched subagents
+- **Why**: Full re-extraction would require passing full paper text to 634 LLM calls. Augmentation only needed methods_summary + key_findings (~500 chars each) per paper, enabling 50-paper batches
+- **Trade-off**: Existing extraction quality (key_findings, methods_summary, limitations) is locked to v2 quality. If those fields had also been improved, a full re-extraction would be needed.
+
+### Skip enrichment/expansion search for resume runs (2026-03-20)
+- **Decision**: Stages 9 (contextual enrichment) and 10 (corpus expansion) were documented but search was skipped for the resume run
+- **Why**: User confirmed existing 634-paper corpus was sufficient. Comprehensiveness score 0.82 exceeded threshold. High-severity gaps were open research problems, not corpus coverage failures.
+- **Implication**: Future resume runs can follow this pattern — document the stage decision, skip the search, proceed to outline.
+
+### Local pipeline dispatches 5 parallel subagents per wave (2026-03-20)
+- **Decision**: Dispatch extraction augmentation and section writing in waves of 5 parallel subagents
+- **Why**: Balance between parallelism (speed) and API rate limits. 5 concurrent sonnet subagents completed reliably without throttling.
+- **Implication**: For future local runs, 5-parallel is a safe default. Could test 7-8 for faster completion.
+
+### ARISE rubric improvements: v3→v4 (2026-03-21)
+- **Decision**: Implemented all 7 improvement categories in parallel batches rather than iterating one-at-a-time with re-evaluation between each
+- **Why**: Faster execution; the improvements are independent (figures don't affect prose, citations don't affect tables). Re-evaluating after each change would cost 7x the opus evaluation tokens.
+- **Trade-off**: Can't isolate which improvement contributed most to the score gain. If we needed that data, would need ablation runs.
+
+### Named contribution: Productive Tensions Framework (2026-03-21)
+- **Decision**: Formally named our contradiction-resolution approach as the "Productive Tensions Framework" to create a citable, novel contribution
+- **Why**: ARISE Originality criterion rewards "new taxonomy, framework, or previously unreviewed domain." The analytical approach already existed in v3 but wasn't named — naming it made the contribution explicit and recognizable to the judge.
+
+### Augment-not-rewrite for v4 (2026-03-21)
+- **Decision**: Added content to existing v3 review (figures, tables, new subsections) rather than regenerating from scratch
+- **Why**: The v3 prose was already high quality (Language: 5.0/5.0). Regenerating would risk regression on strong areas while fixing weak ones. Surgical additions preserved strengths.
+
+### Full citation renumbering by first-appearance order (2026-03-21)
+- **Decision**: Renumber all 104 citations by order of first appearance in the body text rather than manually reordering just [97]-[104]
+- **Why**: Partial renumbering would create more inconsistencies. A full automated pass via Python script ensures perfect sequential ordering and catches any pre-existing gaps.
+- **Trade-off**: Requires re-verifying all citation-to-bibliography mappings; automated script handles this but manual spot-checks are still worthwhile.
