@@ -60,6 +60,20 @@ def _resolve_citations(
     return resolved, cited_ids
 
 
+def _add_corpus_note(text: str, corpus_size: int, cited_count: int) -> str:
+    """Insert a supplementary corpus note at the top of the References section."""
+    note = (
+        f"\n*This review synthesises {corpus_size} papers; the references below "
+        f"list the {cited_count} works directly cited in the text. The full corpus "
+        f"is available in the supplementary data.*\n"
+    )
+    ref_match = re.search(r"^(##?\s+References)", text, re.MULTILINE)
+    if ref_match:
+        insert_pos = ref_match.end()
+        text = text[:insert_pos] + "\n" + note + text[insert_pos:]
+    return text
+
+
 def _build_bibtex_key_map(papers: list[CandidatePaper]) -> dict[str, str]:
     """Build a mapping from paper ID to BibTeX key.
 
@@ -202,6 +216,7 @@ class OutputFormatter:
 
         all_papers = self._collect_papers(kb)
         resolved, cited_ids = _resolve_citations(kb.full_draft, all_papers, self.style)
+        resolved = _add_corpus_note(resolved, len(kb.screened_papers), len(cited_ids))
 
         bib_formatter = BibliographyFormatter(style=self.style)
         unique_papers = {p.id: p for p in all_papers}

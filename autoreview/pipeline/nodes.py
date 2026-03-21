@@ -864,6 +864,8 @@ class PipelineNodes:
             evidence_map=kb.evidence_map,
             scope_document=kb.scope_document or "",
             depth=self.config.writing.depth,
+            figures=kb.figures,
+            tables=kb.tables,
         )
 
         kb.narrative_plan = plan
@@ -1469,10 +1471,25 @@ class PipelineNodes:
             return
 
         tracker = _TokenAccumulator(self.llm, self._global_tokens, node_name="final_polish")
+
+        # Integrate visual audit findings
+        extra_instructions = ""
+        if kb.visual_audit_report:
+            critical = [
+                i
+                for i in kb.visual_audit_report.get("issues", [])
+                if i.get("severity") == "critical"
+            ]
+            if critical:
+                details = "; ".join(i["detail"] for i in critical)
+                extra_instructions = (
+                    f"\nAdditionally, fix the following visual reference issues: {details}"
+                )
+
         response = await tracker.generate(
             prompt=f"Polish this review paper for language, terminology consistency, and flow. "
             f"Maintain all citation markers [@paper_id]. Do not change the structure.\n\n"
-            f"{kb.full_draft}",
+            f"{kb.full_draft}" + extra_instructions,
             system="You are an expert scientific editor performing final language polish.",
             temperature=0.3,
         )
