@@ -359,3 +359,75 @@ class TestScoreExtractionPairFactual:
             "limitations_factual",
         ):
             assert key in scores, f"Missing key: {key}"
+
+
+import pytest
+
+from autoreview.extraction.scoring import compute_dual_composite
+
+
+class TestDualComposite:
+    def test_equal_weight(self):
+        sim = {
+            "key_findings": 0.8,
+            "evidence_strength": 0.9,
+            "quantitative_result": 0.3,
+            "methods_summary": 0.7,
+            "limitations": 0.6,
+            "study_design": 0.9,
+            "quality_score": 0.9,
+            "sample_size": 0.5,
+        }
+        fact = {
+            "key_findings": 0.9,
+            "evidence_strength": 0.9,
+            "quantitative_result": 0.7,
+            "methods_summary": 0.8,
+            "limitations": 0.7,
+            "study_design": 0.9,
+            "quality_score": 0.9,
+            "sample_size": 0.5,
+        }
+        result = compute_dual_composite(sim, fact, alpha=0.5)
+        assert "similarity" in result
+        assert "factual" in result
+        assert "combined" in result
+        assert result["combined"] == pytest.approx(
+            0.5 * result["similarity"] + 0.5 * result["factual"], abs=1e-6
+        )
+
+    def test_alpha_zero_is_factual_only(self):
+        sim = {
+            f: 0.5
+            for f in [
+                "key_findings",
+                "evidence_strength",
+                "quantitative_result",
+                "methods_summary",
+                "limitations",
+                "study_design",
+                "quality_score",
+                "sample_size",
+            ]
+        }
+        fact = {f: 1.0 for f in sim}
+        result = compute_dual_composite(sim, fact, alpha=0.0)
+        assert result["combined"] == pytest.approx(result["factual"], abs=1e-6)
+
+    def test_alpha_one_is_similarity_only(self):
+        sim = {
+            f: 0.8
+            for f in [
+                "key_findings",
+                "evidence_strength",
+                "quantitative_result",
+                "methods_summary",
+                "limitations",
+                "study_design",
+                "quality_score",
+                "sample_size",
+            ]
+        }
+        fact = {f: 0.2 for f in sim}
+        result = compute_dual_composite(sim, fact, alpha=1.0)
+        assert result["combined"] == pytest.approx(result["similarity"], abs=1e-6)

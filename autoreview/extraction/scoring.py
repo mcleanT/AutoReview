@@ -213,6 +213,32 @@ def compute_composite_score(field_scores: dict[str, float]) -> float:
     return total
 
 
+def compute_dual_composite(
+    similarity_scores: dict[str, float],
+    factual_scores: dict[str, float],
+    alpha: float = 0.5,
+) -> dict[str, float]:
+    """Compute dual-layer composite score.
+
+    Args:
+        similarity_scores: Per-field embedding similarity scores.
+        factual_scores: Per-field factual accuracy scores (with pass-through
+            fields copied from similarity_scores).
+        alpha: Blend weight. 1.0 = similarity only, 0.0 = factual only.
+
+    Returns:
+        Dict with 'similarity', 'factual', and 'combined' composite scores.
+    """
+    sim_composite = compute_composite_score(similarity_scores)
+    fact_composite = compute_composite_score(factual_scores)
+    combined = alpha * sim_composite + (1 - alpha) * fact_composite
+    return {
+        "similarity": sim_composite,
+        "factual": fact_composite,
+        "combined": combined,
+    }
+
+
 def score_extraction_pair(
     predicted: PaperExtraction,
     ground_truth: PaperExtraction,
