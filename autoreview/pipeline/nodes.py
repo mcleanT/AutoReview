@@ -555,6 +555,67 @@ class PipelineNodes:
 
     async def extraction(self, kb: KnowledgeBase) -> None:
         """Node: Extract structured information from papers in batches."""
+        import asyncio
+
+        mode = self.config.extraction.extraction_mode
+        papers = kb.screened_papers
+        logger.info("extraction.start", mode=mode, papers=len(papers))
+
+        # ── Programmatic or hybrid: run deterministic extractor first ──
+        if mode in ("programmatic", "hybrid"):
+            from autoreview.extraction.programmatic import ProgrammaticExtractor
+
+            prog_extractor = ProgrammaticExtractor(self.config.extraction)
+            prog_results, prog_failures = await asyncio.to_thread(
+                prog_extractor.extract_batch, papers
+            )
+            kb.extractions.update({r.paper_id: r for r in prog_results})
+            if prog_failures:
+                logger.warning(
+                    "extraction.programmatic_failures",
+                    failed=len(prog_failures),
+                    failed_ids=[f.paper_id for f in prog_failures],
+                )
+            kb.save_snapshot("extraction_programmatic")
+
+            if mode == "programmatic":
+                kb.current_phase = PipelinePhase.EXTRACTION
+                kb.add_audit_entry(
+                    "extraction",
+                    "complete",
+                    f"Extracted {len(kb.extractions)} papers via programmatic mode "
+                    f"({len(prog_failures)} failures)",
+                )
+                return
+
+            # ── Hybrid: re-extract low-confidence papers with LLM ──
+            low_confidence = [
+                sp
+                for sp in papers
+                if sp.paper.id in kb.extractions
+                and (
+                    (kb.extractions[sp.paper.id].quality_score or 0) < 0.3
+                    or len(kb.extractions[sp.paper.id].key_findings) < 3
+                )
+            ]
+            logger.info(
+                "extraction.hybrid_reextract",
+                low_confidence_count=len(low_confidence),
+            )
+            if not low_confidence:
+                kb.current_phase = PipelinePhase.EXTRACTION
+                kb.add_audit_entry(
+                    "extraction",
+                    "complete",
+                    f"Extracted {len(kb.extractions)} papers via hybrid mode "
+                    f"(0 needed LLM re-extraction)",
+                )
+                return
+
+            # Fall through to LLM extraction with only low-confidence papers
+            papers = low_confidence
+
+        # ── LLM extraction (default, or hybrid re-extraction) ──
         tracker = _TokenAccumulator(self.llm, self._global_tokens, node_name="extraction")
         extractor = PaperExtractor(
             tracker,
@@ -565,7 +626,6 @@ class PipelineNodes:
             section_truncation=self.config.extraction.section_truncation,
         )
         batch_size = self.config.extraction.extraction_batch_size
-        papers = kb.screened_papers
         total_batches = (len(papers) + batch_size - 1) // batch_size
 
         for i in range(0, len(papers), batch_size):
@@ -589,12 +649,21 @@ class PipelineNodes:
             kb.save_snapshot(f"extraction_batch_{batch_num}")
 
         kb.current_phase = PipelinePhase.EXTRACTION
-        kb.add_audit_entry(
-            "extraction",
-            "complete",
-            f"Extracted {len(kb.extractions)} papers in {total_batches} batches",
-            tracker.usage,
-        )
+        if mode == "hybrid":
+            kb.add_audit_entry(
+                "extraction",
+                "complete",
+                f"Extracted {len(kb.extractions)} papers via hybrid mode "
+                f"({len(papers)} LLM re-extracted in {total_batches} batches)",
+                tracker.usage,
+            )
+        else:
+            kb.add_audit_entry(
+                "extraction",
+                "complete",
+                f"Extracted {len(kb.extractions)} papers in {total_batches} batches",
+                tracker.usage,
+            )
 
     async def clustering(self, kb: KnowledgeBase) -> None:
         """Node: Thematic clustering + contradiction detection + gap analysis + evidence chains."""

@@ -47,7 +47,8 @@ def create_llm_provider(
         if not api_key:
             raise ValueError(
                 "ANTHROPIC_API_KEY not set. Set it in your environment or .env file, "
-                "or use --provider ollama with a local model."
+                "or use --provider ollama for a local model, "
+                "or --provider claude_code to route through the Claude Code CLI."
             )
         logger.info("llm.factory", provider="claude", model=config.model)
         return ClaudeLLMProvider(
@@ -57,4 +58,14 @@ def create_llm_provider(
             max_tokens_structured=config.max_tokens_structured,
         )
 
-    raise ValueError(f"Unknown provider '{resolved}'. Supported: 'claude', 'ollama'")
+    if resolved == "claude_code":
+        from autoreview.llm.claude_code import ClaudeCodeProvider
+
+        logger.info("llm.factory", provider="claude_code", model=config.model)
+        return ClaudeCodeProvider(
+            model=config.model,
+            max_tokens_generate=config.max_tokens_generate,
+            max_tokens_structured=config.max_tokens_structured,
+        )
+
+    raise ValueError(f"Unknown provider '{resolved}'. Supported: 'claude', 'ollama', 'claude_code'")

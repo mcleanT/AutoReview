@@ -118,27 +118,71 @@ def build_pipeline(llm: Any, config: DomainConfig) -> tuple[DAGRunner, PipelineN
     nodes = PipelineNodes(llm, config)
     dag = DAGRunner()
 
-    dag.add_node("query_expansion", nodes.query_expansion)
-    dag.add_node("search", nodes.search, dependencies=["query_expansion"])
-    dag.add_node("screening", nodes.screening, dependencies=["search"])
-    dag.add_node("full_text_retrieval", nodes.full_text_retrieval, dependencies=["screening"])
-    dag.add_node("extraction", nodes.extraction, dependencies=["full_text_retrieval"])
-    dag.add_node("clustering", nodes.clustering, dependencies=["extraction"])
-    dag.add_node("gap_search", nodes.gap_search, dependencies=["clustering"])
-    dag.add_node("draft_outline", nodes.draft_outline, dependencies=["gap_search"])
+    # Timeouts sized for claude_code provider (~30s per LLM call vs ~3s for API).
+    # Generous limits prevent premature kills on large corpora.
+    dag.add_node("query_expansion", nodes.query_expansion, timeout_seconds=600)
+    dag.add_node("search", nodes.search, dependencies=["query_expansion"], timeout_seconds=600)
+    dag.add_node("screening", nodes.screening, dependencies=["search"], timeout_seconds=3600)
     dag.add_node(
-        "contextual_enrichment", nodes.contextual_enrichment, dependencies=["draft_outline"]
+        "full_text_retrieval",
+        nodes.full_text_retrieval,
+        dependencies=["screening"],
+        timeout_seconds=1800,
     )
-    dag.add_node("corpus_expansion", nodes.corpus_expansion, dependencies=["contextual_enrichment"])
-    dag.add_node("final_outline", nodes.final_outline, dependencies=["corpus_expansion"])
-    dag.add_node("narrative_planning", nodes.narrative_planning, dependencies=["final_outline"])
     dag.add_node(
-        "citation_selection", nodes.citation_selection, dependencies=["narrative_planning"]
+        "extraction", nodes.extraction, dependencies=["full_text_retrieval"], timeout_seconds=7200
     )
-    dag.add_node("section_writing", nodes.section_writing, dependencies=["citation_selection"])
-    dag.add_node("passage_search", nodes.passage_search, dependencies=["section_writing"])
-    dag.add_node("assembly", nodes.assembly, dependencies=["passage_search"])
-    dag.add_node("final_polish", nodes.final_polish, dependencies=["assembly"])
+    dag.add_node("clustering", nodes.clustering, dependencies=["extraction"], timeout_seconds=1200)
+    dag.add_node("gap_search", nodes.gap_search, dependencies=["clustering"], timeout_seconds=3600)
+    dag.add_node(
+        "draft_outline", nodes.draft_outline, dependencies=["gap_search"], timeout_seconds=600
+    )
+    dag.add_node(
+        "contextual_enrichment",
+        nodes.contextual_enrichment,
+        dependencies=["draft_outline"],
+        timeout_seconds=1800,
+    )
+    dag.add_node(
+        "corpus_expansion",
+        nodes.corpus_expansion,
+        dependencies=["contextual_enrichment"],
+        timeout_seconds=3600,
+    )
+    dag.add_node(
+        "final_outline",
+        nodes.final_outline,
+        dependencies=["corpus_expansion"],
+        timeout_seconds=1800,
+    )
+    dag.add_node(
+        "narrative_planning",
+        nodes.narrative_planning,
+        dependencies=["final_outline"],
+        timeout_seconds=900,
+    )
+    dag.add_node(
+        "citation_selection",
+        nodes.citation_selection,
+        dependencies=["narrative_planning"],
+        timeout_seconds=600,
+    )
+    dag.add_node(
+        "section_writing",
+        nodes.section_writing,
+        dependencies=["citation_selection"],
+        timeout_seconds=7200,
+    )
+    dag.add_node(
+        "passage_search",
+        nodes.passage_search,
+        dependencies=["section_writing"],
+        timeout_seconds=1800,
+    )
+    dag.add_node("assembly", nodes.assembly, dependencies=["passage_search"], timeout_seconds=3600)
+    dag.add_node(
+        "final_polish", nodes.final_polish, dependencies=["assembly"], timeout_seconds=1800
+    )
 
     return dag, nodes
 

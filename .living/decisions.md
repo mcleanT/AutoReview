@@ -190,3 +190,54 @@ The clustering stage produced 11 themes; these were consolidated into 5 body sec
 - **Decision**: Renumber all 104 citations by order of first appearance in the body text rather than manually reordering just [97]-[104]
 - **Why**: Partial renumbering would create more inconsistencies. A full automated pass via Python script ensures perfect sequential ordering and catches any pre-existing gaps.
 - **Trade-off**: Requires re-verifying all citation-to-bibliography mappings; automated script handles this but manual spot-checks are still worthwhile.
+
+### 2026-03-21: LLM Evaluation ARISE Benchmark Run
+- **Decision**: Selected "Evaluation of large language models" (arise_llm_evaluation) as second ARISE benchmark topic for head-to-head comparison. ARISE published score: 91.17.
+- **Rationale**: Highest-scoring ARISE topic (91.17), well-represented in CS/AI literature, tests pipeline generalization beyond RAG.
+- **Decision**: Used deep depth (~25K+ target) for maximum ARISE scoring potential.
+- **Decision**: Split screening into 5 parallel batches and extraction into 6 parallel batches for efficiency.
+- **Decision**: 606→653→678 papers through gap search and corpus expansion stages.
+- **Output**: output/arise/arise_llm_eval_v1/review.md — 34,191 words, 149 references, 15 sections.
+
+### 2026-03-21: Visual Generation for ARISE Scoring
+- **Decision**: Generated 4 visuals (2 matplotlib figures + 2 table-as-image) rather than inline markdown tables.
+- **Rationale**: PNG figure-tables render identically in PDF and markdown; inline markdown tables depend on renderer. Publication-quality styling (colored headers, alternating rows) not possible in plain markdown.
+- **Decision**: Used colorblind-safe palette throughout (Wong palette #0072B2, #D55E00, #009E73, etc.).
+- **Decision**: Placed visuals at 4 strategic locations matching section boundaries rather than distributing evenly — prioritized data density over visual distribution.
+
+## 2026-03-21: Programmatic Extractor Architecture
+
+**Decision:** Build a deterministic Python paper extraction function (`ProgrammaticExtractor`) that replaces LLM-based extraction, producing identical `PaperExtraction` schema output using sentence scoring, regex, and keyword classification.
+
+**Why:** Extraction is the pipeline's biggest bottleneck — 489 papers × 50K tokens = ~25M tokens, ~80 min via claude_code provider. A programmatic function reduces this to 0 tokens and <3 seconds.
+
+**Key design choices:**
+- Pure Python + regex, zero new runtime dependencies
+- Reuses existing `parse_sections()` from truncation.py for section detection
+- `methodology_details` and `domain_specific_fields` confirmed NEVER USED downstream — skipped entirely
+- `relationships` set to empty list (safe — evidence chains still build from other signals)
+- Scoring uses sentence position + keywords + quantitative content + novelty signals + title similarity
+- Benchmark corpus built from 220 LLM extractions + cached full texts (198 full-text, 22 abstract-only)
+- Three modes: `extraction_mode: llm | programmatic | hybrid` in ExtractionConfig
+- Hybrid mode: programmatic first, LLM fallback for low-confidence papers (quality_score < 0.3 or < 3 findings)
+
+**Alternatives considered:**
+- Small/distilled language model for extraction — rejected (still requires tokens/GPU, adds dependency)
+- Embedding-based sentence selection — rejected for runtime (embedding model dependency), kept for benchmark scoring only
+- Skip extraction entirely and pass raw text downstream — rejected (downstream stages require structured PaperExtraction)
+
+**Status:** v0 baseline composite score 0.2515. Classification fields strong (study_design 0.73, quality_score 0.82), text fields need optimization (key_findings 0.12, methods 0.08).
+
+## 2026-03-22: Programmatic Extractor Optimization Decisions
+
+**Decision:** Use embedding-based scoring (sentence-transformers all-MiniLM-L6-v2 + Hungarian matching) for key_findings, methods_summary, and limitations benchmark scoring instead of word-overlap/ROUGE-L.
+
+**Why:** Word-overlap and ROUGE-L severely penalize verbatim extraction vs LLM paraphrasing, making the extractor appear much worse than it actually is. Embedding similarity captures semantic equivalence regardless of phrasing.
+
+**Decision:** Set extraction benchmark target at 0.90 for ALL fields (then 0.95).
+
+**Why:** User explicitly wants high-fidelity extraction, not "good enough" approximations. No field should be considered "done" below 0.90.
+
+**Decision:** Use abstract-first hybrid strategy for methods_summary and limitations extraction.
+
+**Why:** Analysis showed LLM methods summaries have 0.69 embedding similarity with the abstract, meaning LLMs heavily echo abstract content. Starting with abstract method/limitation sentences as a foundation, then supplementing with section-specific content, produces more semantically similar output.

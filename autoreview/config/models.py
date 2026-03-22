@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from enum import StrEnum
+from typing import Literal  # noqa: TC003 - needed at runtime for Pydantic
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -97,6 +98,7 @@ class ExtractionConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    extraction_mode: Literal["llm", "programmatic", "hybrid"] = "llm"  # noqa: UP040
     domain_fields: dict[str, bool] = {}
     max_concurrent: int = 10
     ollama_max_concurrent: int = 2

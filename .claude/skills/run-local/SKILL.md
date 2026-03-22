@@ -472,6 +472,8 @@ expanded corpus. Generate the definitive hierarchical outline:
 
 CRITICAL: Synthesize across papers — do NOT summarize paper-by-paper.
 CRITICAL: All PRIMARY papers in the CitationPlan for a section MUST be cited.
+CRITICAL: SUPPORTING papers should be cited in clusters where they support the same claim.
+Multiple citations for a single claim is standard academic practice — cite comprehensively.
 
 For deep mode, `max_tokens` is automatically set to 16384 for section generation calls.
 
@@ -480,6 +482,31 @@ Run per-section critique loop (up to max cycles). Before each critique, run
 citations, uncited papers, suspicious attributions. Validation issues are passed
 as extra issues to the critique.
 
+**Section brief builder**: When preparing per-section writing context, you MUST include
+ALL papers from the citation plan — never cap or truncate the paper lists. The actual
+pipeline passes every primary, supporting, and contextual paper to the writer. Structure:
+
+```python
+# CORRECT: pass all papers, no caps
+for p in cite_plan.get('primary', []):       # ALL primary papers
+    primary_papers.append({...})
+for p in cite_plan.get('supporting', []):    # ALL supporting papers
+    supporting_papers.append({...})
+for p in cite_plan.get('contextual', []):    # ALL contextual papers
+    contextual_papers.append({...})
+
+# WRONG: capping papers (this drops references!)
+for p in cite_plan.get('primary', [])[:20]:  # NEVER DO THIS
+```
+
+For large sections (100+ papers), use compact format for supporting/contextual papers:
+- Primary: full extraction (paper_id, title, year, claims, methods, quality)
+- Supporting: medium (paper_id, title, year, top claim)
+- Contextual: minimal (paper_id, title, year)
+
+If the total brief exceeds 100KB, split into multiple writing subagents for the same
+section — one handles primary papers, another handles supporting clusters — then merge.
+
 **Validation gate**:
 - Every outline section has a draft
 - Each draft uses [@paper_id] citation markers
@@ -487,6 +514,8 @@ as extra issues to the critique.
 - No section is pure paper-by-paper summary
 - Citation validation results logged
 - All PRIMARY papers cited in their assigned sections
+- Unique citation count across all sections ≥ 60% of total corpus papers
+- Citation density ≥ 8 per 1K words for deep mode, ≥ 5 per 1K for medium
 
 **Output**: `section_drafts` dict (section_id → text)
 
@@ -656,3 +685,6 @@ especially for deep-mode runs which consume significantly more tokens.
 | Summarizing paper-by-paper | Section writing must SYNTHESIZE across papers |
 | Not saving snapshots | Save after every stage for crash recovery |
 | Running all subagents as opus | Use model selection table — haiku for validation/draft_outline, sonnet for most work |
+| **Capping papers in section briefs** | **NEVER use `[:20]` or any slice when building section writing briefs. Pass ALL primary, supporting, and contextual papers. The pipeline code sends everything — the brief builder must too. Capping drops references and is the #1 cause of low citation counts.** |
+| Low citation density (<8/1K words) | For deep reviews, enforce ≥8 citations per 1K words. Instruct writers to cite multiple papers per claim (standard academic practice). Add a validation check after section writing. |
+| Not tracking wall-clock time | Log `datetime.now()` before and after each stage dispatch (not just agent `duration_ms`, which excludes queue/rate-limit waits). Save to `{output_dir}/timing.json` for post-run analysis. |

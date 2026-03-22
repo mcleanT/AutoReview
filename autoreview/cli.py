@@ -104,7 +104,10 @@ def run(
     ),
     model: str | None = typer.Option(None, "--model", "-m", help="Override LLM model"),
     provider: str | None = typer.Option(
-        None, "--provider", "-p", help="LLM provider (claude, ollama). Auto-detected if omitted."
+        None,
+        "--provider",
+        "-p",
+        help="LLM provider (claude, ollama, claude_code). Auto-detected if omitted.",
     ),
     fresh: bool = typer.Option(
         False, "--fresh", help="Clear all previous snapshots and outputs before running"
@@ -121,10 +124,12 @@ def run(
 
     from autoreview.pipeline.preflight import check_api_keys, check_output_dir
 
-    preflight_keys = check_api_keys(["ANTHROPIC_API_KEY"])
-    if not preflight_keys.ok:
-        typer.echo(f"Missing API keys: {', '.join(preflight_keys.missing)}", err=True)
-        raise typer.Exit(code=1)
+    # claude_code and ollama providers don't need ANTHROPIC_API_KEY
+    if provider not in ("claude_code", "ollama"):
+        preflight_keys = check_api_keys(["ANTHROPIC_API_KEY"])
+        if not preflight_keys.ok:
+            typer.echo(f"Missing API keys: {', '.join(preflight_keys.missing)}", err=True)
+            raise typer.Exit(code=1)
 
     preflight_dir = check_output_dir(Path(output_dir)) if Path(output_dir).exists() else None
     if preflight_dir is not None and not preflight_dir.ok:
@@ -214,7 +219,10 @@ def resume(
         None, "--model", "-m", help="LLM model to use (e.g. qwen3.5:35b)"
     ),
     provider: str | None = typer.Option(
-        None, "--provider", "-p", help="LLM provider (claude, ollama). Auto-detected if omitted."
+        None,
+        "--provider",
+        "-p",
+        help="LLM provider (claude, ollama, claude_code). Auto-detected if omitted.",
     ),
     output_dir: str | None = typer.Option(
         None, "--output-dir", "-o", help="Override output directory (default: reuse snapshot's)"
@@ -336,7 +344,10 @@ def evaluate(
     ),
     model: str | None = typer.Option(None, "--model", "-m", help="Override LLM model"),
     provider: str | None = typer.Option(
-        None, "--provider", "-p", help="LLM provider (claude, ollama). Auto-detected if omitted."
+        None,
+        "--provider",
+        "-p",
+        help="LLM provider (claude, ollama, claude_code). Auto-detected if omitted.",
     ),
     judge_model: str | None = typer.Option(
         None,

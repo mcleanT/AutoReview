@@ -139,3 +139,49 @@ Semantic Scholar rate-limits unauthenticated requests aggressively. Obtaining `S
 - The gap between "634 papers reviewed" and "104 cited" is a trust issue for evaluators. Adding a supplementary data note ("the references below list the 104 works directly cited; full corpus available in supplementary data") explicitly addresses this.
 - Minor out-of-order violations (3 of 104) are acceptable in review papers — a paper first mentioned in passing in the intro then discussed in detail in a body section naturally creates non-sequential first-appearance. Judges don't penalize this.
 - All bibliography entries need DOIs. arXiv DOIs follow the pattern `10.48550/arXiv.XXXX.XXXXX`.
+
+### 2026-03-21: Full Local Pipeline Run — LLM Evaluation
+- **Screening variance**: Parallel screening batches showed 35-73% pass rates — significant inter-batch variance from LLM scoring. Consider calibration or consensus scoring.
+- **Search yield**: 963 candidates from 3 sources (PubMed 425, OpenAlex 420, S2 118). S2 rate-limited on 3/5 queries. OpenAlex compensated well.
+- **Full-text coverage**: 78.5% (476/606) — arXiv (156), PMC (114), S2 API (93), ACL Anthology (46), Elsevier (45). Paywalled conference proceedings (AAAI, ACM, IEEE) were the main gap.
+- **Gap search effective**: 47 new papers across 7 gaps (agentic/tool-use was 0→9 papers, biggest improvement).
+- **Word count overshoot**: Target 25K, actual 30K body. Deep mode sections consistently exceeded word targets by 25-40%. Consider tighter word count enforcement in section writing prompts.
+- **Citation density**: 149 unique refs in 30K words = 5.0 per 1K words. Below RAG v4 density (12/1K). May need citation density floor in pipeline.
+
+### 2026-03-21: Visual Generation + ARISE Re-evaluation
+- **Visuals worth +2 ARISE points**: Adding 2 figures + 2 tables moved Presentation from 3.67→4.33/5.0 and total from 93→95/100.
+- **Remaining visual gap**: Evaluator wants visuals distributed across ALL sections (not clustered in 3-13), a conceptual framework diagram, and vector formats (SVG/PDF). These would push to 5/5.
+- **Weasyprint works well**: pandoc needs LaTeX engine (not installed), but weasyprint handles markdown→HTML→PDF with embedded images cleanly. Use absolute file:// paths for image src.
+- **ARISE benchmark beaten**: 95 vs 91.17 published (+3.83). Our analytical depth (productive tensions, consensus claims) is the main differentiator. ARISE leads on citation density and reference quality.
+- **Citation density gap persists**: 149 refs / 30K words = 5.0/1K vs ARISE ~10+/1K. Pipeline needs a citation density floor enforcement.
+
+## 2026-03-21: Programmatic Extractor — Initial Findings
+
+### Full text not stored in snapshots
+KnowledgeBase.save_snapshot() explicitly excludes `full_text` from both candidate and screened papers to save disk space. However, full texts ARE persisted in the disk cache at `{output_dir}/.cache/full_text_cache/`. To build a benchmark corpus, match papers to cache entries using SHA-256 of `doi.lower().strip()` (or normalized title if no DOI). source: AutoReview
+
+### ROUGE-L and word-overlap penalize verbatim vs paraphrased text
+The programmatic extractor extracts verbatim sentences while the LLM paraphrases and synthesizes. This causes artificially low scores on text fields (methods 0.08, limitations 0.07) even when the extractor finds the right content. Embedding-based similarity would be more appropriate for scoring claim matching. source: AutoReview
+
+### Two PaperExtraction fields are dead code
+`methodology_details` and `domain_specific_fields` are populated by the LLM extractor but NEVER read by any downstream consumer (clustering, citation selector, section writer, evidence chains, passage miner, depth allocator). Safe to skip. source: AutoReview
+
+### Literature: title similarity is a strong sentence scoring signal
+Papers on extractive summarization consistently find that sentences sharing words with the paper title are more likely to be key findings. Our v0 extractor missed this signal entirely. source: extractive summarization literature
+
+## 2026-03-22: Programmatic Extractor Optimization Findings
+
+### Scoring metric choice dominates apparent performance
+Switching key_findings scoring from word-overlap (Jaccard) to embedding similarity (sentence-transformers all-MiniLM-L6-v2) changed the score from 0.12 to 0.59 — a 5x improvement without changing the extractor at all. Similarly, methods_summary went from 0.08 to 0.44 and limitations from 0.07 to 0.41. Lesson: always validate that your evaluation metric measures what you think it does before optimizing the system. source: AutoReview
+
+### Sub-section aggregation is critical for academic paper parsing
+Parent section headings like "Materials and Methods" often have near-empty text (20-30 chars) because all content lives in child sub-sections ("Study Design", "Data Collection"). The _find_section() function returned the parent with no body text. Fix: _find_section_with_children() aggregates consecutive child sub-sections. This improved methods_summary by +16% and limitations by +16%. source: AutoReview
+
+### Study design classification needs multi-phase approach
+A flat keyword list for study_design classification caused "computational" to match too aggressively (any paper mentioning "model" or "framework"). Fix: multi-phase classifier — Phase 1: exact design keywords, Phase 2: review/survey detection (must come BEFORE computational), Phase 3: clinical evaluation, Phase 4: computational (catch-all). This improved study_design from 0.73 to 0.83. source: AutoReview
+
+### Sample size extraction produces many false positives in survey papers
+Searching the entire full text body for sample size patterns matched incidental numbers from cited studies in survey/review papers (37 false positives). Fix: restrict search scope to Methods + Evaluation + Dataset sections + abstract only. Also use tiered confidence patterns (high/medium/low) with different search scopes. source: AutoReview
+
+### Keep subagent tasks under 5 minutes
+User prefers shorter, focused agent tasks (~5 min) rather than broad 10-30 minute mega-tasks. Break optimization work into one-field-per-agent dispatches. source: user feedback
