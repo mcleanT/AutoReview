@@ -1,19 +1,28 @@
 #!/usr/bin/env python3
-"""Benchmark the programmatic extractor against the LLM ground-truth corpus.
+"""Benchmark extraction strategies against the LLM ground-truth corpus.
 
-Loads papers from the extraction corpus, runs ProgrammaticExtractor on each,
-scores the output against the LLM extraction, and prints a formatted report.
-Results are persisted to JSON and a JSONL history file for tracking iterations.
+Loads papers from the extraction corpus, runs the selected extraction strategy
+on each, scores the output against the LLM extraction using dual-layer scoring
+(similarity + factual), and prints a formatted report.  Results are persisted
+to JSON and a JSONL history file for tracking iterations.
 
-Supports two scoring modes:
+Supports two scoring modes for the similarity layer:
 - **embedding** (default): Uses sentence-transformers all-MiniLM-L6-v2 for
   key_findings matching via cosine similarity + Hungarian assignment.
   More accurate when comparing programmatic extraction vs. LLM paraphrases.
 - **word-overlap**: Falls back automatically if sentence-transformers is
   unavailable, or can be forced with ``--no-embeddings``.
 
+Extraction strategies:
+- **programmatic** (default): Zero-token deterministic extractor.
+- **hybrid-haiku**: Programmatic draft + Haiku LLM refinement.
+- **hybrid-sonnet**: Programmatic draft + Sonnet LLM refinement.
+- **direct-haiku**: Full LLM extraction with Haiku (no programmatic draft).
+
 Usage:
     python scripts/benchmark_extractor.py
+    python scripts/benchmark_extractor.py --strategy hybrid-haiku
+    python scripts/benchmark_extractor.py --strategy programmatic --alpha 0.5
     python scripts/benchmark_extractor.py --no-embeddings
     python scripts/benchmark_extractor.py --corpus-dir data/extraction_corpus --verbose
 """
@@ -21,6 +30,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import sys
 import time
@@ -35,10 +45,12 @@ from autoreview.extraction.models import PaperExtraction
 from autoreview.extraction.programmatic import ProgrammaticExtractor
 from autoreview.extraction.scoring import (
     compute_composite_score,
+    compute_dual_composite,
     load_embedding_model,
     score_extraction_pair,
     score_extraction_pair_with_embeddings,
 )
+from autoreview.extraction.scoring_factual import score_extraction_pair_factual
 from autoreview.models.paper import CandidatePaper, ScreenedPaper
 
 logger = structlog.get_logger()
@@ -59,6 +71,18 @@ SCORED_FIELDS = [
 EMBEDDING_EXTRA_FIELDS = [
     "key_findings_precision",
     "key_findings_recall",
+]
+
+# Factual fields reported in the factual scoring section
+FACTUAL_FIELDS = [
+    "key_findings_factual",
+    "quantitative_result_factual",
+    "methods_summary_factual",
+    "limitations_factual",
+    "evidence_strength",
+    "study_design",
+    "quality_score",
+    "sample_size",
 ]
 
 
@@ -120,10 +144,12 @@ def build_llm_extraction(corpus_entry: dict) -> PaperExtraction:
     return PaperExtraction.model_validate(corpus_entry["llm_extraction"])
 
 
-def run_benchmark(
+async def run_benchmark(
     corpus_dir: Path,
     verbose: bool = False,
     use_embeddings: bool = True,
+    strategy: str = "programmatic",
+    alpha: float = 0.5,
 ) -> dict:
     """Run the full benchmark and return results dict.
 
@@ -131,6 +157,10 @@ def run_benchmark(
         corpus_dir: Path to the extraction corpus.
         verbose: Include per-paper details in output.
         use_embeddings: Try to load embedding model for key_findings scoring.
+        strategy: Extraction strategy to use (programmatic, hybrid-haiku,
+            hybrid-sonnet, direct-haiku).
+        alpha: Blend weight for dual composite: 1.0=similarity only,
+            0.0=factual only.
     """
     corpus = load_corpus(corpus_dir)
     if not corpus:
@@ -145,18 +175,44 @@ def run_benchmark(
         if embedding_model is not None:
             scoring_mode = "embedding (all-MiniLM-L6-v2)"
     print(f"Scoring mode: {scoring_mode}")
+    print(f"Strategy: {strategy}")
 
+    # --- Extractor factory ---
     config = ExtractionConfig()
-    extractor = ProgrammaticExtractor(config)
+    is_async = False
+    if strategy == "programmatic":
+        extractor = ProgrammaticExtractor(config)
+    elif strategy in ("hybrid-haiku", "hybrid-sonnet"):
+        from autoreview.extraction.hybrid import HybridExtractor
+        from autoreview.llm.claude import ClaudeLLMProvider
+
+        model = "claude-haiku-4-5-20251001" if "haiku" in strategy else "claude-sonnet-4-6-20250514"
+        llm = ClaudeLLMProvider(model=model)
+        extractor = HybridExtractor(ProgrammaticExtractor(config), llm)
+        is_async = True
+    elif strategy == "direct-haiku":
+        from autoreview.extraction.extractor import PaperExtractor
+        from autoreview.llm.claude import ClaudeLLMProvider
+
+        llm = ClaudeLLMProvider(model="claude-haiku-4-5-20251001")
+        extractor = PaperExtractor(llm)
+        is_async = True
+    else:
+        logger.error("unknown_strategy", strategy=strategy)
+        sys.exit(1)
 
     per_paper_results: list[dict] = []
     all_report_fields = SCORED_FIELDS + (EMBEDDING_EXTRA_FIELDS if embedding_model else [])
     field_scores_accum: dict[str, list[float]] = {f: [] for f in all_report_fields}
     composites: list[float] = []
+    factual_field_scores_accum: dict[str, list[float]] = {f: [] for f in FACTUAL_FIELDS}
+    factual_composites: list[float] = []
 
     n_full_text = 0
     n_abstract_only = 0
     n_errors = 0
+    total_input_tokens = 0
+    total_output_tokens = 0
 
     t0 = time.perf_counter()
 
@@ -165,9 +221,20 @@ def run_benchmark(
         try:
             candidate = build_candidate_paper(entry)
             screened = build_screened_paper(candidate)
-            programmatic_result = extractor.extract(screened)
             llm_extraction = build_llm_extraction(entry)
 
+            # --- Run extraction ---
+            if is_async:
+                if strategy == "direct-haiku":
+                    # PaperExtractor.extract_one takes (CandidatePaper, relevance_score)
+                    programmatic_result = await extractor.extract_one(candidate, relevance_score=4)
+                else:
+                    # HybridExtractor.extract takes ScreenedPaper
+                    programmatic_result = await extractor.extract(screened)
+            else:
+                programmatic_result = extractor.extract(screened)
+
+            # --- Similarity scoring ---
             if embedding_model is not None:
                 scores = score_extraction_pair_with_embeddings(
                     programmatic_result, llm_extraction, model=embedding_model
@@ -175,6 +242,12 @@ def run_benchmark(
             else:
                 scores = score_extraction_pair(programmatic_result, llm_extraction)
             composite = compute_composite_score(scores)
+
+            # --- Factual scoring layer ---
+            factual_scores = score_extraction_pair_factual(
+                programmatic_result, llm_extraction, similarity_scores=scores
+            )
+            factual_composite = compute_composite_score(factual_scores)
 
             if candidate.full_text:
                 n_full_text += 1
@@ -185,12 +258,18 @@ def run_benchmark(
                 field_scores_accum[field].append(scores.get(field, 0.0))
             composites.append(composite)
 
+            for field in FACTUAL_FIELDS:
+                factual_field_scores_accum[field].append(factual_scores.get(field, 0.0))
+            factual_composites.append(factual_composite)
+
             paper_result = {
                 "paper_id": paper_id,
                 "title": candidate.title[:80],
                 "has_full_text": bool(candidate.full_text),
                 "composite": round(composite, 4),
+                "factual_composite": round(factual_composite, 4),
                 "field_scores": {k: round(v, 4) for k, v in scores.items()},
+                "factual_field_scores": {k: round(v, 4) for k, v in factual_scores.items()},
             }
             per_paper_results.append(paper_result)
 
@@ -207,7 +286,9 @@ def run_benchmark(
                     "title": entry.get("metadata", {}).get("title", "unknown")[:80],
                     "has_full_text": bool(entry.get("full_text")),
                     "composite": 0.0,
+                    "factual_composite": 0.0,
                     "field_scores": {},
+                    "factual_field_scores": {},
                     "error": f"{type(exc).__name__}: {exc}",
                 }
             )
@@ -220,6 +301,14 @@ def run_benchmark(
     }
     avg_composite = round(mean(composites), 4) if composites else 0.0
 
+    avg_factual_scores = {
+        field: round(mean(vals), 4) if vals else 0.0
+        for field, vals in factual_field_scores_accum.items()
+    }
+    factual_composite_avg = round(mean(factual_composites), 4) if factual_composites else 0.0
+
+    dual = compute_dual_composite(avg_field_scores, avg_factual_scores, alpha=alpha)
+
     # Sort papers by composite for worst-10
     scored_papers = [p for p in per_paper_results if "error" not in p]
     scored_papers.sort(key=lambda p: p["composite"])
@@ -227,15 +316,23 @@ def run_benchmark(
     results = {
         "timestamp": datetime.now(UTC).isoformat(),
         "scoring_mode": scoring_mode,
+        "strategy": strategy,
+        "alpha": alpha,
         "n_papers": len(corpus),
         "n_full_text": n_full_text,
         "n_abstract_only": n_abstract_only,
         "n_errors": n_errors,
         "elapsed_seconds": round(elapsed, 2),
         "overall_composite": avg_composite,
+        "factual_composite": factual_composite_avg,
+        "combined_composite": round(dual["combined"], 4),
         "avg_field_scores": avg_field_scores,
+        "avg_factual_field_scores": avg_factual_scores,
         "worst_10": scored_papers[:10],
     }
+    if total_input_tokens or total_output_tokens:
+        results["total_input_tokens"] = total_input_tokens
+        results["total_output_tokens"] = total_output_tokens
     if verbose:
         results["per_paper"] = per_paper_results
 
@@ -246,10 +343,14 @@ def print_report(results: dict) -> None:
     """Print a formatted benchmark report to stdout."""
     sep = "=" * 60
     print(f"\n{sep}")
-    print("PROGRAMMATIC EXTRACTOR BENCHMARK")
+    print("EXTRACTOR BENCHMARK")
     print(sep)
     scoring_mode = results.get("scoring_mode", "word-overlap")
+    strategy = results.get("strategy", "programmatic")
+    alpha = results.get("alpha", 0.5)
+    print(f"Strategy:     {strategy}")
     print(f"Scoring mode: {scoring_mode}")
+    print(f"Alpha (blend): {alpha}  (1.0=similarity only, 0.0=factual only)")
     n_errors = results["n_errors"]
     error_part = f", {n_errors} errors" if n_errors else ""
     print(
@@ -259,17 +360,32 @@ def print_report(results: dict) -> None:
         f"{error_part})"
     )
     print(f"Extraction time: {results['elapsed_seconds']:.1f}s")
-    print(f"\nOverall Composite Score: {results['overall_composite']:.4f}")
+    if "total_input_tokens" in results:
+        print(
+            f"LLM tokens: {results['total_input_tokens']} in / {results['total_output_tokens']} out"
+        )
 
-    print("\nPer-field scores:")
+    print("\n--- Similarity Layer ---")
+    print(f"Overall Composite Score:  {results['overall_composite']:.4f}")
     report_fields = SCORED_FIELDS[:]
     if "embedding" in scoring_mode:
         report_fields += EMBEDDING_EXTRA_FIELDS
+    print("\nPer-field similarity scores:")
     for field in report_fields:
         score = results["avg_field_scores"].get(field, 0.0)
         print(f"  {field:30s}: {score:.4f}")
 
-    print("\nWorst 10 papers:")
+    print("\n--- Factual Layer ---")
+    print(f"Factual Composite Score:  {results['factual_composite']:.4f}")
+    print("\nPer-field factual scores:")
+    for field in FACTUAL_FIELDS:
+        score = results["avg_factual_field_scores"].get(field, 0.0)
+        print(f"  {field:30s}: {score:.4f}")
+
+    print(f"\n--- Combined (alpha={alpha}) ---")
+    print(f"Combined Composite Score: {results['combined_composite']:.4f}")
+
+    print("\nWorst 10 papers (by similarity composite):")
     for p in results["worst_10"]:
         paper_id = p["paper_id"]
         composite = p["composite"]
@@ -295,8 +411,12 @@ def save_results(results: dict, output_dir: Path) -> None:
     summary = {
         "timestamp": results["timestamp"],
         "scoring_mode": results.get("scoring_mode", "word-overlap"),
+        "strategy": results.get("strategy", "programmatic"),
+        "alpha": results.get("alpha", 0.5),
         "n_papers": results["n_papers"],
         "overall_composite": results["overall_composite"],
+        "factual_composite": results.get("factual_composite", 0.0),
+        "combined_composite": results.get("combined_composite", 0.0),
         "avg_field_scores": results["avg_field_scores"],
         "elapsed_seconds": results["elapsed_seconds"],
     }
@@ -307,7 +427,7 @@ def save_results(results: dict, output_dir: Path) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Benchmark the programmatic extractor against the LLM ground-truth corpus."
+        description="Benchmark extraction strategies against the LLM ground-truth corpus."
     )
     parser.add_argument(
         "--corpus-dir",
@@ -331,12 +451,28 @@ def main() -> None:
         action="store_true",
         help="Force word-overlap scoring even if sentence-transformers is available",
     )
+    parser.add_argument(
+        "--strategy",
+        choices=["programmatic", "hybrid-haiku", "hybrid-sonnet", "direct-haiku"],
+        default="programmatic",
+        help="Extraction strategy to benchmark (default: programmatic)",
+    )
+    parser.add_argument(
+        "--alpha",
+        type=float,
+        default=0.5,
+        help="Blend weight for dual composite: 1.0=similarity only, 0.0=factual only (default: 0.5)",
+    )
     args = parser.parse_args()
 
-    results = run_benchmark(
-        args.corpus_dir,
-        verbose=args.verbose,
-        use_embeddings=not args.no_embeddings,
+    results = asyncio.run(
+        run_benchmark(
+            args.corpus_dir,
+            verbose=args.verbose,
+            use_embeddings=not args.no_embeddings,
+            strategy=args.strategy,
+            alpha=args.alpha,
+        )
     )
     print_report(results)
     save_results(results, args.output_dir)
