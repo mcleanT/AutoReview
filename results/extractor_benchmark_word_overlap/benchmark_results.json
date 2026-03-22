@@ -1,0 +1,182 @@
+{
+  "timestamp": "2026-03-22T01:26:46.217302+00:00",
+  "scoring_mode": "word-overlap",
+  "n_papers": 220,
+  "n_full_text": 198,
+  "n_abstract_only": 22,
+  "n_errors": 0,
+  "elapsed_seconds": 6.27,
+  "overall_composite": 0.2552,
+  "avg_field_scores": {
+    "key_findings": 0.1247,
+    "evidence_strength": 0.6455,
+    "quantitative_result": 0.2244,
+    "methods_summary": 0.0806,
+    "limitations": 0.0704,
+    "study_design": 0.7318,
+    "quality_score": 0.8171,
+    "sample_size": 0.2864
+  },
+  "worst_10": [
+    {
+      "paper_id": "6dc170bdef6946d4a216d314fe3f6507",
+      "title": "Large Language Models for Code Generation: A Comprehensive Survey of Challenges,",
+      "has_full_text": true,
+      "composite": 0.0947,
+      "field_scores": {
+        "key_findings": 0.0517,
+        "evidence_strength": 0.2667,
+        "quantitative_result": 0.0,
+        "methods_summary": 0.1043,
+        "limitations": 0.0506,
+        "study_design": 0.0,
+        "quality_score": 0.7987,
+        "sample_size": 0.0
+      }
+    },
+    {
+      "paper_id": "77149f0655534e19aeb1a1a6c4f82768",
+      "title": "CYBERSECEVAL 3: Advancing the Evaluation of Cybersecurity Risks and Capabilities",
+      "has_full_text": true,
+      "composite": 0.0961,
+      "field_scores": {
+        "key_findings": 0.0866,
+        "evidence_strength": 0.3636,
+        "quantitative_result": 0.0,
+        "methods_summary": 0.0088,
+        "limitations": 0.0,
+        "study_design": 0.0,
+        "quality_score": 0.8392,
+        "sample_size": 0.0
+      }
+    },
+    {
+      "paper_id": "a6618d3328154cdba7a40d514557d04a",
+      "title": "Assessment of ChatGPT performance in orbital MRI reporting with multimetric eval",
+      "has_full_text": true,
+      "composite": 0.1014,
+      "field_scores": {
+        "key_findings": 0.1289,
+        "evidence_strength": 0.0,
+        "quantitative_result": 0.1429,
+        "methods_summary": 0.0154,
+        "limitations": 0.0143,
+        "study_design": 0.0,
+        "quality_score": 0.78,
+        "sample_size": 0.0
+      }
+    },
+    {
+      "paper_id": "e75619dc7174410f87144b3af78767ea",
+      "title": "LocalValueBench: A Collaboratively Built and Extensible Benchmark for Evaluating",
+      "has_full_text": true,
+      "composite": 0.105,
+      "field_scores": {
+        "key_findings": 0.1222,
+        "evidence_strength": 0.0,
+        "quantitative_result": 0.1429,
+        "methods_summary": 0.0,
+        "limitations": 0.0822,
+        "study_design": 0.0,
+        "quality_score": 0.8157,
+        "sample_size": 0.0
+      }
+    },
+    {
+      "paper_id": "5e8a5b25f2b74a2bb2c9be3ee272b4a7",
+      "title": "From LLM Reasoning to Autonomous AI Agents: A Comprehensive Review",
+      "has_full_text": true,
+      "composite": 0.1132,
+      "field_scores": {
+        "key_findings": 0.0575,
+        "evidence_strength": 0.2,
+        "quantitative_result": 0.07,
+        "methods_summary": 0.1722,
+        "limitations": 0.0163,
+        "study_design": 0.0,
+        "quality_score": 0.9851,
+        "sample_size": 0.0
+      }
+    },
+    {
+      "paper_id": "2ad10645e9144b4992e24465ee74bd6e",
+      "title": "VMLU Benchmarks: A comprehensive benchmark toolkit for Vietnamese LLMs",
+      "has_full_text": true,
+      "composite": 0.1186,
+      "field_scores": {
+        "key_findings": 0.1092,
+        "evidence_strength": 0.5833,
+        "quantitative_result": 0.0278,
+        "methods_summary": 0.0108,
+        "limitations": 0.1014,
+        "study_design": 0.0,
+        "quality_score": 0.6518,
+        "sample_size": 0.0
+      }
+    },
+    {
+      "paper_id": "c42e0995a6db4493b666ad0385524e92",
+      "title": "Emergent Abilities of Large Language Models",
+      "has_full_text": true,
+      "composite": 0.1271,
+      "field_scores": {
+        "key_findings": 0.1028,
+        "evidence_strength": 0.4286,
+        "quantitative_result": 0.1429,
+        "methods_summary": 0.1033,
+        "limitations": 0.0262,
+        "study_design": 0.0,
+        "quality_score": 0.7867,
+        "sample_size": 0.0
+      }
+    },
+    {
+      "paper_id": "634809bf44a44edc8ae9d7cd492df418",
+      "title": "The Vulnerability of Language Model Benchmarks: Do They Accurately Reflect True ",
+      "has_full_text": true,
+      "composite": 0.1294,
+      "field_scores": {
+        "key_findings": 0.0767,
+        "evidence_strength": 0.7692,
+        "quantitative_result": 0.1538,
+        "methods_summary": 0.0516,
+        "limitations": 0.0326,
+        "study_design": 0.0,
+        "quality_score": 0.8312,
+        "sample_size": 0.0
+      }
+    },
+    {
+      "paper_id": "7366889bc0fc4230a8ea9d20ad1db0b9",
+      "title": "Large Language Models: A Survey",
+      "has_full_text": true,
+      "composite": 0.1373,
+      "field_scores": {
+        "key_findings": 0.0749,
+        "evidence_strength": 0.2143,
+        "quantitative_result": 0.7143,
+        "methods_summary": 0.0833,
+        "limitations": 0.0198,
+        "study_design": 0.0,
+        "quality_score": 0.9282,
+        "sample_size": 0.0
+      }
+    },
+    {
+      "paper_id": "b7e9bc35c4df436182e8aae6e935164d",
+      "title": "Comparative analysis of large language models in clinical diagnosis: performance",
+      "has_full_text": true,
+      "composite": 0.1374,
+      "field_scores": {
+        "key_findings": 0.1517,
+        "evidence_strength": 0.6,
+        "quantitative_result": 0.0,
+        "methods_summary": 0.0103,
+        "limitations": 0.0444,
+        "study_design": 0.0,
+        "quality_score": 0.8144,
+        "sample_size": 0.0
+      }
+    }
+  ]
+}

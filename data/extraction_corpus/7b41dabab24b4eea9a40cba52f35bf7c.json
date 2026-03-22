@@ -1,0 +1,108 @@
+{
+  "paper_id": "7b41dabab24b4eea9a40cba52f35bf7c",
+  "metadata": {
+    "title": "Chatbots in the ICU: Unveiling the Accuracy and Limitations of AI in Critical Care Knowledge Assessment",
+    "authors": [
+      "Krishna Chaitanya",
+      "N. Pavan",
+      "Kumar Reddy",
+      "Srinivas Gpvn"
+    ],
+    "year": 2024,
+    "journal": "Indian Journal of Critical Care Medicine : Peer-reviewed, Official Publication of Indian Society of Critical Care Medicine",
+    "doi": "10.5005/jaypee-journals-10071-24667.49",
+    "citation_count": 1,
+    "source_database": "semantic_scholar"
+  },
+  "abstract": "Introduction The emergence of AI-based language learner models (LLMs) has revolutionized various fields, including healthcare. LLMs have demonstrated exceptional abilities in processing and understanding vast amounts of text data, raising the question of their potential in medical education and knowledge assessment. This study aims to explore the efficacy of LLMs in the critical care medicine domain, a complex and dynamic field requiring rapid decision-making and deep clinical understanding. Aims and objectives Evaluate the ability of LLMs to accurately answer multiple-choice questions (MCQs) and open-ended questions related to critical care medicine scenarios. Analyze the strengths and limitations of LLM responses in terms of reasoning, precision, and knowledge application. Compare the performance of LLMs with established benchmarks, such as medical textbooks or expert opinions, to assess their potential as a learning and assessment tool in critical care medicine. Methods: Scenario selection A diverse set of 39 clinical scenarios spanning various critical care subspecialties were carefully chosen to represent the complexities and challenges encountered in real-world practice. These scenarios were presented in a mix of MCQs with single-best answer choices and open-ended questions requiring detailed explanations. Data Collection: LLMs were prompted with the prepared scenarios and their responses were recorded for analysis. This could involve multiple LLMs to assess consistency and variation in performance. Response evaluation Each LLM response was evaluated by a panel of critical care physicians against established criteria, including accuracy, comprehensiveness, reasoning, and practical applicability. The scoring system and evaluation metrics should be clearly defined to ensure objectivity and reliability. Benchmarking LLM performance was compared to established benchmarks, such as textbook answers, expert opinions, or gold standards in critical care management. This comparison would allow for a more nuanced understanding of LLM strengths and weaknesses in the context of existing knowledge resources. Results The AI model failed in basic management of certain clinical scenarios which can jeopardise the safety of the patient. The differential diagnosis provided by LLM was exhaustive but not according to the most common cause & this can lead to unnecessary, inappropriate investigations and workup missing the common causes of the disease. LLM had some difficulty in providing appropriate reasoning for data interpretation in an ICU and troubleshooting critical incidents. LLM struggled with answering rare hypothetical critical care scenarios but provided adequate responses regarding ethics and communication, including conflict management. Resuscitation of critically ill patients was not appropriate in certain clinical scenarios The unreliability in such situations is a very serious concern. The LLM could provide Individual Scoring of disease conditions but struggled in calculation of scores of certain diseases and this can affect the prognostication of the diseases Conclusion This study represents a significant step forward in exploring the potential of AI-based language learner models (LLMs) for learning and assessment in critical care medicine. By evaluating LLM performance on diverse scenarios and comparing it to established benchmarks, the study provides valuable insights into their strengths and limitations. Strengths: Pioneering approach: This study is the first of its kind to investigate LLM efficacy in the complex domain of critical care medicine. Comprehensive assessment: The study examined LLM performance on various question formats, encompassing both factual recall and reasoning skills. Expert evaluation: Responses were evaluated by experienced critical care physicians, ensuring accuracy and clinical relevance. Findings: LLMs demonstrated promising capabilities in answering MCQs and open-ended questions with high accuracy and comprehensiveness. They excelled in providing ethical and communication-related responses, highlighting their potential for training in these crucial areas. However, limitations were identified in certain aspects, including: Management of specific scenarios: LLMs struggled with basic management in some cases, raising concerns about patient safety. Prioritization of differential diagnoses: Exhaustive but not prioritized differential diagnoses could lead to unnecessary investigations. Reasoning and data interpretation: LLM responses lacked detailed reasoning and troubleshooting skills in critical situations. Rare scenarios and resuscitation: LLMs performed poorly on rare scenarios and resuscitation protocols. Disease scoring: Limitations in calculating specific disease scores could affect prognostication. Overall: This study demonstrates the potential of LLMs for learning and assessment in critical care but also highlights areas requiring further development. Future research should focus on: Addressing identified limitations: Enhance LLM capabilities in critical scenario management, reasoning, and data interpretation. Incorporating image and waveform analysis: Integrate LLM with visual data analysis for a more comprehensive assessment. Testing advanced LLM versions: Evaluate the performance of newer and paid models for potential improvements. Expanding scenario scope: Include a wider range of critical care scenarios for a more generalizable assessment. By addressing these limitations and conducting further research, LLMs can evolve into valuable tools for enhancing critical care education, assessment, and ultimately, patient outcomes.",
+  "full_text": "The emergence of AI-based language learner models (LLMs) has revolutionized various fields, including healthcare. LLMs have demonstrated exceptional abilities in processing and understanding vast amounts of text data, raising the question of their potential in medical education and knowledge assessment. This study aims to explore the efficacy of LLMs in the critical care medicine domain, a complex and dynamic field requiring rapid decision-making and deep clinical understanding.\nEvaluate the ability of LLMs to accurately answer multiple-choice questions (MCQs) and open-ended questions related to critical care medicine scenarios. Analyze the strengths and limitations of LLM responses in terms of reasoning, precision, and knowledge application. Compare the performance of LLMs with established benchmarks, such as medical textbooks or expert opinions, to assess their potential as a learning and assessment tool in critical care medicine.\nA diverse set of 39 clinical scenarios spanning various critical care subspecialties were carefully chosen to represent the complexities and challenges encountered in real-world practice. These scenarios were presented in a mix of MCQs with single-best answer choices and open-ended questions requiring detailed explanations. Data Collection: LLMs were prompted with the prepared scenarios and their responses were recorded for analysis. This could involve multiple LLMs to assess consistency and variation in performance.\nEach LLM response was evaluated by a panel of critical care physicians against established criteria, including accuracy, comprehensiveness, reasoning, and practical applicability. The scoring system and evaluation metrics should be clearly defined to ensure objectivity and reliability.\nLLM performance was compared to established benchmarks, such as textbook answers, expert opinions, or gold standards in critical care management. This comparison would allow for a more nuanced understanding of LLM strengths and weaknesses in the context of existing knowledge resources.\nThe AI model failed in basic management of certain clinical scenarios which can jeopardise the safety of the patient.\nThe differential diagnosis provided by LLM was exhaustive but not according to the most common cause & this can lead to unnecessary, inappropriate investigations and workup missing the common causes of the disease.\nLLM had some difficulty in providing appropriate reasoning for data interpretation in an ICU and troubleshooting critical incidents.\nLLM struggled with answering rare hypothetical critical care scenarios but provided adequate responses regarding ethics and communication, including conflict management.\nResuscitation of critically ill patients was not appropriate in certain clinical scenarios The unreliability in such situations is a very serious concern.\nThe LLM could provide Individual Scoring of disease conditions but struggled in calculation of scores of certain diseases and this can affect the prognostication of the diseases\nThis study represents a significant step forward in exploring the potential of AI-based language learner models (LLMs) for learning and assessment in critical care medicine. By evaluating LLM performance on diverse scenarios and comparing it to established benchmarks, the study provides valuable insights into their strengths and limitations.Strengths:Pioneering approach: This study is the first of its kind to investigate LLM efficacy in the complex domain of critical care medicine. Comprehensive assessment: The study examined LLM performance on various question formats, encompassing both factual recall and reasoning skills. Expert evaluation: Responses were evaluated by experienced critical care physicians, ensuring accuracy and clinical relevance.Findings:LLMs demonstrated promising capabilities in answering MCQs and open-ended questions with high accuracy and comprehensiveness. They excelled in providing ethical and communication-related responses, highlighting their potential for training in these crucial areas. However, limitations were identified in certain aspects, including:Management of specific scenarios:LLMs struggled with basic management in some cases, raising concerns about patient safety.Prioritization of differential diagnoses:Exhaustive but not prioritized differential diagnoses could lead to unnecessary investigations.Reasoning and data interpretation:LLM responses lacked detailed reasoning and troubleshooting skills in critical situations. Rare scenarios and resuscitation: LLMs performed poorly on rare scenarios and resuscitation protocols.Disease scoring:Limitations in calculating specific disease scores could affect prognostication.Overall:This study demonstrates the potential of LLMs for learning and assessment in critical care but also highlights areas requiring further development. Future research should focus on:Addressing identified limitations:Enhance LLM capabilities in critical scenario management, reasoning, and data interpretation. Incorporating image and waveform analysis: Integrate LLM with visual data analysis for a more comprehensive assessment. Testing advanced LLM versions: Evaluate the performance of newer and paid models for potential improvements. Expanding scenario scope: Include a wider range of critical care scenarios for a more generalizable assessment. By addressing these limitations and conducting further research, LLMs can evolve into valuable tools for enhancing critical care education, assessment, and ultimately, patient outcomes.\nAnalysis of answers\nhttps://docs.google.com/document/d/11YBrisz_-VlG8qCv4AgLLQOe_J4mGNRH/edit?usp=drivesdk&ouid=111777655785033074614&rtpof=true&sd=true\nhttps://docs.google.com/document/d/11YBrisz_-VlG8qCv4AgLLQOe_J4mGNRH/edit?usp=drivesdk&ouid=111777655785033074614&rtpof=true&sd=true\nChatgpt, BARD are supervised learning models and and as per terms of use, users have the right to reproduce text generated by ChatGPT during conversations and do not cause proprietary infringement.",
+  "full_text_source": "pmc",
+  "llm_extraction": {
+    "id": "extraction-chatbots-icu-2024",
+    "created_at": "2026-03-21T00:00:00Z",
+    "paper_id": "7b41dabab24b4eea9a40cba52f35bf7c",
+    "key_findings": [
+      {
+        "claim": "LLMs demonstrated promising capabilities in answering MCQs and open-ended questions about critical care medicine with high accuracy and comprehensiveness.",
+        "evidence_strength": "weak",
+        "quantitative_result": null,
+        "context": "Evaluated across 39 diverse clinical scenarios by a panel of critical care physicians.",
+        "paper_id": "chatbots-icu-critical-care-knowledge-assessment"
+      },
+      {
+        "claim": "LLMs excelled in providing ethical and communication-related responses, including conflict management, in critical care contexts.",
+        "evidence_strength": "weak",
+        "quantitative_result": null,
+        "context": "Specifically noted as a relative strength compared to clinical management tasks.",
+        "paper_id": "chatbots-icu-critical-care-knowledge-assessment"
+      },
+      {
+        "claim": "LLMs failed in basic management of certain clinical scenarios in ways that could jeopardize patient safety.",
+        "evidence_strength": "weak",
+        "quantitative_result": null,
+        "context": "Identified during expert physician evaluation of LLM responses against established critical care standards.",
+        "paper_id": "chatbots-icu-critical-care-knowledge-assessment"
+      },
+      {
+        "claim": "LLM-generated differential diagnoses were exhaustive but not prioritized by most common causes, risking unnecessary and inappropriate investigations.",
+        "evidence_strength": "weak",
+        "quantitative_result": null,
+        "context": "A systematic pattern observed across evaluated clinical scenarios.",
+        "paper_id": "chatbots-icu-critical-care-knowledge-assessment"
+      },
+      {
+        "claim": "LLMs had difficulty providing appropriate reasoning for data interpretation and troubleshooting critical incidents in the ICU.",
+        "evidence_strength": "weak",
+        "quantitative_result": null,
+        "context": "Relates to applied reasoning rather than factual recall; identified as a distinct limitation from knowledge gaps.",
+        "paper_id": "chatbots-icu-critical-care-knowledge-assessment"
+      },
+      {
+        "claim": "LLMs performed poorly on rare hypothetical critical care scenarios.",
+        "evidence_strength": "weak",
+        "quantitative_result": null,
+        "context": "Performance degraded for edge-case and rare clinical presentations.",
+        "paper_id": "chatbots-icu-critical-care-knowledge-assessment"
+      },
+      {
+        "claim": "LLM-generated resuscitation guidance for critically ill patients was inappropriate in certain clinical scenarios, representing a serious patient safety concern.",
+        "evidence_strength": "weak",
+        "quantitative_result": null,
+        "context": "Resuscitation protocols represent a high-stakes, time-sensitive domain where LLM errors are especially consequential.",
+        "paper_id": "chatbots-icu-critical-care-knowledge-assessment"
+      },
+      {
+        "claim": "LLMs could identify individual disease scoring criteria but struggled with accurately calculating composite disease severity scores, potentially affecting prognostication.",
+        "evidence_strength": "weak",
+        "quantitative_result": null,
+        "context": "Score calculation errors identified across multiple disease conditions.",
+        "paper_id": "chatbots-icu-critical-care-knowledge-assessment"
+      }
+    ],
+    "methods_summary": "Thirty-nine clinical scenarios spanning diverse critical care subspecialties were designed to reflect real-world ICU complexity. Scenarios included both multiple-choice questions (MCQs) with single-best-answer format and open-ended questions requiring detailed explanations. LLMs (including ChatGPT and BARD) were prompted with each scenario and responses were recorded. A panel of critical care physicians evaluated each response against established criteria: accuracy, comprehensiveness, reasoning, and practical applicability. LLM performance was compared against benchmarks including textbook answers and expert opinions.",
+    "limitations": "The study evaluated only 39 scenarios, limiting generalizability. No quantitative performance metrics, effect sizes, or statistical comparisons are reported, making it impossible to assess the magnitude of differences. The evaluation rubric and scoring system are described qualitatively without operational definitions, raising concerns about inter-rater reliability and objectivity. Only free-tier models (ChatGPT and BARD) were tested; newer or paid model versions were not assessed. No image or waveform analysis was incorporated, limiting applicability to real ICU decision-making. The study lacks a control condition or blinded evaluation design. The number of evaluating physicians and inter-rater agreement are not reported. Scenario selection criteria are not fully specified, introducing potential selection bias.",
+    "relationships": [],
+    "methodology_details": {
+      "approach": "Expert panel evaluation of LLM responses to structured clinical scenarios (MCQs and open-ended questions) in critical care medicine, compared against textbook and expert benchmarks.",
+      "datasets": [
+        "39 curated critical care clinical scenarios (ICU subspecialties)"
+      ],
+      "metrics": [
+        "Accuracy",
+        "Comprehensiveness",
+        "Reasoning quality",
+        "Practical applicability"
+      ],
+      "reproducibility_notes": "No formal scoring rubric or inter-rater reliability data reported. Responses were qualitatively assessed by critical care physicians; quantitative results not provided. External analysis document referenced via Google Drive link."
+    },
+    "domain_specific_fields": {
+      "benchmark": "Textbook answers and expert critical care physician opinions",
+      "metrics": "Accuracy, comprehensiveness, reasoning, practical applicability (qualitative expert assessment)",
+      "model_architecture": "ChatGPT (supervised learning / RLHF-based LLM), BARD (supervised learning / LLM); described by authors as 'supervised learning models'",
+      "dataset": "39 ICU clinical scenarios covering multiple critical care subspecialties, including MCQs and open-ended questions"
+    },
+    "study_design": "other",
+    "quality_score": 0.2,
+    "sample_size": 39
+  }
+}

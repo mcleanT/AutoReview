@@ -1,0 +1,1 @@
+{"timestamp": "2026-03-22T01:26:46.217302+00:00", "scoring_mode": "word-overlap", "n_papers": 220, "overall_composite": 0.2552, "avg_field_scores": {"key_findings": 0.1247, "evidence_strength": 0.6455, "quantitative_result": 0.2244, "methods_summary": 0.0806, "limitations": 0.0704, "study_design": 0.7318, "quality_score": 0.8171, "sample_size": 0.2864}, "elapsed_seconds": 6.27}

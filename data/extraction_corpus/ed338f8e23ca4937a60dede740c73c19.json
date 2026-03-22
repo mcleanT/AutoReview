@@ -1,0 +1,85 @@
+{
+  "paper_id": "ed338f8e23ca4937a60dede740c73c19",
+  "metadata": {
+    "title": "Evaluating Retrieval-Augmented Generation in Scholarly Domains: A Contextual and Semantic Assessment",
+    "authors": [
+      "R. Othman",
+      "Akram M Z M Khedher",
+      "Tengku Mohd Bin Tengku Sembok",
+      "Amelia Ritahani Ismail",
+      "Nur-adib Maspo"
+    ],
+    "year": 2025,
+    "journal": "2025 10th International Conference on Information and Communication Technology for the Muslim World (ICT4M)",
+    "doi": "10.1109/ict4m68001.2025.11363539",
+    "citation_count": 0,
+    "source_database": "semantic_scholar"
+  },
+  "abstract": "Retrieval-Augmented Generation (RAG) has emerged as a promising approach to enhance large language models (LLMs) by grounding outputs in external knowledge sources. This paper evaluates the effectiveness of RAG in scholarly domains through a dual assessment combining automated metrics and human expert validation. BLEU score analysis showed that the system achieved high accuracy in structured, ontology-based queries, with the strongest performance of BLUE score is 0.807 observed in ontology-driven counselling applications, while responses to abstract queries were less precise. Expert evaluation, conducted across six criteria—Correctness, Faithfulness, Completeness, Relevance, Error Categorization, and Overall Judgment—revealed that despite partial correctness and incomplete coverage, the generated outputs were highly relevant and received an overall Excellent rating. These findings demonstrate that RAG can provide contextually meaningful and useful responses in academic applications, while highlighting the need for improvements in retrieval accuracy, evidence grounding, and completeness. Future work will focus on refining retrieval strategies, applying domain-specific fine-tuning, and integrating human-in-the-loop feedback to further strengthen the reliability and scholarly utility of RAG systems",
+  "full_text": null,
+  "full_text_source": null,
+  "llm_extraction": {
+    "id": "11ef3b2a091d4d1ca761c8c04d9d7aac",
+    "created_at": "2026-03-21T23:10:25.820998Z",
+    "paper_id": "ed338f8e23ca4937a60dede740c73c19",
+    "key_findings": [
+      {
+        "claim": "RAG systems achieve high accuracy in structured, ontology-based queries, with a peak BLEU score of 0.807 observed in ontology-driven counselling applications",
+        "evidence_strength": "preliminary",
+        "quantitative_result": "BLEU score = 0.807 (ontology-driven counselling domain)",
+        "context": "Automated BLEU score evaluation across query types in scholarly domains",
+        "paper_id": "rag-scholarly-domains-contextual-semantic-assessment"
+      },
+      {
+        "claim": "RAG system responses to abstract (open-ended) queries are less precise than responses to structured ontology-based queries",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Comparative BLEU score analysis between structured and abstract query types",
+        "paper_id": "rag-scholarly-domains-contextual-semantic-assessment"
+      },
+      {
+        "claim": "Expert human evaluators rated RAG-generated outputs as 'Excellent' overall across six evaluation criteria despite partial correctness and incomplete coverage",
+        "evidence_strength": "preliminary",
+        "quantitative_result": "Overall Judgment: Excellent rating",
+        "context": "Human expert evaluation across Correctness, Faithfulness, Completeness, Relevance, Error Categorization, and Overall Judgment",
+        "paper_id": "rag-scholarly-domains-contextual-semantic-assessment"
+      },
+      {
+        "claim": "RAG-generated scholarly outputs are highly relevant even when correctness and completeness are only partial",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Discrepancy between partial correctness/completeness scores and high relevance ratings in expert evaluation",
+        "paper_id": "rag-scholarly-domains-contextual-semantic-assessment"
+      }
+    ],
+    "methods_summary": "Dual assessment framework combining automated metrics and human expert validation. Automated evaluation used BLEU score analysis across query types, including structured ontology-based and abstract queries in scholarly domains, with a specific application in ontology-driven counselling. Human expert evaluation assessed six criteria: Correctness, Faithfulness, Completeness, Relevance, Error Categorization, and Overall Judgment. The RAG system grounded LLM outputs in external knowledge sources.",
+    "limitations": "Only the abstract is available, limiting full methodological assessment. From the abstract: (1) Partial correctness in generated outputs; (2) Incomplete coverage of queried content; (3) Reduced precision for abstract/open-ended queries compared to structured ontology-based queries; (4) Need for improvements in retrieval accuracy, evidence grounding, and completeness; (5) No details on sample size, number of queries evaluated, inter-rater reliability, or specific LLM/retrieval architectures used.",
+    "relationships": [],
+    "methodology_details": {
+      "approach": "RAG (Retrieval-Augmented Generation) evaluation using dual automated and human expert assessment in scholarly domains",
+      "datasets": [
+        "Ontology-driven counselling application queries",
+        "Scholarly domain queries (structured and abstract types)"
+      ],
+      "metrics": [
+        "BLEU score",
+        "Expert Correctness rating",
+        "Expert Faithfulness rating",
+        "Expert Completeness rating",
+        "Expert Relevance rating",
+        "Expert Error Categorization",
+        "Expert Overall Judgment"
+      ],
+      "reproducibility_notes": "Insufficient detail in abstract to assess reproducibility; no code, data, or model identifiers reported"
+    },
+    "domain_specific_fields": {
+      "benchmark": "Dual assessment: BLEU score (automated) + six-criteria human expert evaluation",
+      "metrics": "BLEU score (peak 0.807 in ontology domain); expert ratings: Correctness, Faithfulness, Completeness, Relevance, Error Categorization, Overall Judgment (Excellent)",
+      "model_architecture": "Retrieval-Augmented Generation (RAG) over external knowledge sources; specific LLM backbone not reported",
+      "dataset": "Ontology-driven counselling application; broader scholarly domain queries (structured vs. abstract); specific dataset identities not reported"
+    },
+    "study_design": "computational",
+    "quality_score": 0.35,
+    "sample_size": null
+  }
+}

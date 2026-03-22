@@ -1,0 +1,204 @@
+{
+  "timestamp": "2026-03-22T01:27:10.289865+00:00",
+  "scoring_mode": "embedding (all-MiniLM-L6-v2)",
+  "n_papers": 220,
+  "n_full_text": 198,
+  "n_abstract_only": 22,
+  "n_errors": 0,
+  "elapsed_seconds": 18.82,
+  "overall_composite": 0.4402,
+  "avg_field_scores": {
+    "key_findings": 0.5873,
+    "evidence_strength": 0.6455,
+    "quantitative_result": 0.2244,
+    "methods_summary": 0.0806,
+    "limitations": 0.0704,
+    "study_design": 0.7318,
+    "quality_score": 0.8171,
+    "sample_size": 0.2864,
+    "key_findings_precision": 0.7485,
+    "key_findings_recall": 0.797
+  },
+  "worst_10": [
+    {
+      "paper_id": "50ecfb5753fd4301b8e35a97443cb8a2",
+      "title": "Survey of Different Large Language Model Architectures: Trends, Benchmarks, and ",
+      "has_full_text": true,
+      "composite": 0.15,
+      "field_scores": {
+        "key_findings": 0.0,
+        "evidence_strength": 1.0,
+        "quantitative_result": 0.0,
+        "methods_summary": 0.0,
+        "limitations": 0.0,
+        "study_design": 0.0,
+        "quality_score": 0.0,
+        "sample_size": 1.0,
+        "key_findings_precision": 0.0,
+        "key_findings_recall": 0.0
+      }
+    },
+    {
+      "paper_id": "441e1e969fd74f96a74d89552204a500",
+      "title": "PandaGuard: Systematic Evaluation of LLM Safety against Jailbreaking Attacks",
+      "has_full_text": false,
+      "composite": 0.162,
+      "field_scores": {
+        "key_findings": 0.0,
+        "evidence_strength": 0.0,
+        "quantitative_result": 0.0,
+        "methods_summary": 0.0526,
+        "limitations": 0.0541,
+        "study_design": 0.0,
+        "quality_score": 0.9741,
+        "sample_size": 1.0,
+        "key_findings_precision": 0.0,
+        "key_findings_recall": 0.0
+      }
+    },
+    {
+      "paper_id": "e75619dc7174410f87144b3af78767ea",
+      "title": "LocalValueBench: A Collaboratively Built and Extensible Benchmark for Evaluating",
+      "has_full_text": true,
+      "composite": 0.2616,
+      "field_scores": {
+        "key_findings": 0.5137,
+        "evidence_strength": 0.0,
+        "quantitative_result": 0.1429,
+        "methods_summary": 0.0,
+        "limitations": 0.0822,
+        "study_design": 0.0,
+        "quality_score": 0.8157,
+        "sample_size": 0.0,
+        "key_findings_precision": 0.5333,
+        "key_findings_recall": 0.5714
+      }
+    },
+    {
+      "paper_id": "634809bf44a44edc8ae9d7cd492df418",
+      "title": "The Vulnerability of Language Model Benchmarks: Do They Accurately Reflect True ",
+      "has_full_text": true,
+      "composite": 0.2656,
+      "field_scores": {
+        "key_findings": 0.4172,
+        "evidence_strength": 0.7692,
+        "quantitative_result": 0.1538,
+        "methods_summary": 0.0516,
+        "limitations": 0.0326,
+        "study_design": 0.0,
+        "quality_score": 0.8312,
+        "sample_size": 0.0,
+        "key_findings_precision": 0.2667,
+        "key_findings_recall": 0.3846
+      }
+    },
+    {
+      "paper_id": "77149f0655534e19aeb1a1a6c4f82768",
+      "title": "CYBERSECEVAL 3: Advancing the Evaluation of Cybersecurity Risks and Capabilities",
+      "has_full_text": true,
+      "composite": 0.2661,
+      "field_scores": {
+        "key_findings": 0.5116,
+        "evidence_strength": 0.3636,
+        "quantitative_result": 0.0,
+        "methods_summary": 0.0088,
+        "limitations": 0.0,
+        "study_design": 0.0,
+        "quality_score": 0.8392,
+        "sample_size": 0.0,
+        "key_findings_precision": 0.5333,
+        "key_findings_recall": 0.8182
+      }
+    },
+    {
+      "paper_id": "5e8a5b25f2b74a2bb2c9be3ee272b4a7",
+      "title": "From LLM Reasoning to Autonomous AI Agents: A Comprehensive Review",
+      "has_full_text": true,
+      "composite": 0.2692,
+      "field_scores": {
+        "key_findings": 0.4475,
+        "evidence_strength": 0.2,
+        "quantitative_result": 0.07,
+        "methods_summary": 0.1722,
+        "limitations": 0.0163,
+        "study_design": 0.0,
+        "quality_score": 0.9851,
+        "sample_size": 0.0,
+        "key_findings_precision": 0.3333,
+        "key_findings_recall": 0.3529
+      }
+    },
+    {
+      "paper_id": "7366889bc0fc4230a8ea9d20ad1db0b9",
+      "title": "Large Language Models: A Survey",
+      "has_full_text": true,
+      "composite": 0.2816,
+      "field_scores": {
+        "key_findings": 0.4357,
+        "evidence_strength": 0.2143,
+        "quantitative_result": 0.7143,
+        "methods_summary": 0.0833,
+        "limitations": 0.0198,
+        "study_design": 0.0,
+        "quality_score": 0.9282,
+        "sample_size": 0.0,
+        "key_findings_precision": 0.5333,
+        "key_findings_recall": 0.5
+      }
+    },
+    {
+      "paper_id": "c42e0995a6db4493b666ad0385524e92",
+      "title": "Emergent Abilities of Large Language Models",
+      "has_full_text": true,
+      "composite": 0.2852,
+      "field_scores": {
+        "key_findings": 0.4978,
+        "evidence_strength": 0.4286,
+        "quantitative_result": 0.1429,
+        "methods_summary": 0.1033,
+        "limitations": 0.0262,
+        "study_design": 0.0,
+        "quality_score": 0.7867,
+        "sample_size": 0.0,
+        "key_findings_precision": 1.0,
+        "key_findings_recall": 0.7143
+      }
+    },
+    {
+      "paper_id": "a6618d3328154cdba7a40d514557d04a",
+      "title": "Assessment of ChatGPT performance in orbital MRI reporting with multimetric eval",
+      "has_full_text": true,
+      "composite": 0.2857,
+      "field_scores": {
+        "key_findings": 0.5896,
+        "evidence_strength": 0.0,
+        "quantitative_result": 0.1429,
+        "methods_summary": 0.0154,
+        "limitations": 0.0143,
+        "study_design": 0.0,
+        "quality_score": 0.78,
+        "sample_size": 0.0,
+        "key_findings_precision": 0.8,
+        "key_findings_recall": 0.8571
+      }
+    },
+    {
+      "paper_id": "9ac63daed2d34867897845b521300708",
+      "title": "A Survey on Large Language Models with some Insights on their Capabilities and L",
+      "has_full_text": true,
+      "composite": 0.2944,
+      "field_scores": {
+        "key_findings": 0.4102,
+        "evidence_strength": 0.8571,
+        "quantitative_result": 0.7143,
+        "methods_summary": 0.0833,
+        "limitations": 0.0496,
+        "study_design": 0.0,
+        "quality_score": 0.6857,
+        "sample_size": 0.0,
+        "key_findings_precision": 0.3333,
+        "key_findings_recall": 0.2857
+      }
+    }
+  ]
+}

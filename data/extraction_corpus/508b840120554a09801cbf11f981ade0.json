@@ -1,0 +1,74 @@
+{
+  "paper_id": "508b840120554a09801cbf11f981ade0",
+  "metadata": {
+    "title": "Exploring and Mitigating Shortcut Learning for Generative Large Language Models",
+    "authors": [
+      "Zechen Sun",
+      "Yisheng Xiao",
+      "Juntao Li",
+      "Yixin Ji",
+      "Wenliang Chen",
+      "Min Zhang"
+    ],
+    "year": 2024,
+    "journal": null,
+    "doi": "10.63317/4z4vjvv2kxaj",
+    "citation_count": 8,
+    "source_database": "semantic_scholar"
+  },
+  "abstract": "Recent generative large language models (LLMs) have exhibited incredible instruction-following capabilities while keeping strong task completion ability, even without task-specific fine-tuning. Some works attribute this to the bonus of the new scaling law, in which the continuous improvement of model capacity yields emergent capabilities, e.g., reasoning and universal generalization. However, we point out that recent LLMs still show shortcut learning behavior, where the models tend to exploit spurious correlations between non-robust features and labels for prediction, which might lead to overestimating model capabilities. LLMs memorize more complex spurious correlations (i.e., task \\leftrightarrow feature \\leftrightarrow label) compared with that learned from previous pre-training and task-specific fine-tuning paradigm (i.e., feature \\leftrightarrow label). Based on our findings, we propose FSLI, a framework for encouraging LLMs to Forget Spurious correlations and Learn from In-context information. Experiments on three tasks show that FSFI can effectively mitigate shortcut learning. Besides, we argue not to overestimate the capabilities of LLMs and conduct evaluations in more challenging and complete test scenarios.",
+  "full_text": null,
+  "full_text_source": null,
+  "llm_extraction": {
+    "id": "a3f8c2d1-7e4b-4a9f-b521-e6c3d8f01234",
+    "created_at": "2026-03-21T00:00:00Z",
+    "paper_id": "508b840120554a09801cbf11f981ade0",
+    "key_findings": [
+      {
+        "claim": "Recent generative LLMs still exhibit shortcut learning behavior, exploiting spurious correlations between non-robust features and labels for prediction.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Observed across generative LLMs despite their strong instruction-following and task completion capabilities.",
+        "paper_id": "shortcut-learning-llm-fsli"
+      },
+      {
+        "claim": "LLMs memorize more complex spurious correlations (task ↔ feature ↔ label) compared to those learned in previous pre-training and task-specific fine-tuning paradigms (feature ↔ label only).",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "The triadic correlation structure is argued to be a distinct and more complex failure mode introduced by instruction-following LLMs.",
+        "paper_id": "shortcut-learning-llm-fsli"
+      },
+      {
+        "claim": "Shortcut learning in LLMs leads to overestimation of model capabilities when evaluated on standard benchmarks.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Authors argue that current evaluations are insufficiently challenging to expose shortcut-driven performance.",
+        "paper_id": "shortcut-learning-llm-fsli"
+      },
+      {
+        "claim": "The FSLI (Forget Spurious correlations and Learn from In-context information) framework effectively mitigates shortcut learning in LLMs across three tasks.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Experimental validation on three unspecified tasks; no quantitative results reported in abstract.",
+        "paper_id": "shortcut-learning-llm-fsli"
+      }
+    ],
+    "methods_summary": "The paper conducts an empirical analysis of shortcut learning in generative LLMs and proposes FSLI, a framework that encourages models to forget spurious correlations and instead rely on in-context information for prediction. Experiments are conducted on three tasks under more challenging and complete evaluation scenarios designed to expose shortcut-driven behavior.",
+    "limitations": "Only an abstract is available; no quantitative results, dataset names, or model identities are disclosed. Experiments cover only three tasks, limiting generalizability claims. The mechanism by which FSLI achieves mitigation is not described in the abstract. The emergent-capability framing is assumed rather than rigorously tested against scaling baselines.",
+    "relationships": [],
+    "methodology_details": {
+      "approach": "Empirical analysis of shortcut learning behavior in instruction-following LLMs followed by proposal and evaluation of the FSLI mitigation framework using in-context learning signals.",
+      "datasets": [],
+      "metrics": [],
+      "reproducibility_notes": "No dataset, model, or code availability information provided in abstract."
+    },
+    "domain_specific_fields": {
+      "benchmark": "Three unspecified NLP tasks evaluated under challenging and complete test scenarios",
+      "model_architecture": "Generative large language models (instruction-following)",
+      "framework": "FSLI — Forget Spurious correlations and Learn from In-context information"
+    },
+    "study_design": "computational",
+    "quality_score": 0.35,
+    "sample_size": null
+  }
+}

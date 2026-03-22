@@ -1,0 +1,62 @@
+{
+  "paper_id": "17f3ff3554a54918af84e6ebce37b702",
+  "metadata": {
+    "title": "Evaluations of Large Language Models a Bibliometric analysis",
+    "authors": [
+      "Sello Prince Sekwatlakwatla",
+      "Vusumuzi Malele"
+    ],
+    "year": 2024,
+    "journal": "Indonesian Journal of Computer Science",
+    "doi": "10.33022/ijcs.v13i1.3767",
+    "citation_count": 6,
+    "source_database": "semantic_scholar"
+  },
+  "abstract": "The development of artificial intelligence (AI) and the increased curiosity about how large language models (LLMs) may maximize an organization's opportunities and the ethical implications of LLMs, such as the ability to generate human-like text, give rise to concerns regarding disinformation and fake news. As a result, it is crucial to develop evaluation benchmarks that take into account the social and ethical implications involved. The great challenges of LLMs lack awareness of their own limitations, yet they persist in producing responses to the best of their capabilities. This often results in seemingly plausible but ultimately incorrect answers, posing challenges to the implementation of reliable generative AI in industry. This paper aims to delve into the evaluation metrics of machine-learning models' performance, specifically focusing on LLM. Therefore, bibliometric analysis utilized to explore and analyze various techniques and methods used in evaluating large language models. Additionally, it sheds light on the specific areas of focus when evaluating these models. The results show that natural language processing systems, classification of information, and computational linguistics are some of the techniques used to evaluate large language models. This work paves the way for future investigations employing extensive language models.",
+  "full_text": null,
+  "full_text_source": null,
+  "llm_extraction": {
+    "id": "97353325cc5f49e7a52761b208dc7ce5",
+    "created_at": "2026-03-21T22:49:00.195799Z",
+    "paper_id": "17f3ff3554a54918af84e6ebce37b702",
+    "key_findings": [
+      {
+        "claim": "Natural language processing systems, information classification, and computational linguistics are among the primary techniques used to evaluate large language models.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Identified through bibliometric analysis of the LLM evaluation literature",
+        "paper_id": "evaluations-llm-bibliometric"
+      },
+      {
+        "claim": "LLMs lack awareness of their own limitations yet persist in generating responses, producing seemingly plausible but ultimately incorrect answers (hallucinations).",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Identified as a core challenge impeding reliable deployment of generative AI in industry",
+        "paper_id": "evaluations-llm-bibliometric"
+      },
+      {
+        "claim": "Existing LLM evaluation benchmarks are insufficient because they do not adequately account for social and ethical implications such as disinformation and fake news generation.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Motivates the call for ethically-aware evaluation frameworks",
+        "paper_id": "evaluations-llm-bibliometric"
+      }
+    ],
+    "methods_summary": "Bibliometric analysis was used to systematically explore and map techniques and methods applied in evaluating large language models, identifying thematic clusters and areas of focus within the LLM evaluation literature.",
+    "limitations": "Only the abstract is available; full methodology, search strategy, database coverage, date ranges, and quantitative results are inaccessible. The bibliometric approach may miss grey literature or non-indexed evaluation work. No specific performance metrics or comparative results are reported. The abstract does not specify how many papers were included in the corpus.",
+    "relationships": [],
+    "methodology_details": {
+      "approach": "Bibliometric analysis of the LLM evaluation literature to identify dominant evaluation techniques, thematic clusters, and research focus areas",
+      "datasets": [],
+      "metrics": [],
+      "reproducibility_notes": "Search databases, keywords, inclusion/exclusion criteria, and date ranges are not described in the abstract"
+    },
+    "domain_specific_fields": {
+      "benchmark": "Evaluation benchmarks incorporating social and ethical considerations for LLMs",
+      "metrics": "Natural language processing metrics; computational linguistics metrics; information classification performance measures"
+    },
+    "study_design": "systematic_review",
+    "quality_score": 0.25,
+    "sample_size": null
+  }
+}

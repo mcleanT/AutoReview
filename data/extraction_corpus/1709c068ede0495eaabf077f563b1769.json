@@ -1,0 +1,105 @@
+{
+  "paper_id": "1709c068ede0495eaabf077f563b1769",
+  "metadata": {
+    "title": "Human vs. AI: A comparative effectiveness study of large language models for automated biomarker extraction.",
+    "authors": [
+      "Tony Kin Wai Hung",
+      "E. Shin",
+      "Yao Yu",
+      "N. Riaz",
+      "Nancy Y. Lee",
+      "J. J. Kang"
+    ],
+    "year": 2025,
+    "journal": "Journal of Clinical Oncology",
+    "doi": "10.1200/jco.2025.43.16_suppl.e13605",
+    "citation_count": 0,
+    "source_database": "semantic_scholar"
+  },
+  "abstract": "\n e13605\n \n \n Background:\n Unstructured data extraction is essential in oncology, with use cases spanning from individual patient care to system-wide applications like cancer registry reporting. However, it remains a semi-manual, time-intensive process that lacks real-time integration. Large language models (LLMs) have demonstrated remarkable natural language processing capabilities but are prone to inconsistencies and hallucinations, highlighting the need for refinement. As a proof-of-concept study, we optimized a prompt-engineered LLM to extract p16 and HPV biomarker data from unstructured pathology reports in a head & neck oncology population and evaluated its performance, efficiency, and cost-effectiveness against human extractors.\n Methods:\n We analyzed deidentified pathology reports from unique patients with head & neck cancer at Memorial Sloan Kettering Cancer Center. A prompt-engineered LLM, powered by Azure OpenAI GPT-4, a HIPAA complaint sandboxed LLM, extracted p16 and HPV statuses (\"Positive,\" \"Negative,\" or \"Unknown\") using zero-shot prompting. Prompts were optimized using the 5% of reports, with final model applied to remaining 95%. Model outputs were validated against a gold-standard dataset manually annotated by independent human review. Performance was evaluated using precision, recall, and F1-score. Efficiency was measured by an estimated 3-second processing time per report versus 1 minute manually. Cost-effectiveness was determined by comparing LLM’s processing cost of $0.005/report (average 1022 tokens) to manual extraction at a rate of $20/hour, along with a projection of 4,000 reports. MSK IRB approved the study.\n Results:\n Among 284 pathology reports, 132 (46%) included biomarker data: 80 (28%) were p16+, 52 (18%) p16-, 66 (23%) HPV+, and 43 (15%) HPV-. Prompted-engineered LLM extracted p16 status with 99.6% precision and 99.6% recall (F1-score 0.996); and extracted HPV status with 98.0% precision and 98.2% recall (F1-score 0.981). Processing time estimated to be 852 seconds (14.2 minutes). Compared to manual extraction, LLM was estimated to save 4.5 person-hours and $88.5 for 284 reports, with a projected savings of 63.3 hours and $1,247 for 4,000 reports.\n Conclusions:\n This proof-of-concept study demonstrates that a prompt-engineered LLM can accurately extract p16 and HPV biomarker data from unstructured pathology reports with high performance, significantly reducing manual processing time and costs. By optimizing prompt design to mitigate inconsistencies, we enhance the reliability of LLM-driven extraction, highlighting its potential as a real-time, scalable solution for unstructured data processing. Future research is needed to explore LLM applicability to extract other biomarkers, with further optimization on multi-modal integration and clinical implementation to enhance scalability and real-world impact.\n",
+  "full_text": null,
+  "full_text_source": null,
+  "llm_extraction": {
+    "id": "extraction-e13605-llm-biomarker-2026",
+    "created_at": "2026-03-21T00:00:00Z",
+    "paper_id": "1709c068ede0495eaabf077f563b1769",
+    "key_findings": [
+      {
+        "claim": "A prompt-engineered GPT-4 LLM extracted p16 status from pathology reports with 99.6% precision and 99.6% recall (F1-score 0.996), matching near-perfect human-level accuracy.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": "Precision 99.6%, Recall 99.6%, F1-score 0.996 for p16 status",
+        "context": "Validated against a gold-standard manually annotated dataset from 284 deidentified head & neck cancer pathology reports at Memorial Sloan Kettering Cancer Center.",
+        "paper_id": "e13605"
+      },
+      {
+        "claim": "The prompt-engineered GPT-4 LLM extracted HPV status with 98.0% precision and 98.2% recall (F1-score 0.981).",
+        "evidence_strength": "preliminary",
+        "quantitative_result": "Precision 98.0%, Recall 98.2%, F1-score 0.981 for HPV status",
+        "context": "Validated against the same gold-standard dataset; slightly lower performance than p16 extraction.",
+        "paper_id": "e13605"
+      },
+      {
+        "claim": "LLM-based extraction is substantially faster than manual extraction, processing a report in approximately 3 seconds versus 1 minute manually, representing a ~20x speed improvement.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": "3 seconds/report (LLM) vs. 60 seconds/report (manual); total LLM time for 284 reports estimated at 852 seconds (14.2 minutes)",
+        "context": "Efficiency comparison in a proof-of-concept setting; LLM processing time is an estimate.",
+        "paper_id": "e13605"
+      },
+      {
+        "claim": "LLM-based extraction is substantially more cost-effective than manual extraction, at $0.005 per report versus $20 per hour for human extractors.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": "LLM cost: $0.005/report (~1022 tokens average); estimated savings of $88.5 for 284 reports and $1,247 for 4,000 reports",
+        "context": "Cost comparison assumes $20/hour human labor rate; projected savings scale linearly.",
+        "paper_id": "e13605"
+      },
+      {
+        "claim": "Prompt optimization on only 5% of reports was sufficient to achieve high extraction performance on the remaining 95%, demonstrating efficient prompt engineering with minimal labeled data.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": "5% training split (n≈14 reports) for prompt optimization; 95% held-out for evaluation",
+        "context": "Zero-shot prompting with prompt optimization; no fine-tuning of model weights required.",
+        "paper_id": "e13605"
+      },
+      {
+        "claim": "Among 284 pathology reports, 46% contained biomarker data (28% p16+, 18% p16-, 23% HPV+, 15% HPV-).",
+        "evidence_strength": "preliminary",
+        "quantitative_result": "132/284 reports (46%) contained biomarker data; 80 p16+, 52 p16-, 66 HPV+, 43 HPV-",
+        "context": "Descriptive statistics of the head & neck cancer cohort at MSK; represents real-world prevalence in this population.",
+        "paper_id": "e13605"
+      }
+    ],
+    "methods_summary": "Retrospective analysis of 284 deidentified pathology reports from head & neck cancer patients at Memorial Sloan Kettering Cancer Center. A prompt-engineered LLM (Azure OpenAI GPT-4, HIPAA-compliant sandboxed environment) extracted p16 and HPV biomarker statuses (Positive, Negative, or Unknown) using zero-shot prompting. Prompts were iteratively optimized using 5% of reports; the final model was applied to the remaining 95%. LLM outputs were validated against a gold-standard dataset annotated by independent human reviewers. Performance was assessed by precision, recall, and F1-score. Efficiency was measured by per-report processing time and cost was estimated by token consumption at $0.005/report versus manual labor at $20/hour.",
+    "limitations": "Proof-of-concept study with a small single-institution sample (n=284) limiting generalizability. Only two biomarkers (p16, HPV) evaluated; applicability to other biomarkers is unvalidated. Single-center design (MSK) may not reflect variation in pathology reporting styles across institutions. Processing time is an estimate rather than a rigorously measured benchmark. LLM hallucination risk acknowledged but not quantified in detail. No comparison with other LLM architectures or fine-tuned models. Scalability and clinical integration pipelines not implemented. Only abstract is available, preventing assessment of subgroup performance, error analysis, or detailed prompt design.",
+    "relationships": [],
+    "methodology_details": {
+      "approach": "Zero-shot prompt-engineered LLM (Azure OpenAI GPT-4) for structured biomarker extraction from unstructured clinical pathology reports, with prompt optimization on a 5% development set and validation against human-annotated gold standard.",
+      "datasets": [
+        "Deidentified pathology reports from head & neck cancer patients, Memorial Sloan Kettering Cancer Center (n=284)"
+      ],
+      "metrics": [
+        "Precision",
+        "Recall",
+        "F1-score",
+        "Processing time per report (seconds)",
+        "Cost per report (USD)",
+        "Projected labor-hour savings"
+      ],
+      "reproducibility_notes": "HIPAA-compliant sandboxed Azure OpenAI GPT-4 environment used; IRB approved (MSK). Prompt design details and exact model version not disclosed in abstract. Zero-shot approach reduces reproducibility barriers compared to fine-tuning."
+    },
+    "domain_specific_fields": {
+      "benchmark": "Human annotator gold-standard on 284 pathology reports from MSK head & neck oncology population",
+      "metrics": {
+        "p16_precision": 0.996,
+        "p16_recall": 0.996,
+        "p16_f1": 0.996,
+        "hpv_precision": 0.98,
+        "hpv_recall": 0.982,
+        "hpv_f1": 0.981
+      },
+      "model_architecture": "Azure OpenAI GPT-4 (HIPAA-compliant sandboxed); zero-shot prompting; no fine-tuning",
+      "dataset": "284 deidentified head & neck cancer pathology reports from Memorial Sloan Kettering Cancer Center; 132 (46%) contained biomarker data"
+    },
+    "study_design": "other",
+    "quality_score": 0.5,
+    "sample_size": 284
+  }
+}

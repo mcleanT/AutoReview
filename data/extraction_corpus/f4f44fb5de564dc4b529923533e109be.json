@@ -1,0 +1,112 @@
+{
+  "paper_id": "f4f44fb5de564dc4b529923533e109be",
+  "metadata": {
+    "title": "Physics of Language Models: Part 3.3, Knowledge Capacity Scaling Laws",
+    "authors": [
+      "Zeyuan Allen-Zhu",
+      "Yuanzhi Li"
+    ],
+    "year": 2024,
+    "journal": "ArXiv",
+    "doi": "10.48550/arxiv.2404.05405",
+    "citation_count": 121,
+    "source_database": "semantic_scholar"
+  },
+  "abstract": "Scaling laws describe the relationship between the size of language models and their capabilities. Unlike prior studies that evaluate a model's capability via loss or benchmarks, we estimate the number of knowledge bits a model stores. We focus on factual knowledge represented as tuples, such as (USA, capital, Washington D.C.) from a Wikipedia page. Through multiple controlled datasets, we establish that language models can and only can store 2 bits of knowledge per parameter, even when quantized to int8, and such knowledge can be flexibly extracted for downstream applications. Consequently, a 7B model can store 14B bits of knowledge, surpassing the English Wikipedia and textbooks combined based on our estimation. More broadly, we present 12 results on how (1) training duration, (2) model architecture, (3) quantization, (4) sparsity constraints such as MoE, and (5) data signal-to-noise ratio affect a model's knowledge storage capacity. Notable insights include: * The GPT-2 architecture, with rotary embedding, matches or even surpasses LLaMA/Mistral architectures in knowledge storage, particularly over shorter training durations. This arises because LLaMA/Mistral uses GatedMLP, which is less stable and harder to train. * Prepending training data with domain names (e.g., wikipedia.org) significantly increases a model's knowledge capacity. Language models can autonomously identify and prioritize domains rich in knowledge, optimizing their storage capacity.",
+  "full_text": null,
+  "full_text_source": null,
+  "llm_extraction": {
+    "id": "2f064f147e334e74bd3f7786e1bc73fe",
+    "created_at": "2026-03-21T23:16:07.837071Z",
+    "paper_id": "f4f44fb5de564dc4b529923533e109be",
+    "key_findings": [
+      {
+        "claim": "Language models can store 2 bits of knowledge per parameter, regardless of quantization to int8.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": "2 bits of knowledge per parameter",
+        "context": "Measured across multiple controlled datasets using factual knowledge represented as tuples extracted from Wikipedia.",
+        "paper_id": "physics_lm_knowledge_capacity_scaling_laws_3_3"
+      },
+      {
+        "claim": "A 7B parameter language model can store approximately 14B bits of knowledge, surpassing the combined content of English Wikipedia and textbooks.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": "7B parameters × 2 bits/parameter = 14B bits",
+        "context": "Extrapolated from the 2 bits/parameter scaling law; comparison to Wikipedia/textbooks is an estimation.",
+        "paper_id": "physics_lm_knowledge_capacity_scaling_laws_3_3"
+      },
+      {
+        "claim": "The GPT-2 architecture with rotary positional embedding matches or surpasses LLaMA/Mistral architectures in knowledge storage capacity, particularly over shorter training durations.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Attributed to LLaMA/Mistral's use of GatedMLP, which is described as less stable and harder to train.",
+        "paper_id": "physics_lm_knowledge_capacity_scaling_laws_3_3"
+      },
+      {
+        "claim": "LLaMA/Mistral architectures use GatedMLP, which is less stable and harder to train than the MLP used in GPT-2, reducing knowledge storage efficiency especially at shorter training durations.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Offered as the mechanistic explanation for GPT-2's competitive performance in knowledge storage.",
+        "paper_id": "physics_lm_knowledge_capacity_scaling_laws_3_3"
+      },
+      {
+        "claim": "Prepending training data with domain names (e.g., 'wikipedia.org') significantly increases a model's knowledge storage capacity.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Suggests that domain tagging helps the model identify and prioritize knowledge-rich data sources.",
+        "paper_id": "physics_lm_knowledge_capacity_scaling_laws_3_3"
+      },
+      {
+        "claim": "Language models can autonomously identify and prioritize domains rich in knowledge, optimizing their own storage capacity.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Observed in the context of domain-name prepending experiments.",
+        "paper_id": "physics_lm_knowledge_capacity_scaling_laws_3_3"
+      },
+      {
+        "claim": "Knowledge storage capacity is robust to int8 quantization — the 2 bits/parameter limit holds after quantization.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Tested as one of 12 experimental conditions alongside architecture, sparsity, and data signal-to-noise ratio.",
+        "paper_id": "physics_lm_knowledge_capacity_scaling_laws_3_3"
+      },
+      {
+        "claim": "Data signal-to-noise ratio affects knowledge storage capacity in language models.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Listed as one of five factors (alongside training duration, architecture, quantization, and MoE sparsity) examined across 12 reported results.",
+        "paper_id": "physics_lm_knowledge_capacity_scaling_laws_3_3"
+      },
+      {
+        "claim": "Mixture-of-Experts (MoE) sparsity constraints affect knowledge storage capacity.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Examined as one of five factors influencing knowledge capacity in the 12-result framework.",
+        "paper_id": "physics_lm_knowledge_capacity_scaling_laws_3_3"
+      }
+    ],
+    "methods_summary": "Controlled computational experiments measuring factual knowledge storage in language models. Knowledge is operationalized as factual tuples (e.g., entity–relation–value triples from Wikipedia). Multiple controlled datasets are used to isolate the effects of five variables: (1) training duration, (2) model architecture (GPT-2 with rotary embedding vs. LLaMA/Mistral), (3) int8 quantization, (4) MoE sparsity constraints, and (5) data signal-to-noise ratio. Knowledge capacity is estimated in bits per parameter, and downstream extractability of stored knowledge is also assessed. A total of 12 experimental results are reported.",
+    "limitations": "Only the abstract is available; methodological details, dataset sizes, and statistical rigor cannot be fully assessed. The operationalization of 'knowledge' as discrete tuples may underestimate or incompletely represent richer, relational, or procedural knowledge. The comparison of model knowledge capacity to Wikipedia and textbooks is described as an estimation and likely depends on compression and encoding assumptions. Results may not generalize to knowledge types beyond factual tuples or to training regimes outside those tested. The claim that GPT-2 outperforms LLaMA/Mistral is specific to knowledge storage and shorter training durations, and may not reflect broader capability comparisons.",
+    "relationships": [],
+    "methodology_details": {
+      "approach": "Controlled computational experiments using synthetic and Wikipedia-derived factual tuple datasets to measure knowledge bits stored per model parameter across varying architectures, quantization levels, sparsity regimes, training durations, and data quality conditions.",
+      "datasets": [
+        "Multiple controlled datasets (unspecified in abstract)",
+        "Wikipedia (factual tuple extraction)"
+      ],
+      "metrics": [
+        "Bits of knowledge stored per parameter",
+        "Knowledge extractability for downstream applications"
+      ],
+      "reproducibility_notes": "Controlled dataset design suggests reproducibility was a priority; full details not available from abstract alone."
+    },
+    "domain_specific_fields": {
+      "benchmark": "Custom controlled factual-tuple datasets; comparison against English Wikipedia and textbooks as knowledge size baselines",
+      "metrics": "Bits of knowledge per parameter; knowledge extractability",
+      "model_architecture": "GPT-2 (with rotary positional embedding), LLaMA, Mistral, Mixture-of-Experts (MoE) variants",
+      "dataset": "Wikipedia-derived factual tuples; multiple controlled datasets (details not specified in abstract)"
+    },
+    "study_design": "computational",
+    "quality_score": 0.62,
+    "sample_size": null
+  }
+}

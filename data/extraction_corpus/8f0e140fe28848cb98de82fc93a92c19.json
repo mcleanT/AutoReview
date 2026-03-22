@@ -1,0 +1,87 @@
+{
+  "paper_id": "8f0e140fe28848cb98de82fc93a92c19",
+  "metadata": {
+    "title": "ElecBench: a Power Grid Dispatch Evaluation Benchmark for Large Language Models",
+    "authors": [
+      "Xiyuan Zhou",
+      "Huan Zhao",
+      "Yuheng Cheng",
+      "Gaoqi Liang",
+      "Guolong Liu",
+      "Wenxuan Liu",
+      "Yan Xu",
+      "Junhua Zhao"
+    ],
+    "year": 2025,
+    "journal": "2025 IEEE Power & Energy Society General Meeting (PESGM)",
+    "doi": "10.1109/pesgm52009.2025.11225826",
+    "citation_count": 3,
+    "source_database": "semantic_scholar"
+  },
+  "abstract": "In response to the challenges of grid stability, renewable energy integration, and electricity market dynamics, power grid dispatch is increasingly adopting large language models (LLMs) for their potential to improve efficiency and intelligence. However, the lack of specific performance benchmarks has limited their effective application. To fill this gap, we introduce \"ElecBench\", an evaluation benchmark designed for LLMs in power grid dispatch. ElecBench comprehensively covers sector-specific scenarios and deepens the testing of professional knowledge, focusing on six primary metrics: factuality, logicality, stability, security, fairness, and expressiveness, divided into 24 sub-metrics. This framework offers detailed insights into the capabilities and limitations of LLMs in power grid dispatch. We publicly release the test set and evaluate eight LLMs across various scenarios and metrics. ElecBench aims to become the standard benchmark for LLM applications in power grid dispatch, encouraging continuous updates and driving technological progress.",
+  "full_text": null,
+  "full_text_source": null,
+  "llm_extraction": {
+    "id": "a3f7c2e1-8b4d-4f9a-b561-2d0e7c3a1f85",
+    "created_at": "2026-03-21T00:00:00Z",
+    "paper_id": "8f0e140fe28848cb98de82fc93a92c19",
+    "key_findings": [
+      {
+        "claim": "ElecBench introduces a domain-specific evaluation framework for LLMs applied to power grid dispatch, covering six primary metrics: factuality, logicality, stability, security, fairness, and expressiveness.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": "6 primary metrics divided into 24 sub-metrics",
+        "context": "The benchmark is designed to fill a gap in performance evaluation for LLMs in the power grid dispatch domain.",
+        "paper_id": "elecbench-power-grid-dispatch-llm"
+      },
+      {
+        "claim": "Eight LLMs are evaluated across multiple power grid dispatch scenarios and metrics using the ElecBench framework.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": "8 LLMs evaluated",
+        "context": "Comparative evaluation across various scenarios and the six primary metric categories.",
+        "paper_id": "elecbench-power-grid-dispatch-llm"
+      },
+      {
+        "claim": "The absence of domain-specific benchmarks has limited the effective application of LLMs in power grid dispatch prior to ElecBench.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Motivating problem statement from the abstract.",
+        "paper_id": "elecbench-power-grid-dispatch-llm"
+      },
+      {
+        "claim": "ElecBench targets sector-specific scenarios including grid stability, renewable energy integration, and electricity market dynamics.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Scope of the benchmark as described in the abstract.",
+        "paper_id": "elecbench-power-grid-dispatch-llm"
+      }
+    ],
+    "methods_summary": "ElecBench is a benchmark evaluation framework designed for LLMs in power grid dispatch. It defines 6 primary evaluation metrics (factuality, logicality, stability, security, fairness, expressiveness) subdivided into 24 sub-metrics. The benchmark covers sector-specific dispatch scenarios. Eight LLMs are evaluated on the publicly released test set across all metrics and scenarios. No details on test set construction methodology, LLM identities, or scoring procedures are available from the abstract alone.",
+    "limitations": "Only the abstract is available; full methodology, dataset construction details, LLM identities, and quantitative results are not reported. Evidence strength is therefore preliminary for all findings. The benchmark design choices (metric weighting, scenario selection, sub-metric definitions) cannot be critically assessed. Generalizability beyond the eight evaluated LLMs and the specific power grid dispatch domain is unknown. Potential selection bias in scenario coverage cannot be ruled out.",
+    "relationships": [],
+    "methodology_details": {
+      "approach": "Benchmark construction and multi-LLM evaluation across domain-specific power grid dispatch scenarios using a structured 6-metric, 24-sub-metric rubric.",
+      "datasets": [
+        "ElecBench test set (publicly released; power grid dispatch scenarios)"
+      ],
+      "metrics": [
+        "Factuality",
+        "Logicality",
+        "Stability",
+        "Security",
+        "Fairness",
+        "Expressiveness",
+        "24 sub-metrics (details not specified in abstract)"
+      ],
+      "reproducibility_notes": "Test set is publicly released, enabling reproducibility of evaluation runs."
+    },
+    "domain_specific_fields": {
+      "benchmark": "ElecBench",
+      "metrics": "6 primary metrics (factuality, logicality, stability, security, fairness, expressiveness) subdivided into 24 sub-metrics",
+      "model_architecture": "8 LLMs evaluated (identities not specified in abstract)",
+      "dataset": "Power grid dispatch scenario test set (publicly released)"
+    },
+    "study_design": "computational",
+    "quality_score": 0.3,
+    "sample_size": 8
+  }
+}

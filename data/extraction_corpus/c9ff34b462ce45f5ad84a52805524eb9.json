@@ -1,0 +1,103 @@
+{
+  "paper_id": "c9ff34b462ce45f5ad84a52805524eb9",
+  "metadata": {
+    "title": "Fundamental Capabilities and Applications of Large Language Models: A Survey",
+    "authors": [
+      "Jiawei Li",
+      "Yang Gao",
+      "Yizhe Yang",
+      "Yu Bai",
+      "Xiaofeng Zhou",
+      "Yinghao Li",
+      "Huashan Sun",
+      "Yuhang Liu",
+      "Xingpeng Si",
+      "Yuhao Ye",
+      "Yixiao Wu",
+      "Yiguan Lin",
+      "Bin Xu",
+      "Bowen Ren",
+      "Chong Feng",
+      "Heyan Huang"
+    ],
+    "year": 2025,
+    "journal": "ACM Computing Surveys",
+    "doi": "10.1145/3735632",
+    "citation_count": 19,
+    "source_database": "semantic_scholar"
+  },
+  "abstract": "Large Language Models (LLMs) have demonstrated remarkable effectiveness across various domain-specific applications. However, which fundamental capabilities most contribute to their success in different domains remains unclear. This uncertainty complicates LLM evaluation, as existing benchmark-based assessments often fail to capture their real-world performance, where the required capabilities may differ from those measured in the benchmarks. In this survey, we provide a systematic introduction to LLMs’ fundamental capabilities, encompassing their definitions, formation mechanisms, and practical applications. We further explore the relationships among these capabilities and discuss how they collectively support complex problem-solving in domain-specific applications. Building on this foundation, we review recent advances in LLM-driven applications across nine specific domains: medicine, law, computational biology, finance, social sciences and psychology, computer programming and software engineering, robots and agents, AI for disciplines, and creative work. We analyze how specific capabilities are leveraged for each domain to address unique requirements. This perspective enables us to establish connections between these capabilities and domain requirements, and to evaluate the varying importance of different capabilities across different domains. Based on these insights, we propose evaluation strategies tailored to the essential capabilities required in each domain, offering practical guidance for selecting suitable backbone LLMs in real-world applications.",
+  "full_text": null,
+  "full_text_source": null,
+  "llm_extraction": {
+    "id": "extraction-fundamental-capabilities-llm-survey",
+    "created_at": "2026-03-21T00:00:00Z",
+    "paper_id": "c9ff34b462ce45f5ad84a52805524eb9",
+    "key_findings": [
+      {
+        "claim": "Large Language Models have demonstrated remarkable effectiveness across various domain-specific applications including medicine, law, computational biology, finance, social sciences, computer programming, robotics, AI for disciplines, and creative work.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Survey scope covering nine specific domains",
+        "paper_id": "fundamental_capabilities_llm_survey"
+      },
+      {
+        "claim": "Which fundamental LLM capabilities most contribute to success in different domains remains unclear, complicating evaluation and model selection.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Identified as a core gap motivating the survey",
+        "paper_id": "fundamental_capabilities_llm_survey"
+      },
+      {
+        "claim": "Existing benchmark-based assessments of LLMs often fail to capture real-world performance because required capabilities in practice may differ from those measured by benchmarks.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Critique of standard LLM evaluation methodology",
+        "paper_id": "fundamental_capabilities_llm_survey"
+      },
+      {
+        "claim": "Different domains require different combinations of LLM fundamental capabilities, and these capabilities collectively support complex problem-solving in domain-specific applications.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Central thesis of the survey connecting capabilities to domain requirements",
+        "paper_id": "fundamental_capabilities_llm_survey"
+      },
+      {
+        "claim": "Evaluation strategies tailored to essential capabilities required in each domain can provide practical guidance for selecting suitable backbone LLMs in real-world applications.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Proposed contribution of the survey",
+        "paper_id": "fundamental_capabilities_llm_survey"
+      }
+    ],
+    "methods_summary": "Narrative survey methodology reviewing literature on LLM fundamental capabilities (definitions, formation mechanisms, applications) and their deployment across nine domains. The survey synthesizes relationships among capabilities and maps them to domain-specific requirements to derive tailored evaluation strategies.",
+    "limitations": "Only the abstract is available; detailed methodological limitations cannot be assessed. As a narrative review, it lacks systematic search protocols, inclusion/exclusion criteria, or quantitative synthesis, making it susceptible to selection bias and inconsistent coverage across domains. Benchmark critique is conceptual rather than empirically validated.",
+    "relationships": [],
+    "methodology_details": {
+      "approach": "Systematic narrative review of LLM capabilities and domain-specific applications, mapping fundamental capabilities to nine applied domains and proposing capability-tailored evaluation strategies",
+      "datasets": [],
+      "metrics": [],
+      "reproducibility_notes": "No systematic search protocol or PRISMA-style methodology described in the abstract; reproducibility of paper selection unclear"
+    },
+    "domain_specific_fields": {
+      "benchmark": "Critique of existing benchmark-based assessments as insufficient for real-world LLM evaluation",
+      "domains_covered": [
+        "medicine",
+        "law",
+        "computational biology",
+        "finance",
+        "social sciences and psychology",
+        "computer programming and software engineering",
+        "robots and agents",
+        "AI for disciplines",
+        "creative work"
+      ],
+      "model_architecture": null,
+      "dataset": null,
+      "metrics": "Proposes capability-tailored evaluation strategies per domain"
+    },
+    "study_design": "narrative_review",
+    "quality_score": 0.45,
+    "sample_size": null
+  }
+}

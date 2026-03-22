@@ -1,0 +1,101 @@
+{
+  "paper_id": "b5ab4f5de34d4ccabd1dd281ba4f83e5",
+  "metadata": {
+    "title": "The Advantages of Human Evaluation of Sociomedical Question Answering Systems",
+    "authors": [
+      "V. Firsanova"
+    ],
+    "year": 2022,
+    "journal": "International Journal of Open Information Technologies",
+    "doi": "10.25559/injoit.2307-8162.09.202112.53-59",
+    "citation_count": 2,
+    "source_database": "semantic_scholar"
+  },
+  "abstract": "The paper presents a study on question answering systems evaluation. The purpose of the study is to determine if human evaluation is indeed necessary to qualitatively measure the performance of a sociomedical dialogue system. The study is based on the data from several natural language processing experiments conducted with a question answering dataset for inclusion of people with autism spectrum disorder and state-ofthe-art models with the Transformer architecture. The study describes model-centric experiments on generative and extractive question answering and data-centric experiments on dataset tuning. The purpose of both model- and data-centric approaches is to reach the highest F1-Score. Although F1- Score and Exact Match are well-known automated evaluation metrics for question answering, their reliability in measuring the performance of sociomedical systems, in which outputs should be not only consistent but also psychologically safe, is questionable. Considering this idea, the author of the paper experimented with human evaluation of a dialogue system for inclusion developed in the previous phase of the work. The result of the study is the analysis of the advantages and disadvantages of automated and human approaches to evaluate conversational artificial intelligence systems, in which the psychological safety of a user is essential.",
+  "full_text": "International Journal of Open\nInformation Technologies\nLanguage Select Language English Russian\nJournal Content\nSearch\nSearch Scope\nAll Authors Title Abstract Index terms Full Text\nBrowse\n•  By Issue\n•  By Author\n•  By Title\nInformation\n•  For Readers\n•  For Authors\n•  For Librarians\n•  Home\n•  About\n•  Login\n•  Register\n•  Search\n•  Current\n•  Archives\nHome > Vol 9, No 12 (2021) > Firsanova\nThe Advantages of Human Evaluation of Sociomedical\nQuestion Answering Systems\nVictoria Firsanova\n\nAbstract\nThe paper presents a study on question answering systems\nevaluation. The purpose of the study is to determine if human\nevaluation is indeed necessary to qualitatively measure the\nperformance of a sociomedical dialogue system. The study is based\non the data from several natural language processing experiments\nconducted with a question answering dataset for inclusion of people\nwith autism spectrum disorder and state-of-the-art models with the\nTransformer architecture. The study describes model-centric\nexperiments on generative and extractive question answering and\ndata-centric experiments on dataset tuning. The purpose of both\nmodel- and data-centric approaches is to reach the highest F1-Score.\nAlthough F1-Score and Exact Match are well-known automated\nevaluation metrics for question answering, their reliability in\nmeasuring the performance of sociomedical systems, in which\noutputs should be not only consistent but also psychologically safe,\nis questionable. Considering this idea, the author of the paper\nexperimented with human evaluation of a dialogue system for\ninclusion developed in the previous phase of the work. The result of\nthe study is the analysis of the advantages and disadvantages of\nautomated and human approaches to evaluate conversational\nartificial intelligence systems, in which the psychological safety of a\nuser is essential.\nFull Text:\nPDF\nReferences\nDOI:10.25559/INJOIT.2307-8162.09.202112.53-59\n\nAllam A.M.N., Haggag M. H. The question answering systems: A\nsurvey // International Journal of Research and Reviews in\nInformation Sciences (IJRRIS). Vol. 2 No. 3. 2012. P. 211–221.\nGao J., Galley M., Li L., Neural approaches to conversational AI:\nQuestion answering, task-oriented dialogues and social chatbots.\nNow Foundations and Trends, 2019.\nCheng H., Shen Y., Liu X., He P., Chen W., Gao J., UnitedQA: A\nhybrid approach for open domain question answering //\nProceedings of the 59th Annual Meeting of the Association for\nComputational Linguistics and the 11th International Joint\nConference on Natural Language Processing (Volume 1: Long\nPapers), Online. 2021. P. 3080–3090.\nAlqifari R. Question answering systems approaches and challenges\n// Proceedings of the Student Research Workshop Associated with\nRANLP 2019, Varna, Bulgaria. 2019. P. 69–75.\nEl-Hashem J. An ontology-driven sociomedical Web 3.0 framework.\nPh.D. thesis, Concordia University. 2014.\nFirsanova V. Autism spectrum disorder and Asperger syndrome\nquestion answering dataset 1.0 // Figshare. 2021. DOI: 10.6084/\nm9.figshare.13295831.v10\nGreen Jr. B.F., Wolf A.K., Chomsky C., Laughery K. Baseball: An\nautomatic question-answerer // Western Joint IRE-AIEE-ACM\nComputer Conference. 1961. P. 219–224.\nWoods W.A., Kaplan R.B.F. Lunar rocks in natural English:\nExplorations in natural language question answering // Linguistic\nStructures Processing 5. 1977. P. 521–569.\nAuer S., Bizer C., Kobilarov G., Lehmann J., Cyganiak R., Ives Z.\nDBpedia: A nucleus for a web of open data // The semantic web.\nSpringer. 2007. P. 722–735.\nBartolo M., Roberts A., Welbl J., Riedel S., Stenetorp P. Beat the AI:\nInvestigating adversarial human annotation for reading\ncomprehension // Transactions of the Association for\n\nComputational Linguistics. Vol. 8. 2020. P. 662–678.\nGao L., Dai Z., Callan J. Modularized Transfomer-based ranking\nframework // Proceedings of the 2020 Conference on Empirical\nMethods in Natural Language Processing (EMNLP), Online, 2020. P.\n4180–4190.\nSegal E., Efrat A., Shoham M., Globerson A., Berant J. A simple and\neffective model for answering multi-span questions // Proceedings\nof the 2020 Conference on Empirical Methods in Natural Language\nProcessing, 2020. P. 3074–3080.\nVaswani A., Shazeer N., Parmar N., Uszkoreit J., Jones L., Gomez\nA.N., Kaiser L., Polosukhin I. Attention is all you need // Advances\nin Neural Information Processing Systems. 2017. No 30. P. 5998–\n6008.\nChen D., Fisch A., Weston J., Bordes A. Reading Wikipedia to\nanswer open-domain questions // Proceedings of the 55th Annual\nMeeting of the Association for Computational Linguistics (Volume\n1: Long Papers). Vancouver, Canada, 2017. P. 1870–1879.\nRajpurkar P., Zhang J., Lopyrev K., Liang P. SQuAD: 100,000+\nquestions for machine comprehension of text // Proceedings of the\n2016 Conference on Empirical Methods in Natural Language\nProcessing. Austin, Texas, 2016. P. 2383–2392.\nRajpurkar P., Jia R., Liang P. Know what you don’t know:\nUnanswerable questions for SQuAD // Proceedings of the 56th\nAnnual Meeting of the Association for Computational Linguistics.\nVolume 2: Short Papers. Melbourne, Australia, 2018. P. 784–789.\nEfimov P., Chertok A., Boytsov L., Braslavski P. SberQuAD – russian\nreading comprehension dataset: Description and analysis //\nExperimental IR Meets Multilinguality, Multimodality, and\nInteraction. Springer, 2020, P. 3–15.\nLi C.-H., Wu S.-L., Liu C.-L., Lee H.-y. Spoken SQuAD: A study of\nmitigating the impact of speech recognition errors on listening\ncomprehension // Interspeech, 2018, P. 3459–3463.\n\nRuder S., M. Peters E., Swayamdipta S., Wolf T. Transfer Learning\nin Natural Language Processing // Proceedings of the 2019\nConference of the North American Chapter of the Association for\nComputational Linguistics: Tutorials, 2019.\nDevlin J., Chang M., Lee K., Toutanova K., Bert: Pre-training of\ndeep bidirectional transformers for language understanding //\nProceedings of the 2019 Conference of the North American Chapter\nof the Association for Computational Linguistics: Human Language\nTechnologies. Volume 1 (Long and Short Papers). 2019. P. 4171–\n4186.\nSanh V., Debut L., Chaumond J., Wolf T. DistilBERT, a distilled\nversion of BERT: smaller, faster, cheaper and lighter // 5th\nWorkshop on Energy Efficient Machine Learning and Cognitive\nComputing - NeurIPS, 2019.\nConneau A., Khandelwal K., Goyal N., Chaudhary V., Wenzek G.,\nGuzmán F., Grave E., Ott M., Zettlemoyer L., Stoyanov V.\nUnsupervised Cross-lingual Representation Learning at Scale //\nACL. 2020.\nRadford A., Wu J., Child R., Luan D., Amodei D., Sutskever I.\nLanguage Models are Unsupervised Multitask Learners // OpenAI.\n2019.\nRefbacks\n•  There are currently no refbacks.\nAbava  Кибербезопасность Monetec 2026 СНЭ\nISSN: 2307-8162",
+  "full_text_source": "s2_pdf",
+  "llm_extraction": {
+    "id": "extraction-firsanova-human-eval-sociomedical-qa",
+    "created_at": "2026-03-21T00:00:00Z",
+    "paper_id": "b5ab4f5de34d4ccabd1dd281ba4f83e5",
+    "key_findings": [
+      {
+        "claim": "Automated evaluation metrics (F1-Score and Exact Match) are insufficient for reliably measuring the performance of sociomedical QA systems where outputs must be psychologically safe, not merely factually consistent.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Based on experiments with a QA dataset for autism spectrum disorder inclusion and Transformer-based models.",
+        "paper_id": "firsanova-human-eval-sociomedical-qa"
+      },
+      {
+        "claim": "Human evaluation provides qualitative advantages over automated metrics for conversational AI systems in which user psychological safety is essential.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Demonstrated through analysis of a dialogue system for inclusion of people with autism spectrum disorder.",
+        "paper_id": "firsanova-human-eval-sociomedical-qa"
+      },
+      {
+        "claim": "Both model-centric (generative and extractive QA with Transformers) and data-centric (dataset tuning) approaches can be optimized toward highest F1-Score, but this optimization target does not capture psychologically safe response quality.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "F1-Score was used as the optimization objective across model- and data-centric experiments.",
+        "paper_id": "firsanova-human-eval-sociomedical-qa"
+      },
+      {
+        "claim": "Human evaluation reveals dimensions of dialogue system performance — particularly psychological safety — that automated metrics such as F1-Score and Exact Match cannot capture.",
+        "evidence_strength": "weak",
+        "quantitative_result": null,
+        "context": "Comparative analysis of automated vs. human evaluation approaches for sociomedical dialogue systems.",
+        "paper_id": "firsanova-human-eval-sociomedical-qa"
+      }
+    ],
+    "methods_summary": "The study conducted NLP experiments using a question answering dataset focused on inclusion of people with autism spectrum disorder. Two experimental paradigms were employed: (1) model-centric experiments testing generative and extractive QA with state-of-the-art Transformer architectures (including BERT, DistilBERT, XLM-RoBERTa, GPT-2), optimizing for F1-Score; and (2) data-centric experiments involving dataset tuning to improve automated metric performance. Subsequently, human evaluation was applied to a dialogue system for inclusion developed in a prior phase of the work. Results from automated and human evaluation approaches were compared qualitatively to identify the advantages and disadvantages of each.",
+    "limitations": "The paper content available is primarily abstract-level; full experimental details, participant counts for human evaluation, inter-annotator agreement, and quantitative comparisons between human and automated evaluation scores are not reported in the provided text. The study appears to be single-author and focused on a single domain (autism spectrum disorder inclusion), limiting generalizability. No statistical testing of human vs. automated evaluation differences is described. The human evaluation methodology (number of annotators, criteria, scale) is not detailed in the available content.",
+    "relationships": [
+      {
+        "source_paper_id": "firsanova-human-eval-sociomedical-qa",
+        "target_paper_id": "rajpurkar2016squad",
+        "relationship_type": "extends",
+        "description": "The study builds on SQuAD-style QA evaluation frameworks but argues they are insufficient for sociomedical contexts requiring psychological safety."
+      },
+      {
+        "source_paper_id": "firsanova-human-eval-sociomedical-qa",
+        "target_paper_id": "devlin2019bert",
+        "relationship_type": "extends",
+        "description": "Uses BERT-based Transformer architectures as model-centric baselines in the QA experiments."
+      },
+      {
+        "source_paper_id": "firsanova-human-eval-sociomedical-qa",
+        "target_paper_id": "sanh2019distilbert",
+        "relationship_type": "extends",
+        "description": "DistilBERT is included among the Transformer models evaluated in the model-centric experiments."
+      },
+      {
+        "source_paper_id": "firsanova-human-eval-sociomedical-qa",
+        "target_paper_id": "bartolo2020beat",
+        "relationship_type": "extends",
+        "description": "Engages with adversarial human annotation for reading comprehension, contextualizing the role of human involvement in QA system evaluation."
+      }
+    ],
+    "methodology_details": {
+      "approach": "Comparative evaluation study combining model-centric (generative and extractive QA with Transformer architectures) and data-centric (dataset tuning) NLP experiments, followed by human evaluation of a sociomedical dialogue system for autism spectrum disorder inclusion.",
+      "datasets": [
+        "Custom QA dataset for inclusion of people with autism spectrum disorder"
+      ],
+      "metrics": [
+        "F1-Score",
+        "Exact Match",
+        "Human evaluation (psychological safety, response quality)"
+      ],
+      "reproducibility_notes": "Full experimental details, model configurations, and human evaluation protocols are not fully described in the available text; reproducibility cannot be assessed from the abstract alone."
+    },
+    "domain_specific_fields": {
+      "benchmark": "Custom sociomedical QA dataset for autism spectrum disorder inclusion; SQuAD-style evaluation framework",
+      "metrics": "F1-Score, Exact Match, human evaluation of psychological safety",
+      "model_architecture": "Transformer-based models including BERT, DistilBERT, XLM-RoBERTa (generative and extractive QA variants), GPT-2",
+      "dataset": "Proprietary QA dataset for autism spectrum disorder inclusion (size not reported)"
+    },
+    "study_design": "computational",
+    "quality_score": 0.25,
+    "sample_size": null
+  }
+}

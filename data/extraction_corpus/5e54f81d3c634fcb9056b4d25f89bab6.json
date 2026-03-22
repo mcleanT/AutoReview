@@ -1,0 +1,96 @@
+{
+  "paper_id": "5e54f81d3c634fcb9056b4d25f89bab6",
+  "metadata": {
+    "title": "Evaluating LLMs for Automated Requirement and Test Case Generation in Railway Signaling Systems",
+    "authors": [
+      "Ionuț-Gabriel Oțelea",
+      "Bogdan Pintea",
+      "R. Rughinis",
+      "Valentina Tîrșu"
+    ],
+    "year": 2025,
+    "journal": "2025 24th RoEduNet Conference: Networking in Education and Research (RoEduNet)",
+    "doi": "10.1109/roedunet68395.2025.11208370",
+    "citation_count": 0,
+    "source_database": "semantic_scholar"
+  },
+  "abstract": "Large Language Models (LLMs) have shown potential in supporting requirements engineering through automation, especially in regulated and safety-critical domains. This paper evaluates the capabilities of 3 well-known LLMs (GPT-4, Claude, Gemini) in transforming user requirements into structured product requirements and corresponding test cases within the context of railway signaling. A custom dataset of client requirements, inspired by realistic signaling scenarios, was developed to enable consistent evaluation across models. Each model's outputs were assessed using defined metrics, including completeness, correctness, consistency, and traceability. The comparative results highlight variations in quality and structure of the generated artifacts, with specific strengths observed for different tasks. While all three models demonstrate promise, their reliability and consistency vary, and human oversight remains essential. This study provides practical insights into the applicability of current LLMs for augmenting early-stage requirements and verification workflows in critical systems engineering.",
+  "full_text": null,
+  "full_text_source": null,
+  "llm_extraction": {
+    "id": "extraction-llm-railway-signaling-2026",
+    "created_at": "2026-03-21T00:00:00Z",
+    "paper_id": "5e54f81d3c634fcb9056b4d25f89bab6",
+    "key_findings": [
+      {
+        "claim": "GPT-4, Claude, and Gemini can transform user requirements into structured product requirements and corresponding test cases within railway signaling contexts.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Evaluated in the context of safety-critical railway signaling systems using a custom dataset of client requirements.",
+        "paper_id": "llm-railway-signaling-requirements"
+      },
+      {
+        "claim": "All three LLMs (GPT-4, Claude, Gemini) demonstrate promise for requirements engineering automation, but their reliability and consistency vary across models.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Comparative evaluation using metrics of completeness, correctness, consistency, and traceability.",
+        "paper_id": "llm-railway-signaling-requirements"
+      },
+      {
+        "claim": "Different LLMs exhibit specific strengths for different tasks (requirements generation vs. test case generation), suggesting task-specific model selection may be beneficial.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Comparative results highlight variations in quality and structure of generated artifacts across models.",
+        "paper_id": "llm-railway-signaling-requirements"
+      },
+      {
+        "claim": "Human oversight remains essential when using LLMs for requirements and test case generation in safety-critical systems, as current models are not sufficiently reliable for full automation.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Conclusion drawn from evaluation of GPT-4, Claude, and Gemini in railway signaling domain.",
+        "paper_id": "llm-railway-signaling-requirements"
+      },
+      {
+        "claim": "LLMs show potential for augmenting early-stage requirements and verification workflows in critical systems engineering.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Study focused on regulated and safety-critical domain (railway signaling).",
+        "paper_id": "llm-railway-signaling-requirements"
+      }
+    ],
+    "methods_summary": "Comparative evaluation of three LLMs (GPT-4, Claude, Gemini) on the task of transforming user requirements into structured product requirements and test cases within railway signaling. A custom dataset of client requirements inspired by realistic signaling scenarios was developed to enable consistent cross-model evaluation. Model outputs were assessed using four defined metrics: completeness, correctness, consistency, and traceability.",
+    "limitations": "Only the abstract is available, limiting detailed assessment. The dataset is custom-built and inspired by (not drawn from) real-world scenarios, which may limit external validity. No quantitative scores or effect sizes are reported in the abstract. The abstract does not specify which model outperforms others on which tasks. The study is restricted to a single safety-critical domain (railway signaling), limiting generalizability to other regulated domains.",
+    "relationships": [],
+    "methodology_details": {
+      "approach": "Comparative evaluation of three LLMs (GPT-4, Claude, Gemini) for automated requirements engineering and test case generation in railway signaling, using a custom scenario-inspired dataset and predefined quality metrics.",
+      "datasets": [
+        "Custom dataset of client requirements inspired by realistic railway signaling scenarios"
+      ],
+      "metrics": [
+        "Completeness",
+        "Correctness",
+        "Consistency",
+        "Traceability"
+      ],
+      "reproducibility_notes": "Custom dataset developed for this study; reproducibility depends on access to the dataset and specific prompt designs, neither of which are detailed in the abstract."
+    },
+    "domain_specific_fields": {
+      "benchmark": "Custom railway signaling requirements dataset (not a published benchmark)",
+      "metrics": [
+        "completeness",
+        "correctness",
+        "consistency",
+        "traceability"
+      ],
+      "model_architecture": [
+        "GPT-4",
+        "Claude",
+        "Gemini"
+      ],
+      "dataset": "Custom dataset of client requirements inspired by realistic railway signaling scenarios"
+    },
+    "study_design": "computational",
+    "quality_score": 0.35,
+    "sample_size": null
+  }
+}

@@ -1,0 +1,88 @@
+{
+  "paper_id": "f43c914a80ca4e919c3d52ba3f9743fc",
+  "metadata": {
+    "title": "Can LLMs Identify Event Causality More Accurately through Debate? A Systematic Assessment of LLMs’ Factuality and Reasoning",
+    "authors": [
+      "Yiheng Zhao",
+      "Jun Yan"
+    ],
+    "year": 2025,
+    "journal": "2025 IEEE Symposium on Trustworthy, Explainable and Responsible Computational Intelligence (CITREx)",
+    "doi": "10.1109/citrex64975.2025.10974935",
+    "citation_count": 0,
+    "source_database": "semantic_scholar"
+  },
+  "abstract": "Event Causality Identification (ECI) aims to determine both the existence and direction of a causal relation between two events. Given the remarkable capabilities of large language models (LLMs) in various natural language processing (NLP) tasks, several studies have explored their performance in the ECI task. However, applying LLMs to the ECI task carries risks, as their generations often contain factual and reasoning errors. Due to the powerful capabilities of debate, some studies have leveraged it to mitigate these issues. However, debate can sometimes lead LLMs to generate even more errors, suggesting that debate may not effectively enhance the quality of LLMs’ generations. Therefore, we propose a novel debate framework for LLMs in the ECI task to validate whether LLMs can identify event causality more accurately through debate. As LLMs’ generations often mix correct information with factual and reasoning errors, binary judgments on their generations may not fully reveal their potential in real-world use cases. And factual errors reflect flaws in the factuality of LLMs’ generations, while reasoning errors reveal weaknesses in their reasoning abilities. Therefore, we propose a Fine-Grained Factuality Score (FGFS) to better evaluate the factuality of LLMs’ generations and a Fine-Grained Reasoning Score (FGRS) to assess their reasoning abilities more effectively. Additionally, we redefine factuality and correct reasoning for LLMs’ generations at a fine-grained level to ensure more precise evaluation results for our metrics. Finally, considering the lack of automated evaluation for FGFS and FGRS and the time-consuming and costly nature of human evaluation, we propose automated methods for both proposed metrics and validate their superior performance by human expertise.",
+  "full_text": null,
+  "full_text_source": null,
+  "llm_extraction": {
+    "id": "extraction-llm-eci-debate-factuality-reasoning",
+    "created_at": "2026-03-21T00:00:00Z",
+    "paper_id": "f43c914a80ca4e919c3d52ba3f9743fc",
+    "key_findings": [
+      {
+        "claim": "Applying LLMs to Event Causality Identification (ECI) carries risks because their generations frequently contain both factual and reasoning errors.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Motivation for the proposed debate framework and fine-grained evaluation metrics.",
+        "paper_id": "llm-eci-debate-factuality-reasoning"
+      },
+      {
+        "claim": "Debate-based approaches can sometimes cause LLMs to generate even more errors, indicating debate does not reliably enhance generation quality for ECI.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Critique of prior work that leveraged debate to mitigate LLM errors; motivates the proposed novel debate framework.",
+        "paper_id": "llm-eci-debate-factuality-reasoning"
+      },
+      {
+        "claim": "Binary judgments on LLM generations may not fully reveal their potential in real-world ECI use cases because generations mix correct information with factual and reasoning errors.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Motivation for developing fine-grained evaluation metrics (FGFS and FGRS) rather than relying on binary correctness judgments.",
+        "paper_id": "llm-eci-debate-factuality-reasoning"
+      },
+      {
+        "claim": "The proposed Fine-Grained Factuality Score (FGFS) better evaluates the factuality of LLM generations compared to prior metrics.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "FGFS distinguishes factual errors from reasoning errors at a fine-grained level.",
+        "paper_id": "llm-eci-debate-factuality-reasoning"
+      },
+      {
+        "claim": "The proposed Fine-Grained Reasoning Score (FGRS) more effectively assesses the reasoning abilities of LLMs compared to prior metrics.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "FGRS targets reasoning weaknesses separately from factual errors.",
+        "paper_id": "llm-eci-debate-factuality-reasoning"
+      },
+      {
+        "claim": "Automated evaluation methods for FGFS and FGRS demonstrate superior performance validated against human expert judgments.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Automated metrics are proposed to replace time-consuming and costly human evaluation.",
+        "paper_id": "llm-eci-debate-factuality-reasoning"
+      }
+    ],
+    "methods_summary": "The authors propose a novel debate framework for LLMs applied to the Event Causality Identification (ECI) task. They introduce two fine-grained evaluation metrics: the Fine-Grained Factuality Score (FGFS) to assess factual accuracy and the Fine-Grained Reasoning Score (FGRS) to assess reasoning quality. Factuality and correct reasoning are redefined at a fine-grained level to enable more precise evaluation. Automated evaluation pipelines are developed for both FGFS and FGRS, and their performance is validated against human expert annotations.",
+    "limitations": "Only the abstract is available; no quantitative experimental results, datasets, or specific LLMs evaluated are reported. The debate framework's conditions under which it succeeds or fails are not detailed. No ablation studies or baseline comparisons are described in the abstract. The generalizability of FGFS and FGRS beyond ECI to other NLP tasks is not addressed.",
+    "relationships": [],
+    "methodology_details": {
+      "approach": "Debate-based LLM framework for Event Causality Identification with novel fine-grained evaluation metrics (FGFS and FGRS) and automated evaluation validated by human expertise.",
+      "datasets": [],
+      "metrics": [
+        "Fine-Grained Factuality Score (FGFS)",
+        "Fine-Grained Reasoning Score (FGRS)"
+      ],
+      "reproducibility_notes": "Automated evaluation methods are proposed for FGFS and FGRS to reduce reliance on human annotation; specific implementation details not available from abstract."
+    },
+    "domain_specific_fields": {
+      "benchmark": "Event Causality Identification (ECI)",
+      "metrics": "Fine-Grained Factuality Score (FGFS), Fine-Grained Reasoning Score (FGRS)",
+      "model_architecture": "Large Language Models (LLMs, specific models not named in abstract)",
+      "dataset": "Not specified in abstract"
+    },
+    "study_design": "computational",
+    "quality_score": 0.35,
+    "sample_size": null
+  }
+}

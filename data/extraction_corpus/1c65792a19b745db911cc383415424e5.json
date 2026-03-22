@@ -1,0 +1,98 @@
+{
+  "paper_id": "1c65792a19b745db911cc383415424e5",
+  "metadata": {
+    "title": "Contextualizing Clinical Benchmarks: A Tripartite Approach to Evaluating LLM-Based Tools in Mental Health Settings.",
+    "authors": [
+      "M. Flathers",
+      "Bridget Dwyer",
+      "Eden Rozenblit",
+      "J. Torous"
+    ],
+    "year": 2025,
+    "journal": "Journal of psychiatric practice",
+    "doi": "10.1097/pra.0000000000000892",
+    "citation_count": 1,
+    "source_database": "semantic_scholar"
+  },
+  "abstract": "The rapid proliferation of Large Language Model (LLM)-based tools in mental health care presents an urgent need for clinical evaluation frameworks. With millions already engaging with Artificial Intelligence (AI) tools, mental health disciplines require immediate, practical evaluation approaches rather than awaiting idealized methodologies. This paper introduces a practical, implementable approach to evaluating LLM-based tools in mental health settings through both theoretical analysis and actionable assessment methods. We propose a tripartite evaluation framework comprising: (1) the technical profile layer, which assesses foundational model safety and infrastructure compliance; (2) the health care knowledge layer, which validates domain-specific clinical knowledge and safety boundaries; and (3) the clinical reasoning layer, which evaluates decision-making capabilities and reasoning processes. Each proposed layer includes concrete evaluation methods that clinical teams can implement immediately, from direct model questioning to adversarial testing approaches. As health care organizations conduct and share evaluations using this approach, the field can collectively develop the specialized benchmarks and reasoning assessments essential for ensuring LLM integrations enhance rather than compromise patient care in the mental health space. The framework serves both as an immediate practical guide and a foundation for building more sophisticated evaluation resources tailored to mental health contexts.",
+  "full_text": null,
+  "full_text_source": null,
+  "llm_extraction": {
+    "id": "99ea6f632ff14ace973569b4b0cd7df7",
+    "created_at": "2026-03-21T00:00:00Z",
+    "paper_id": "1c65792a19b745db911cc383415424e5",
+    "key_findings": [
+      {
+        "claim": "Millions of individuals are already engaging with AI/LLM tools in mental health contexts, creating an urgent need for clinical evaluation frameworks.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Stated as motivation for the proposed framework; no citation or data source provided in abstract.",
+        "paper_id": "contextualizing-clinical-benchmarks-tripartite-llm-mental-health"
+      },
+      {
+        "claim": "A tripartite evaluation framework for LLM-based mental health tools is proposed, comprising: (1) technical profile layer, (2) healthcare knowledge layer, and (3) clinical reasoning layer.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Core contribution of the paper; each layer targets a distinct evaluation dimension — infrastructure compliance, domain knowledge, and decision-making.",
+        "paper_id": "contextualizing-clinical-benchmarks-tripartite-llm-mental-health"
+      },
+      {
+        "claim": "The technical profile layer assesses foundational model safety and infrastructure compliance.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "First layer of the tripartite framework; focuses on safety and regulatory compliance at the model/system level.",
+        "paper_id": "contextualizing-clinical-benchmarks-tripartite-llm-mental-health"
+      },
+      {
+        "claim": "The healthcare knowledge layer validates domain-specific clinical knowledge and safety boundaries of LLMs.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Second layer of the tripartite framework; targets clinical knowledge accuracy and harm-avoidance.",
+        "paper_id": "contextualizing-clinical-benchmarks-tripartite-llm-mental-health"
+      },
+      {
+        "claim": "The clinical reasoning layer evaluates decision-making capabilities and reasoning processes of LLMs in mental health contexts.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Third layer of the tripartite framework; most complex layer, targeting clinical judgment simulation.",
+        "paper_id": "contextualizing-clinical-benchmarks-tripartite-llm-mental-health"
+      },
+      {
+        "claim": "Each evaluation layer includes concrete, immediately implementable assessment methods, including direct model questioning and adversarial testing.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Emphasis on practical deployability rather than awaiting idealized or research-validated methodologies.",
+        "paper_id": "contextualizing-clinical-benchmarks-tripartite-llm-mental-health"
+      },
+      {
+        "claim": "Collective sharing of evaluations using this framework can drive development of specialized benchmarks and reasoning assessments for mental health LLM integration.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "The framework is positioned as a foundation for community-driven benchmark development, not a final solution.",
+        "paper_id": "contextualizing-clinical-benchmarks-tripartite-llm-mental-health"
+      }
+    ],
+    "methods_summary": "Theoretical framework design paper proposing a tripartite evaluation approach. Methods include: (1) layer-by-layer decomposition of evaluation concerns (technical, knowledge, reasoning); (2) specification of concrete assessment techniques per layer including direct model questioning and adversarial testing; (3) theoretical analysis of gaps in current LLM evaluation for clinical mental health deployment. No empirical data collection or model benchmarking is described in the abstract.",
+    "limitations": "Abstract-only source limits full assessment. Key limitations inferred: (1) Framework is proposed but not empirically validated against real clinical deployments or outcomes; (2) No quantitative benchmarks, metrics, or performance thresholds are defined; (3) Adversarial testing approaches are mentioned but not operationalized or standardized; (4) The framework's reliability, inter-rater agreement, or sensitivity to poor LLM performance is not assessed; (5) Mental health is a broad domain — generalizability across subspecialties (e.g., psychiatry, crisis intervention, therapy support) is unclear; (6) No comparison to existing AI evaluation frameworks (e.g., FDA guidance, EU AI Act conformity assessments).",
+    "relationships": [],
+    "methodology_details": {
+      "approach": "Theoretical framework design with proposed layered evaluation methodology for LLM-based clinical tools in mental health settings. Combines conceptual analysis with actionable assessment specifications.",
+      "datasets": [],
+      "metrics": [
+        "Model safety compliance (technical profile layer)",
+        "Clinical knowledge accuracy (healthcare knowledge layer)",
+        "Clinical decision-making quality (clinical reasoning layer)"
+      ],
+      "reproducibility_notes": "Framework is designed to be immediately implementable by clinical teams, but no standardized protocol, rubric, or scoring system is provided in the abstract."
+    },
+    "domain_specific_fields": {
+      "benchmark": "Proposes a foundation for developing specialized mental health LLM benchmarks; no existing benchmark applied",
+      "metrics": "Layer-specific evaluation metrics proposed: safety/infrastructure compliance, domain knowledge validation, clinical reasoning assessment",
+      "model_architecture": "Not specified; framework is model-agnostic",
+      "dataset": "Not specified; no empirical dataset used"
+    },
+    "study_design": "other",
+    "quality_score": 0.25,
+    "sample_size": null
+  }
+}

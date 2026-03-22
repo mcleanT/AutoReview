@@ -1,0 +1,204 @@
+{
+  "timestamp": "2026-03-22T04:05:24.275687+00:00",
+  "scoring_mode": "embedding (all-MiniLM-L6-v2)",
+  "n_papers": 220,
+  "n_full_text": 198,
+  "n_abstract_only": 22,
+  "n_errors": 0,
+  "elapsed_seconds": 29.53,
+  "overall_composite": 0.6166,
+  "avg_field_scores": {
+    "key_findings": 0.5878,
+    "evidence_strength": 0.8121,
+    "quantitative_result": 0.2502,
+    "methods_summary": 0.6367,
+    "limitations": 0.5325,
+    "study_design": 0.8864,
+    "quality_score": 0.8925,
+    "sample_size": 0.4636,
+    "key_findings_precision": 0.7512,
+    "key_findings_recall": 0.8074
+  },
+  "worst_10": [
+    {
+      "paper_id": "441e1e969fd74f96a74d89552204a500",
+      "title": "PandaGuard: Systematic Evaluation of LLM Safety against Jailbreaking Attacks",
+      "has_full_text": false,
+      "composite": 0.2216,
+      "field_scores": {
+        "key_findings": 0.0,
+        "evidence_strength": 0.0,
+        "quantitative_result": 0.0,
+        "methods_summary": 0.0703,
+        "limitations": 0.1805,
+        "study_design": 0.5,
+        "quality_score": 0.8592,
+        "sample_size": 1.0,
+        "key_findings_precision": 0.0,
+        "key_findings_recall": 0.0
+      }
+    },
+    {
+      "paper_id": "50ecfb5753fd4301b8e35a97443cb8a2",
+      "title": "Survey of Different Large Language Model Architectures: Trends, Benchmarks, and ",
+      "has_full_text": true,
+      "composite": 0.2906,
+      "field_scores": {
+        "key_findings": 0.0,
+        "evidence_strength": 1.0,
+        "quantitative_result": 0.0,
+        "methods_summary": 0.2394,
+        "limitations": 0.0467,
+        "study_design": 1.0,
+        "quality_score": 0.0,
+        "sample_size": 1.0,
+        "key_findings_precision": 0.0,
+        "key_findings_recall": 0.0
+      }
+    },
+    {
+      "paper_id": "e75619dc7174410f87144b3af78767ea",
+      "title": "LocalValueBench: A Collaboratively Built and Extensible Benchmark for Evaluating",
+      "has_full_text": true,
+      "composite": 0.4265,
+      "field_scores": {
+        "key_findings": 0.5137,
+        "evidence_strength": 0.375,
+        "quantitative_result": 0.25,
+        "methods_summary": 0.6887,
+        "limitations": 0.5479,
+        "study_design": 0.0,
+        "quality_score": 0.6332,
+        "sample_size": 0.0,
+        "key_findings_precision": 0.5714,
+        "key_findings_recall": 0.5714
+      }
+    },
+    {
+      "paper_id": "eeafebe8a0664bf6addfe4f3c04df493",
+      "title": "ARISE: Agentic Rubric-Guided Iterative Survey Engine for Automated Scholarly Pap",
+      "has_full_text": true,
+      "composite": 0.4347,
+      "field_scores": {
+        "key_findings": 0.5953,
+        "evidence_strength": 0.9,
+        "quantitative_result": 0.0471,
+        "methods_summary": 0.4024,
+        "limitations": 0.4527,
+        "study_design": 0.0,
+        "quality_score": 0.8725,
+        "sample_size": 0.0,
+        "key_findings_precision": 0.8571,
+        "key_findings_recall": 0.625
+      }
+    },
+    {
+      "paper_id": "f87bc0d7a55b4039a6edfe939a602f76",
+      "title": "Optimizing RAG-based LLMs for healthcare question answering tasks",
+      "has_full_text": true,
+      "composite": 0.4599,
+      "field_scores": {
+        "key_findings": 0.5419,
+        "evidence_strength": 1.0,
+        "quantitative_result": 0.0089,
+        "methods_summary": 0.397,
+        "limitations": 0.394,
+        "study_design": 0.5,
+        "quality_score": 0.8753,
+        "sample_size": 0.0,
+        "key_findings_precision": 0.3571,
+        "key_findings_recall": 0.5
+      }
+    },
+    {
+      "paper_id": "5e8a5b25f2b74a2bb2c9be3ee272b4a7",
+      "title": "From LLM Reasoning to Autonomous AI Agents: A Comprehensive Review",
+      "has_full_text": true,
+      "composite": 0.4659,
+      "field_scores": {
+        "key_findings": 0.4231,
+        "evidence_strength": 0.5,
+        "quantitative_result": 0.5431,
+        "methods_summary": 0.6001,
+        "limitations": 0.1623,
+        "study_design": 1.0,
+        "quality_score": 0.7656,
+        "sample_size": 0.0,
+        "key_findings_precision": 0.4286,
+        "key_findings_recall": 0.2941
+      }
+    },
+    {
+      "paper_id": "0a57ad3dbb514753b9c9c69dbcad6f47",
+      "title": "Large language model performance versus human expert ratings in automated suicid",
+      "has_full_text": true,
+      "composite": 0.4709,
+      "field_scores": {
+        "key_findings": 0.5641,
+        "evidence_strength": 1.0,
+        "quantitative_result": 0.0132,
+        "methods_summary": 0.5998,
+        "limitations": 0.5899,
+        "study_design": 0.0,
+        "quality_score": 0.9138,
+        "sample_size": 0.0,
+        "key_findings_precision": 0.5714,
+        "key_findings_recall": 0.7273
+      }
+    },
+    {
+      "paper_id": "718a9452866d40c58bd003ab59c88e92",
+      "title": "What's the Difference? Supporting Users in Identifying the Effects of Prompt and",
+      "has_full_text": true,
+      "composite": 0.4808,
+      "field_scores": {
+        "key_findings": 0.4523,
+        "evidence_strength": 1.0,
+        "quantitative_result": 0.0,
+        "methods_summary": 0.6984,
+        "limitations": 0.4854,
+        "study_design": 0.5,
+        "quality_score": 0.9321,
+        "sample_size": 0.0,
+        "key_findings_precision": 0.5,
+        "key_findings_recall": 0.5714
+      }
+    },
+    {
+      "paper_id": "159b8787e4a34fa78bc2d225c9f92f43",
+      "title": "Refining Input Guardrails: Enhancing LLM-as-a-Judge Efficiency Through Chain-of-",
+      "has_full_text": true,
+      "composite": 0.483,
+      "field_scores": {
+        "key_findings": 0.4252,
+        "evidence_strength": 1.0,
+        "quantitative_result": 0.0,
+        "methods_summary": 0.4583,
+        "limitations": 0.4695,
+        "study_design": 1.0,
+        "quality_score": 0.9433,
+        "sample_size": 0.0,
+        "key_findings_precision": 0.3571,
+        "key_findings_recall": 0.4
+      }
+    },
+    {
+      "paper_id": "9130eaf7e66b434c88d514c3e900da15",
+      "title": "OCCULT: Evaluating Large Language Models for Offensive Cyber Operation Capabilit",
+      "has_full_text": true,
+      "composite": 0.4868,
+      "field_scores": {
+        "key_findings": 0.5039,
+        "evidence_strength": 0.3,
+        "quantitative_result": 0.2,
+        "methods_summary": 0.5564,
+        "limitations": 0.3036,
+        "study_design": 1.0,
+        "quality_score": 0.9288,
+        "sample_size": 0.0,
+        "key_findings_precision": 0.7143,
+        "key_findings_recall": 0.7
+      }
+    }
+  ]
+}

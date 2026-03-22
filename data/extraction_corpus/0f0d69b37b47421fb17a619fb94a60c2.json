@@ -1,0 +1,93 @@
+{
+  "paper_id": "0f0d69b37b47421fb17a619fb94a60c2",
+  "metadata": {
+    "title": "Evaluating Large Language Models for Code Generation: Assessing Accuracy, Quality, and Performance",
+    "authors": [
+      "M. Shehab",
+      "Mohammad Wardat",
+      "Safwan Omari",
+      "Yaser Jararweh"
+    ],
+    "year": 2024,
+    "journal": "2024 2nd International Conference on Foundation and Large Language Models (FLLM)",
+    "doi": "10.1109/fllm63129.2024.10852439",
+    "citation_count": 4,
+    "source_database": "semantic_scholar"
+  },
+  "abstract": "Large Language Models (LLMs) are increasingly utilized for software engineering tasks, including code generation. While prior research has primarily focused on code completion, there remains a gap in understanding LLMs’ ability to generate code from Natural Language Processing (NLP) descriptions. In this study, we investigated three LLMs’ performance in generating code from scratch based on NLP task descriptions. We employed three evaluation levels, Accuracy, Quality, and Performance, to assess the LLMs’ results. Accuracy metrics focused on error types and counts, quality assessed code readability and maintainability, and performance measured the models’ ability to generate optimized solutions. Codex, Copilot, and PaLM2 exhibited error rates of 9.68%, 32.25%, and 48.38%, respectively. Copilot showed the best performance with a higher maintainability index. However, all LLMs struggled with tasks of high complexity, with time complexities of O(m•n•log(n)), as evidenced by their performance metrics.",
+  "full_text": null,
+  "full_text_source": null,
+  "llm_extraction": {
+    "id": "8419901d1c5345e192be536823c31516",
+    "created_at": "2026-03-21T23:00:06.063491Z",
+    "paper_id": "0f0d69b37b47421fb17a619fb94a60c2",
+    "key_findings": [
+      {
+        "claim": "Codex achieved the lowest error rate of 9.68% when generating code from NLP task descriptions",
+        "evidence_strength": "preliminary",
+        "quantitative_result": "Error rate: 9.68%",
+        "context": "Comparison of three LLMs on code generation from scratch based on NLP descriptions",
+        "paper_id": "evaluating-llms-code-generation-accuracy-quality-performance"
+      },
+      {
+        "claim": "Copilot had an intermediate error rate of 32.25% in code generation from NLP descriptions",
+        "evidence_strength": "preliminary",
+        "quantitative_result": "Error rate: 32.25%",
+        "context": "Comparison of three LLMs on code generation from scratch based on NLP descriptions",
+        "paper_id": "evaluating-llms-code-generation-accuracy-quality-performance"
+      },
+      {
+        "claim": "PaLM2 had the highest error rate of 48.38% in code generation from NLP descriptions",
+        "evidence_strength": "preliminary",
+        "quantitative_result": "Error rate: 48.38%",
+        "context": "Comparison of three LLMs on code generation from scratch based on NLP descriptions",
+        "paper_id": "evaluating-llms-code-generation-accuracy-quality-performance"
+      },
+      {
+        "claim": "Copilot demonstrated the best code quality as measured by a higher maintainability index compared to Codex and PaLM2",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Quality evaluation using code readability and maintainability metrics",
+        "paper_id": "evaluating-llms-code-generation-accuracy-quality-performance"
+      },
+      {
+        "claim": "All three LLMs struggled with high-complexity tasks, specifically those with time complexity of O(m·n·log(n))",
+        "evidence_strength": "preliminary",
+        "quantitative_result": "Time complexity threshold: O(m·n·log(n))",
+        "context": "Performance evaluation measuring ability to generate optimized solutions",
+        "paper_id": "evaluating-llms-code-generation-accuracy-quality-performance"
+      },
+      {
+        "claim": "There is a substantial performance gap between the best (Codex, 9.68% error) and worst (PaLM2, 48.38% error) LLM on code generation, representing a ~5-fold difference in error rate",
+        "evidence_strength": "preliminary",
+        "quantitative_result": "Error rate range: 9.68% to 48.38%",
+        "context": "Comparative analysis across three LLMs",
+        "paper_id": "evaluating-llms-code-generation-accuracy-quality-performance"
+      }
+    ],
+    "methods_summary": "Comparative evaluation of three LLMs (Codex, Copilot, PaLM2) on code generation from scratch based on natural language processing (NLP) task descriptions. Three evaluation dimensions were employed: (1) Accuracy — measured via error types and counts; (2) Quality — assessed via code readability and maintainability index; (3) Performance — measured by the models' ability to generate algorithmically optimized solutions. The study focused on a gap in prior literature that emphasized code completion rather than full code generation from NLP descriptions.",
+    "limitations": "Only the abstract is available, so full methodological details are unavailable. Key limitations inferred from abstract: (1) Only three LLMs evaluated, limiting generalizability to the broader LLM landscape; (2) Dataset composition, task diversity, and sample size are not reported; (3) No confidence intervals or statistical significance reported for error rate comparisons; (4) Maintainability index advantage of Copilot is stated without quantification; (5) The basis for complexity classification (e.g., what tasks map to O(m·n·log(n))) is not described; (6) The evaluation tasks may not be representative of real-world software engineering workloads.",
+    "relationships": [],
+    "methodology_details": {
+      "approach": "Benchmark evaluation comparing three LLMs (Codex, Copilot, PaLM2) on code generation from NLP descriptions using three evaluation tiers: accuracy (error rate), quality (maintainability index), and performance (algorithmic complexity of generated solutions)",
+      "datasets": [],
+      "metrics": [
+        "Error rate (%)",
+        "Error types and counts",
+        "Code readability",
+        "Maintainability index",
+        "Algorithmic time complexity of generated solutions"
+      ],
+      "reproducibility_notes": "No information on datasets, prompts, or code tasks available from abstract alone; reproducibility cannot be assessed."
+    },
+    "domain_specific_fields": {
+      "benchmark": "Custom evaluation benchmark using NLP task descriptions for code generation from scratch",
+      "metrics": "Error rate, maintainability index, algorithmic time complexity",
+      "model_architecture": "Codex, GitHub Copilot, PaLM2",
+      "dataset": "Not reported in abstract"
+    },
+    "study_design": "computational",
+    "quality_score": 0.35,
+    "sample_size": null
+  }
+}

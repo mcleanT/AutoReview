@@ -1,0 +1,100 @@
+{
+  "paper_id": "b82496e94770460cb53e8d509e4fcce0",
+  "metadata": {
+    "title": "ToLeaP: Rethinking Development of Tool Learning with Large Language Models",
+    "authors": [
+      "Haotian Chen",
+      "Zijun Song",
+      "Boye Niu",
+      "Ke Zhang",
+      "Litu Ou",
+      "Ya-Ting Lu",
+      "Zhong Zhang",
+      "X. Cong",
+      "Yankai Lin",
+      "Zhiyuan Liu",
+      "Maosong Sun"
+    ],
+    "year": 2025,
+    "journal": "ArXiv",
+    "doi": "10.48550/arxiv.2505.11833",
+    "citation_count": 2,
+    "source_database": "semantic_scholar"
+  },
+  "abstract": "Tool learning, which enables large language models (LLMs) to utilize external tools effectively, has garnered increasing attention for its potential to revolutionize productivity across industries. Despite rapid development in tool learning, key challenges and opportunities remain understudied, limiting deeper insights and future advancements. In this paper, we investigate the tool learning ability of 41 prevalent LLMs by reproducing 33 benchmarks and enabling one-click evaluation for seven of them, forming a Tool Learning Platform named ToLeaP. We also collect 21 out of 33 potential training datasets to facilitate future exploration. After analyzing over 3,000 bad cases of 41 LLMs based on ToLeaP, we identify four main critical challenges: (1) benchmark limitations induce both the neglect and lack of (2) autonomous learning, (3) generalization, and (4) long-horizon task-solving capabilities of LLMs. To aid future advancements, we take a step further toward exploring potential directions, namely (1) real-world benchmark construction, (2) compatibility-aware autonomous learning, (3) rationale learning by thinking, and (4) identifying and recalling key clues. The preliminary experiments demonstrate their effectiveness, highlighting the need for further research and exploration.",
+  "full_text": null,
+  "full_text_source": null,
+  "llm_extraction": {
+    "id": "a729c1da8f934f46a3ebf6431febe39b",
+    "created_at": "2026-03-21T00:00:00Z",
+    "paper_id": "b82496e94770460cb53e8d509e4fcce0",
+    "key_findings": [
+      {
+        "claim": "ToLeaP evaluates 41 prevalent LLMs across 33 benchmarks, with one-click evaluation enabled for 7 of them, providing a comprehensive tool learning assessment platform.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": "41 LLMs, 33 benchmarks, 7 one-click evaluable",
+        "context": "Large-scale comparative evaluation of tool learning capabilities",
+        "paper_id": "toleap_tool_learning_llms"
+      },
+      {
+        "claim": "Analysis of over 3,000 bad cases across 41 LLMs reveals four critical challenges in tool learning: benchmark limitations, lack of autonomous learning, poor generalization, and insufficient long-horizon task-solving capabilities.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": "3,000+ bad cases analyzed across 41 LLMs",
+        "context": "Systematic failure case analysis to identify recurring challenge patterns",
+        "paper_id": "toleap_tool_learning_llms"
+      },
+      {
+        "claim": "Current tool learning benchmarks have inherent limitations that cause researchers to neglect autonomous learning and generalization capabilities in LLMs.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Benchmark design flaw identified as root cause of downstream capability gaps",
+        "paper_id": "toleap_tool_learning_llms"
+      },
+      {
+        "claim": "LLMs demonstrate insufficient long-horizon task-solving capabilities in tool use scenarios, identified as a critical gap through failure case analysis.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Multi-step tool chaining tasks requiring sustained planning and execution",
+        "paper_id": "toleap_tool_learning_llms"
+      },
+      {
+        "claim": "Preliminary experiments on four proposed directions—real-world benchmark construction, compatibility-aware autonomous learning, rationale learning by thinking, and identifying/recalling key clues—demonstrate their effectiveness for advancing tool learning.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Proof-of-concept experiments supporting proposed research directions",
+        "paper_id": "toleap_tool_learning_llms"
+      },
+      {
+        "claim": "21 out of 33 potential training datasets were collected and made available to facilitate future exploration in tool learning.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": "21/33 datasets collected",
+        "context": "Dataset curation effort accompanying benchmark platform",
+        "paper_id": "toleap_tool_learning_llms"
+      }
+    ],
+    "methods_summary": "The authors built ToLeaP, a Tool Learning Platform, by reproducing 33 existing benchmarks and enabling automated one-click evaluation for 7 of them. They evaluated 41 LLMs on these benchmarks and performed systematic failure case analysis on over 3,000 bad cases to categorize recurring challenge types. They also collected 21 training datasets and conducted preliminary experiments on four proposed research directions to validate their potential.",
+    "limitations": "Only the abstract is available, so detailed methodological limitations cannot be fully assessed. Key limitations apparent from the abstract include: (1) preliminary experiments on proposed directions lack detailed quantitative evaluation; (2) the scope of 'bad case' sampling methodology is unclear—whether cases are representative or cherry-picked is unknown; (3) the criteria for selecting which 7 benchmarks received one-click evaluation are not described; (4) generalizability of findings is uncertain without knowing which tool domains and task types are covered; (5) evaluation metrics and scoring criteria across the 33 benchmarks may vary, complicating cross-benchmark comparisons.",
+    "relationships": [],
+    "methodology_details": {
+      "approach": "Large-scale benchmark reproduction and LLM evaluation platform construction with systematic failure case analysis. Evaluated 41 LLMs on 33 reproduced benchmarks, analyzed 3,000+ failure cases to identify challenge categories, and conducted preliminary experiments on proposed improvement directions.",
+      "datasets": [
+        "33 tool learning benchmarks (reproduced)",
+        "21 tool learning training datasets (collected)"
+      ],
+      "metrics": [
+        "Task success rate (implied by bad case analysis)",
+        "One-click benchmark evaluation metrics (unspecified)"
+      ],
+      "reproducibility_notes": "One-click evaluation enabled for 7 benchmarks; 21 training datasets publicly released to facilitate future research."
+    },
+    "domain_specific_fields": {
+      "benchmark": "ToLeaP platform covering 33 tool learning benchmarks; 7 with automated one-click evaluation",
+      "metrics": "Not explicitly specified in abstract; implied task success/failure rates from bad case analysis",
+      "model_architecture": "41 prevalent LLMs evaluated (specific architectures not named in abstract)",
+      "dataset": "21 collected training datasets out of 33 potential; dataset names not specified in abstract"
+    },
+    "study_design": "systematic_review",
+    "quality_score": 0.45,
+    "sample_size": 41
+  }
+}

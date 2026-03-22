@@ -1,0 +1,88 @@
+{
+  "paper_id": "d6bfbd3411b34a78b8be2ae87674fe3a",
+  "metadata": {
+    "title": "Text-to-SQL Empowered by Large Language Models: A Benchmark Evaluation",
+    "authors": [
+      "Dawei Gao",
+      "Haibin Wang",
+      "Yaliang Li",
+      "Xiuyu Sun",
+      "Yichen Qian",
+      "Bolin Ding",
+      "Jingren Zhou"
+    ],
+    "year": 2024,
+    "journal": "Proceedings of the VLDB Endowment",
+    "doi": "10.14778/3641204.3641221",
+    "citation_count": 176,
+    "source_database": "openalex"
+  },
+  "abstract": "Large language models (LLMs) have emerged as a new paradigm for Text-to-SQL task. However, the absence of a systematical benchmark inhibits the development of designing effective, efficient and economic LLM-based Text-to-SQL solutions. To address this challenge, in this paper, we first conduct a systematical and extensive comparison over existing prompt engineering methods, including question representation, example selection and example organization, and with these experimental results, we elaborate their pros and cons. Based on these findings, we propose a new integrated solution, named DAIL-SQL, which refreshes the Spider leaderboard with 86.6% execution accuracy and sets a new bar. To explore the potential of open-source LLM, we investigate them in various scenarios, and further enhance their performance with supervised fine-tuning. Our explorations highlight open-source LLMs' potential in Text-to-SQL, as well as the advantages and disadvantages of the supervised fine-tuning. Additionally, towards an efficient and economic LLM-based Text-to-SQL solution, we emphasize the token efficiency in prompt engineering and compare the prior studies under this metric. We hope that our work provides a deeper understanding of Text-to-SQL with LLMs, and inspires further investigations and broad applications.",
+  "full_text": null,
+  "full_text_source": null,
+  "llm_extraction": {
+    "id": "e70bf8bfad95489288a0aeb9b7d0e4c4",
+    "created_at": "2026-03-21T00:00:00Z",
+    "paper_id": "d6bfbd3411b34a78b8be2ae87674fe3a",
+    "key_findings": [
+      {
+        "claim": "DAIL-SQL, an integrated prompt engineering solution, achieves 86.6% execution accuracy on the Spider leaderboard, setting a new state-of-the-art benchmark.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": "86.6% execution accuracy on Spider leaderboard",
+        "context": "Result reported in abstract; full experimental details not available",
+        "paper_id": "text-to-sql-llm-benchmark-dail-sql"
+      },
+      {
+        "claim": "Different prompt engineering strategies (question representation, example selection, example organization) have distinct trade-offs for LLM-based Text-to-SQL performance.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Systematic comparison conducted across multiple prompt engineering dimensions",
+        "paper_id": "text-to-sql-llm-benchmark-dail-sql"
+      },
+      {
+        "claim": "Open-source LLMs demonstrate meaningful potential for Text-to-SQL tasks across various evaluation scenarios.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Open-source LLMs evaluated in multiple scenarios with and without fine-tuning",
+        "paper_id": "text-to-sql-llm-benchmark-dail-sql"
+      },
+      {
+        "claim": "Supervised fine-tuning of open-source LLMs for Text-to-SQL has both advantages and disadvantages compared to prompt engineering approaches.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Comparative analysis of fine-tuned open-source vs. prompted proprietary LLMs",
+        "paper_id": "text-to-sql-llm-benchmark-dail-sql"
+      },
+      {
+        "claim": "Token efficiency is a critical and underexplored metric for evaluating LLM-based Text-to-SQL solutions from an economic standpoint.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Token efficiency comparison performed across prior prompt engineering studies",
+        "paper_id": "text-to-sql-llm-benchmark-dail-sql"
+      }
+    ],
+    "methods_summary": "Systematic benchmark evaluation of LLM-based Text-to-SQL methods. The authors compare existing prompt engineering strategies across three dimensions: question representation, example selection, and example organization. Based on these findings, they propose DAIL-SQL, an integrated solution combining optimal strategies. They further evaluate open-source LLMs in multiple scenarios and apply supervised fine-tuning to enhance their performance. Token efficiency is measured and compared across prior methods as an economic evaluation dimension. Primary benchmark is the Spider dataset evaluated via execution accuracy.",
+    "limitations": "Only the abstract is available; detailed methodology, experimental setup, and per-method results cannot be assessed. The study appears focused exclusively on the Spider benchmark, which may limit generalizability to other SQL dialects, database schemas, or real-world deployment settings. Advantages and disadvantages of supervised fine-tuning are noted but not quantified in the abstract. Token efficiency comparisons with prior work may depend on assumptions about input/output length not detailed here.",
+    "relationships": [],
+    "methodology_details": {
+      "approach": "Systematic prompt engineering benchmark evaluation combined with supervised fine-tuning of open-source LLMs for Text-to-SQL generation; proposed DAIL-SQL integrated solution",
+      "datasets": [
+        "Spider"
+      ],
+      "metrics": [
+        "execution accuracy",
+        "token efficiency"
+      ],
+      "reproducibility_notes": "Spider leaderboard result of 86.6% execution accuracy reported; full experimental details and code availability not mentioned in abstract"
+    },
+    "domain_specific_fields": {
+      "benchmark": "Spider leaderboard",
+      "metrics": "Execution accuracy (86.6% for DAIL-SQL), token efficiency",
+      "model_architecture": "Large language models (both proprietary and open-source); supervised fine-tuning applied to open-source LLMs",
+      "dataset": "Spider (Text-to-SQL benchmark)"
+    },
+    "study_design": "computational",
+    "quality_score": 0.55,
+    "sample_size": null
+  }
+}

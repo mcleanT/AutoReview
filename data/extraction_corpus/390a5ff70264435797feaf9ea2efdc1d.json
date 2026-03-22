@@ -1,0 +1,179 @@
+{
+  "paper_id": "390a5ff70264435797feaf9ea2efdc1d",
+  "metadata": {
+    "title": "Evaluating Generative AI: Challenges, Methods, and Future Directions",
+    "authors": [
+      "Latha Ramamoorthy"
+    ],
+    "year": 2025,
+    "journal": "International Journal For Multidisciplinary Research",
+    "doi": "10.36948/ijfmr.2025.v07i01.37182",
+    "citation_count": 1,
+    "source_database": "semantic_scholar"
+  },
+  "abstract": "Generative Artificial Intelligence (AI) is transforming industries by producing high-quality text, images, music, and code. Its applications extend to natural language processing, computer vision, and creative arts. However, assessing these systems' performance and impact remains challenging due to their complexity, subjectivity, and open-ended outputs.\n\nThis paper comprehensively reviews evaluation methods for generative AI, beginning with its evolution and major applications, including advanced models like GPT, DALL·E, and AlphaCode. It categorizes evaluation approaches into quantitative metrics (such as BLEU and FID) and qualitative methods (human assessment and user-centered testing).\n\nKey challenges, such as subjectivity, bias, and scalability, are explored alongside emerging trends like automated evaluation tools, ethical impact assessments, and multimodal techniques. Through real-world case studies, this paper highlights practical evaluation strategies and their limitations. By integrating current best practices and identifying future research opportunities, this study aims to guide the development of reliable, fair, and comprehensive evaluation frameworks for generative AI systems.",
+  "full_text": "International Journal for Multidisciplinary Research (IJFMR) \n \nE-ISSN: 2582-2160   ●   Website: www.ijfmr.com       ●   Email: editor@ijfmr.com \n \nIJFMR250137182 \nVolume 7, Issue 1, January-February 2025 \n1\n \nEvaluating Generative AI: Challenges, Methods, \nand Future Directions \n \nLatha Ramamoorthy \n \nVice President -Technical Product Manager, Leading Banking Organization \n \nAbstract \nGenerative Artificial Intelligence (AI) is transforming industries by producing high-quality text, images, \nmusic, and code. Its applications extend to natural language processing, computer vision, and creative arts. \nHowever, assessing these systems' performance and impact remains challenging due to their complexity, \nsubjectivity, and open-ended outputs. \nThis paper comprehensively reviews evaluation methods for generative AI, beginning with its evolution \nand major applications, including advanced models like GPT, DALL·E, and AlphaCode. It categorizes \nevaluation approaches into quantitative metrics (such as BLEU and FID) and qualitative methods (human \nassessment and user-centered testing). \nKey challenges, such as subjectivity, bias, and scalability, are explored alongside emerging trends like \nautomated evaluation tools, ethical impact assessments, and multimodal techniques. Through real-world \ncase studies, this paper highlights practical evaluation strategies and their limitations. By integrating cur-\nrent best practices and identifying future research opportunities, this study aims to guide the development \nof reliable, fair, and comprehensive evaluation frameworks for generative AI systems. \n \nKeywords: AI Evaluation, Generative AI, AI Performance Metrics, Human-AI Assessment, Bias in AI \n \nIntroduction \nThe rapid growth of artificial intelligence has driven the advancement of generative AI systems, capable \nof producing text, images, music, and software code. These systems, including GPT, DALL·E, and Stable \nDiffusion, represent a transformative shift in AI's role in creativity, often rivaling human expertise \n(Brown et al., 2020). \nAs generative AI applications become pervasive across industries, evaluating their performance, fairness, \nand societal impact has become essential. Unlike predictive models, which have well-defined accuracy \nmetrics, generative AI systems produce creative outputs that require subjective judgment (e.g., \ncoherence, creativity, and realism). A comprehensive evaluation framework must integrate both \nquantitative and qualitative methodologies to ensure a holistic assessment of model capabilities. \nBeyond technical performance, ethical considerations such as fairness, bias, and potential misuse must \nbe assessed. For example, biased or inappropriate content generation can undermine trust in AI \ntechnologies (Bender et al., 2021). \nThis paper provides an overview of current evaluation practices, highlights existing gaps, and presents \nreal-world case studies. By synthesizing insights from diverse domains, it advances the understanding of \ngenerative AI assessment. \n \n\nInternational Journal for Multidisciplinary Research (IJFMR) \n \nE-ISSN: 2582-2160   ●   Website: www.ijfmr.com       ●   Email: editor@ijfmr.com \n \nIJFMR250137182 \nVolume 7, Issue 1, January-February 2025 \n2\n \nGenerative AI: An Overview \nGenerative AI refers to a subset of artificial intelligence systems designed to produce new and unique \noutputs, such as text, images, music, or code, based on learned patterns from training data. Unlike \ntraditional AI models focus on classification or prediction, and generative models aim to create data that \nresembles human-generated content, enabling novel applications across a broad spectrum of industries. \n \nHistorical Context and Evolution \nThe concept of generative AI emerged from early advancements in machine learning and probabilistic \nmodeling. Techniques like Hidden Markov Models (HMMs) and Gaussian Mixture Models (GMMs) laid \nthe groundwork for pattern generation in sequential data. However, the field underwent a major \ntransformation with the advent of deep learning, particularly Generative Adversarial Networks (GANs) \nintroduced by Goodfellow et al. (2014). GANs demonstrated the ability to generate realistic images by \nemploying a dual- model framework consisting of a generator and a discriminator. \nSubsequent advancements, such as Variational Autoencoders (VAEs) and autoregressive models, \nexpanded the generative paradigm to include natural language, time series, and multimodal outputs. \nMore recently, Transformer-based architectures like GPT (Brown et al., 2020) have revolutionized the \nfield by leveraging self- attention mechanisms to generate coherent and contextually rich content. \n \nMajor Domains of Generative AI \n1. Natural Language Processing (NLP): AI-driven language models for text generation (e.g., \nChatGPT, T5). \n2. Computer Vision: AI-powered image synthesis and enhancement (e.g., DALL·E, Stable Diffusion). \n3. Generative Design: AI-assisted architectural and industrial design optimizations. \n4. Music and Art Generation: AI-created compositions and digital paintings. \n5. Code Generation: Automated software development (e.g., AlphaCode, Copilot). \n \nState-of-the-Art Models and Systems \n1. Transformer-based Models: \nTransformer architecture has become the cornerstone of generative AI due to their scalability and \ncontextual understanding. \nNotable models include GPT-4, BERT, and T5 [19] [Vaswani et al., 2017]. \n2. Diffusion Models: \nThese models iteratively refine noisy data to generate high-fidelity images, exemplified by DALL·E 2 and \nStable Diffusion [16] [Ramesh et al., 2022]. \n3. GANs: \nGANs have driven advancements in realistic image and video synthesis, with applications in fields like \nvirtual reality and media production. [Goodfellow et al., 2014]. \n4. Hybrid Models: \nMultimodal systems such as OpenAI’s CLIP and DeepMind’s Gato integrate vision, text, and action \ngeneration, enabling cross-domain applications. \n \n \n \n\nInternational Journal for Multidisciplinary Research (IJFMR) \n \nE-ISSN: 2582-2160   ●   Website: www.ijfmr.com       ●   Email: editor@ijfmr.com \n \nIJFMR250137182 \nVolume 7, Issue 1, January-February 2025 \n3\n \nEvaluation Metrics for Generative AI \nEvaluating generative AI requires a combination of quantitative and qualitative methods to measure per-\nformance effectively. \nCategory \nMetric \nDescription \nText-based Metrics \nBLEU \nMeasures overlap between generated and reference text \n(translation). \nText-based Metrics \nROUGE \nCompares n-gram overlap in text summarization. \nText-based Metrics \nPerplexity \nEvaluates fluency by measuring probability distribution in \nlanguage models. \nImage-based Met-\nrics \nFID \nQuantifies realism of generated images by comparing dis-\ntributions. \nImage-based Met-\nrics \nInception Score \n(IS) \nMeasures image quality and diversity using a pre-trained \nclassifier. \nDiversity Metrics \nEmbedding \nSpace Analysis \nEvaluates variability and originality of generated outputs. \nComputational Met-\nrics \nLatency \nAnalyzes time taken to generate outputs. \nComputational Met-\nrics \nThroughput \nMeasures number of outputs generated per unit time. \nTable above outlines key evaluation metrics for Generative AI, categorized by text-based, image-based, \ndiversity, and computational metrics. \n \nQuantitative Metrics \n1. Text-based Metrics: BLEU (machine translation), ROUGE (summarization), and Perplexity (lan-\nguage model fluency). \n2. Image-based Metrics: FID (Fréchet Inception Distance) and IS (Inception Score) assess image real-\nism and diversity. \n3. Computational Metrics: Latency, throughput, and robustness testing measure system efficiency and \nreliability. \n \nQualitative Metrics \n1. Human Evaluation: Experts assess outputs based on creativity, coherence, and relevance. \n2. User Experience (UX) Testing: Surveys and interviews gather feedback on usability. \n3. Ethical Considerations: Evaluations of bias, fairness, and potential societal impact. \n \nChallenges in Evaluating Generative AI \n1. Subjectivity in Evaluation: Human judgments introduce variability and potential bias. \n2. Data Bias and Fairness Issues: Generative AI may reflect biases present in training data. \n3. Scalability and Reproducibility: Large-scale evaluations require significant computational re-\nsources. \n4. Lack of Unified Evaluation Frameworks: Cross-domain comparison remains challenging. \n5. Ethical and Societal Concerns: The potential for misinformation and harmful content necessitates \nrigorous oversight. \n\nInternational Journal for Multidisciplinary Research (IJFMR) \n \nE-ISSN: 2582-2160   ●   Website: www.ijfmr.com       ●   Email: editor@ijfmr.com \n \nIJFMR250137182 \nVolume 7, Issue 1, January-February 2025 \n4\n \n6. Dynamic and Contextual Factors: Outputs should be assessed in real-world deployment scenarios. \n7. Real-world Deployment Challenges: Implementing generative AI in industry settings introduces \npractical concerns, such as model adaptation to dynamic environments, compliance with regulatory \nframeworks, and integration with existing workflows. Addressing these deployment challenges re-\nquires iterative evaluations in operational settings. \n \nCase Studies in Evaluation \n1. ChatGPT: Evaluating Conversational AI \n• \nMetrics: Perplexity and BLEU for fluency; human feedback for relevance. \n• \nChallenges: Handling misleading content and balancing informativeness with conciseness. \n• \nLessons: Combining automated and human evaluations improves assessment reliability. \n2. DALL·E: Evaluating Image Generation \n• \nMetrics: FID and CLIP score for quality assessment. \n• \nChallenges: Subjectivity in artistic evaluation. \n• \nLessons: A multimodal evaluation framework enhances accuracy. \n3. AlphaCode: Evaluating Code Generation \n• \nMetrics: Success rate in programming challenges. \n• \nChallenges: Ensuring correctness, readability, and efficiency. \n• \nLessons: Task-specific metrics are crucial for technical domains. \n \nEmerging Trends in Evaluation Techniques \n1. Automated Evaluation Frameworks: AI-driven assessment tools reduce reliance on human judg-\nment. \n2. Ethical and Societal Impact Evaluations: Bias auditing and harm analysis frameworks enhance fair-\nness. \n3. Multimodal Evaluation Techniques: Hybrid methods assess text, image, and audio integration. \n4. User-Centric Evaluation: Interactive testing and personalized metrics improve real-world applica-\nbility. \n5. Dynamic and Context-Aware Evaluation: Scenario-based testing ensures robustness. \n6. Explainability in Evaluation: Transparent AI metrics like SHAP and LIME improve trustworthiness. \n7. Integration of Human-AI Collaboration: Evaluations measure AI’s role in augmenting human cre-\nativity. \n \nConclusion and Future Directions \nEvaluating generative AI remains a complex yet essential task. While diverse metrics exist, no single \napproach fully captures generative AI’s multifaceted nature. This paper highlights the importance of de-\nveloping standardized, fair, and scalable evaluation methods to enhance reliability and trustworthiness. \n \nFuture Research Directions \n1. Unified Benchmarks: Standardized cross-domain metrics for fair comparisons. \n2. Scalable and Reproducible Evaluations: Efficient and consistent testing frameworks. \n3. Bias Mitigation: Adversarial debiasing and fairness-aware training techniques. \n4. Ethical and Societal Impact Assessments: Formalized risk evaluation frameworks. \n\nInternational Journal for Multidisciplinary Research (IJFMR) \n \nE-ISSN: 2582-2160   ●   Website: www.ijfmr.com       ●   Email: editor@ijfmr.com \n \nIJFMR250137182 \nVolume 7, Issue 1, January-February 2025 \n5\n \n5. Human-AI Collaboration Metrics: Assessing AI's role in augmenting human creativity. \n6. Context-Aware Evaluation: Scenario-based testing for real-world deployment. \nBy addressing these challenges, the AI community can ensure that generative AI systems evolve respon-\nsibly, benefiting both technology and society. \n \nSummary of Key Findings \n1. Diverse Metrics: Current evaluation techniques span quantitative metrics (e.g., BLEU, FID) and \nqualitative approaches (e.g., human assessments), often tailored to specific domains. However, no \nsingle metric fully captures the multifaceted nature of generative AI. \n2. Challenges: Subjectivity in evaluations, biases in data and outputs, scalability issues, and the lack of \nunified frameworks hinder the consistency and reliability of assessments. \n3. Emerging Innovations: Automated evaluation tools, multimodal and user-centric metrics, \nand explainability-focused approaches represent significant advancements in addressing these \nchallenges. \n \nFuture Research Directions \nWhile significant progress has been made, there are several open questions and opportunities for future \nexploration: \n1. Standardization Across Domains: \n• Establish unified benchmarks that facilitate cross-domain comparisons while accounting for domain- \nspecific nuances. \n• Develop multimodal evaluation frameworks to assess increasingly integrated systems effectively. \n \n2. Bias Mitigation and Fairness: \n• Expand efforts to identify and address biases in both training datasets and generative outputs. \n• Investigate methods for ensuring cultural, demographic, and contextual inclusivity in generated con-\ntent. \n3. Scalable and Reproducible Evaluations: \n• Design scalable evaluation methods that balance computational efficiency with comprehensiveness. \n• Enhance reproducibility by standardizing evaluation protocols and addressing the stochastic nature of \ngenerative models. \n \n4. Ethical and Societal Impact: \n• Formalize evaluation frameworks to assess ethical dimensions, including potential misuse, societal \nimpact, and alignment with human values. \n• Incorporate public and stakeholder perspectives into evaluations, ensuring that generative AI serves \nbroader societal interests. \n \n5. Human-AI Collaboration: \n• Explore metrics for assessing how effectively generative AI systems augment human creativity and \nproductivity in collaborative workflows. \n• Investigate the long-term impact of human-AI partnerships on creative industries and knowledge work. \n \n\nInternational Journal for Multidisciplinary Research (IJFMR) \n \nE-ISSN: 2582-2160   ●   Website: www.ijfmr.com       ●   Email: editor@ijfmr.com \n \nIJFMR250137182 \nVolume 7, Issue 1, January-February 2025 \n6\n \n6. Context-Aware and Adaptive Evaluations: \n• Develop dynamic evaluation strategies that consider real-world deployment contexts and adapt to \nchanging user needs and environments. \n• Incorporate scenario-based testing to simulate diverse and evolving use cases. \n \nClosing Remarks \nEvaluating generative AI is as crucial as its development. While diverse evaluation metrics exist, a \nstandardized, fair, and scalable framework is needed to ensure reliability and trustworthiness. Addressing \nbiases, ethical concerns, and real-world deployment challenges will shape the future of responsible AI. \nBy embracing innovative evaluation techniques and integrating multimodal assessments, the AI \ncommunity can drive the evolution of robust generative AI systems that align with human values and \nsocietal needs. \n \nReferences \n1. Bender, E. M., Gebru, T., McMillan-Major, A., & Shmitchell, S. (2021). On the Dangers of Stochastic \nParrots: Can Language Models Be Too Big? Proceedings of the 2021 ACM Conference on Fairness, \nAccountability, and Transparency (FAccT), 610–623. DOI \n2. Bellamy, R. K. E., Dey, K., Hind, M., Hoffman, S. C., Houde, S., Kannan, K., & Zhang, Y. (2018). AI \nFairness 360: An extensible toolkit for detecting, understanding, and mitigating unwanted algorithmic \nbias. IBM Journal of Research and Development, 63(4/5), 1–15. ArXiv \n3. Brown, T., Mann, B., Ryder, N., Subbiah, M., Kaplan, J., Dhariwal, P., ... & Amodei, D. (2020). Lan-\nguage Models are Few-Shot Learners. Advances in Neural Information Processing Systems (Neu-\nrIPS). DOI \n4. Carlini, N., Liu, C., Kos, J., Erlingsson, Ú., & Song, D. (2019). The Secret Sharer: Evaluating and \nTesting Unintended Memorization in Neural Networks. Proceedings of the 28th USENIX Security \nSymposium, 267– 284. ArXiv \n5. Floridi, L., & Cowls, J. (2020). AI4People—An Ethical Framework for a Good AI Society: Opportuni-\nties, Risks, Principles, and Recommendations. Minds and Machines, 28(4), 689–707. DOI \n6. Gehrmann, S., Gao, Y., & Faruqui, M. (2021). The GEM Benchmark: Natural Language Generation, \nits Evaluation and Metrics. Proceedings of the 59th Annual Meeting of the Association for Computa-\ntionalLinguistics. ArXiv \n7. Goodfellow, I., Pouget-Abadie, J., Mirza, M., Xu, B., Warde-Farley, D., Ozair, S., ... & Bengio, Y. \n(2014). \n8. Generative Adversarial Networks. Advances in Neural Information Processing Systems (NeurIPS). \nArXiv \n9. Heusel, M., Ramsauer, H., Unterthiner, T., Nessler, B., & Hochreiter, S. (2017). GANs Trained by a \nTwo Time-Scale Update Rule Converge to a Local Nash Equilibrium. Advances in Neural Information \nProcessing Systems (NeurIPS). ArXiv \n10. Kiela, D., Giorgi, J., Hall, K., & Boureau, Y. L. (2021). Dynabench: Rethinking Benchmarking in \nNLP. Proceedings of the 2021 Conference of the North American Chapter of the Association for Com-\nputational Linguistics: Human Language Technologies. ArXiv \n11. Li, Y., Cowen-Rivers, A., Turner, R., & Yasuhara, J. (2022). AlphaCode: Competitive Programming \nwith a Neural Network Model. DeepMind Research. DeepMind \n\nInternational Journal for Multidisciplinary Research (IJFMR) \n \nE-ISSN: 2582-2160   ●   Website: www.ijfmr.com       ●   Email: editor@ijfmr.com \n \nIJFMR250137182 \nVolume 7, Issue 1, January-February 2025 \n7\n \n12. OpenAI. (2023). GPT-4 Technical Report. OpenAI Research. OpenAI \n13. Papineni, K., Roukos, S., Ward, T., & Zhu, W.-J. (2002). BLEU: a Method for Automatic Evaluation of \nMachine Translation. Proceedings of the 40th Annual Meeting of the Association for Computational \nLinguistics. ACL Anthology \n14. Pineau, J., Vincent-Lamarre, P., Sinha, K., Larivière, V., Beygelzimer, A., d’Alché-Buc, F., ... & \nLeCun, Y. (2021). Improving Reproducibility in Machine Learning Research. Nature Machine Intelli-\ngence, 3(7), 547– \n15. 560. DOI \n16. Radford, A., Kim, J. W., Hallacy, C., Ramesh, A., Goh, G., Agarwal, S., ... & Sutskever, I. (2021). \nLearning Transferable Visual Models From Natural Language Supervision. Proceedings of the 38th \nInternational Conference on Machine Learning (ICML). ArXiv \n17. Ramesh, A., Dhariwal, P., Nichol, A., Chu, C., & Chen, M. (2022). Hierarchical Text-Conditional Im-\nage Generation with CLIP Latents. OpenAI Research. ArXiv \n18. Ribeiro, M. T., Singh, S., & Guestrin, C. (2016). \"Why Should I Trust You?\": Explaining the Predic-\ntions of Any Classifier. Proceedings of the 22nd ACM SIGKDD International Conference on \nKnowledge Discovery and Data Mining (KDD). DOI \n19. Sellam, T., Das, D., & Parikh, A. P. (2020). BLEURT: Learning Robust Metrics for Text Generation. \n20. Proceedings of the 58th Annual Meeting of the Association for Computational Linguistics. ArXiv \n21. Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., ... & Polosukhin, I. (2017). \n22. Attention Is All You Need. Advances in Neural Information Processing Systems (NeurIPS). ArXiv",
+  "full_text_source": "unpaywall",
+  "llm_extraction": {
+    "id": "97d39e10c5bb42d4bfb8ab14e4af53f5",
+    "created_at": "2026-03-21T23:10:45.378540Z",
+    "paper_id": "390a5ff70264435797feaf9ea2efdc1d",
+    "key_findings": [
+      {
+        "claim": "No single evaluation metric fully captures the multifaceted nature of generative AI, necessitating combined quantitative and qualitative approaches.",
+        "evidence_strength": "weak",
+        "quantitative_result": null,
+        "context": "Synthesis across text, image, and code generation domains; conclusion drawn from literature review without empirical validation.",
+        "paper_id": "IJFMR250137182"
+      },
+      {
+        "claim": "Combining automated and human evaluations improves assessment reliability for conversational AI systems such as ChatGPT.",
+        "evidence_strength": "weak",
+        "quantitative_result": null,
+        "context": "Case study on ChatGPT using perplexity, BLEU, and human feedback; no controlled comparison reported.",
+        "paper_id": "IJFMR250137182"
+      },
+      {
+        "claim": "A multimodal evaluation framework (FID + CLIP score) enhances accuracy of image generation assessment for models such as DALL·E.",
+        "evidence_strength": "weak",
+        "quantitative_result": null,
+        "context": "Case study on DALL·E; no quantitative comparison between single-metric and multimodal evaluation reported.",
+        "paper_id": "IJFMR250137182"
+      },
+      {
+        "claim": "Task-specific metrics (e.g., programming challenge success rate) are crucial for evaluating technical domains such as code generation.",
+        "evidence_strength": "weak",
+        "quantitative_result": null,
+        "context": "Case study on AlphaCode; correctness, readability, and efficiency identified as key dimensions.",
+        "paper_id": "IJFMR250137182"
+      },
+      {
+        "claim": "Subjectivity, data bias, lack of unified frameworks, scalability limitations, and ethical concerns are the primary barriers to consistent generative AI evaluation.",
+        "evidence_strength": "weak",
+        "quantitative_result": null,
+        "context": "Identified through narrative synthesis of existing literature; no empirical evidence provided.",
+        "paper_id": "IJFMR250137182"
+      },
+      {
+        "claim": "Emerging trends—including automated AI-driven evaluation frameworks, explainability metrics (SHAP, LIME), and user-centric testing—represent significant advances toward addressing evaluation gaps.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Forward-looking synthesis; cited as emerging rather than validated approaches.",
+        "paper_id": "IJFMR250137182"
+      },
+      {
+        "claim": "Transformer-based architectures (GPT-4, BERT, T5) have become the dominant paradigm for generative AI due to scalability and contextual understanding via self-attention mechanisms.",
+        "evidence_strength": "moderate",
+        "quantitative_result": null,
+        "context": "Supported by broad adoption across NLP benchmarks; attributed to Vaswani et al. 2017 and Brown et al. 2020.",
+        "paper_id": "IJFMR250137182"
+      },
+      {
+        "claim": "Diffusion models (DALL·E 2, Stable Diffusion) generate high-fidelity images through iterative denoising and have largely supplanted GANs for image synthesis quality.",
+        "evidence_strength": "moderate",
+        "quantitative_result": null,
+        "context": "Attributed to Ramesh et al. 2022; consistent with field consensus at time of publication.",
+        "paper_id": "IJFMR250137182"
+      }
+    ],
+    "methods_summary": "Narrative literature review synthesizing published work on generative AI evaluation. The paper categorizes evaluation approaches into quantitative metrics (BLEU, ROUGE, Perplexity, FID, Inception Score, embedding space analysis, latency, throughput) and qualitative methods (human expert assessment, UX testing, ethical audits). Three case studies are presented (ChatGPT, DALL·E, AlphaCode) to illustrate domain-specific evaluation strategies. Emerging trends are identified through thematic synthesis. No systematic search protocol, inclusion/exclusion criteria, or PRISMA-style methodology is reported.",
+    "limitations": "No systematic search methodology or PRISMA protocol is described, making the literature selection non-reproducible and potentially subject to selection bias. No empirical experiments or quantitative comparisons are conducted; all findings are based on secondary synthesis. The paper does not validate any proposed evaluation frameworks against ground truth. The venue (IJFMR, a broad multidisciplinary journal) suggests limited peer review rigor. Claims about 'emerging trends' lack citation support in several instances. The review does not quantify gaps between current metrics and human judgment, nor does it provide concrete guidance on metric selection for practitioners.",
+    "relationships": [
+      {
+        "source_paper_id": "IJFMR250137182",
+        "target_paper_id": "brown-2020-gpt3",
+        "relationship_type": "extends",
+        "description": "Ramamoorthy (2025) uses GPT-3/GPT-4 (Brown et al., 2020) as a primary motivating example of transformer-based generative AI requiring novel evaluation frameworks."
+      },
+      {
+        "source_paper_id": "IJFMR250137182",
+        "target_paper_id": "goodfellow-2014-gans",
+        "relationship_type": "extends",
+        "description": "Reviews GAN-based evaluation (FID, IS) originating from Goodfellow et al. (2014) and situates it within broader generative AI evaluation landscape."
+      },
+      {
+        "source_paper_id": "IJFMR250137182",
+        "target_paper_id": "vaswani-2017-attention",
+        "relationship_type": "supports",
+        "description": "Cites Vaswani et al. (2017) to support the claim that transformer self-attention is foundational to state-of-the-art generative models."
+      },
+      {
+        "source_paper_id": "IJFMR250137182",
+        "target_paper_id": "ramesh-2022-dalle2",
+        "relationship_type": "extends",
+        "description": "Uses DALL·E 2 (Ramesh et al., 2022) as a case study for image generation evaluation, applying FID and CLIP score frameworks."
+      },
+      {
+        "source_paper_id": "IJFMR250137182",
+        "target_paper_id": "papineni-2002-bleu",
+        "relationship_type": "extends",
+        "description": "Incorporates BLEU (Papineni et al., 2002) as a core text evaluation metric and discusses its limitations for open-ended generative outputs."
+      },
+      {
+        "source_paper_id": "IJFMR250137182",
+        "target_paper_id": "bender-2021-stochastic-parrots",
+        "relationship_type": "supports",
+        "description": "Cites Bender et al. (2021) to support the claim that biased or inappropriate content generation undermines trust, motivating ethical evaluation dimensions."
+      },
+      {
+        "source_paper_id": "IJFMR250137182",
+        "target_paper_id": "heusel-2017-fid",
+        "relationship_type": "extends",
+        "description": "Reviews FID metric (Heusel et al., 2017) as a standard image quality metric and discusses its application in generative AI evaluation pipelines."
+      }
+    ],
+    "methodology_details": {
+      "approach": "Narrative literature review with thematic synthesis and illustrative case studies. No systematic search protocol. Evaluation framework proposed by categorizing existing metrics into quantitative (text-based, image-based, computational) and qualitative (human, UX, ethical) dimensions.",
+      "datasets": [],
+      "metrics": [
+        "BLEU",
+        "ROUGE",
+        "Perplexity",
+        "FID (Fréchet Inception Distance)",
+        "Inception Score (IS)",
+        "CLIP score",
+        "Embedding space analysis",
+        "Latency",
+        "Throughput",
+        "Programming challenge success rate"
+      ],
+      "reproducibility_notes": "No systematic search protocol, inclusion criteria, or code repository provided. Evaluation methodology is descriptive and not reproducible in the methodological sense."
+    },
+    "domain_specific_fields": {
+      "benchmark": [
+        "BLEU",
+        "ROUGE",
+        "FID",
+        "Inception Score",
+        "Perplexity",
+        "CLIP score",
+        "programming challenge success rate"
+      ],
+      "metrics": [
+        "BLEU",
+        "ROUGE",
+        "Perplexity",
+        "FID",
+        "IS",
+        "CLIP score",
+        "embedding space analysis",
+        "latency",
+        "throughput",
+        "SHAP",
+        "LIME"
+      ],
+      "model_architecture": [
+        "Transformer (GPT-4, BERT, T5)",
+        "Diffusion Models (DALL·E 2, Stable Diffusion)",
+        "GAN",
+        "VAE",
+        "Hybrid/Multimodal (CLIP, Gato)",
+        "Autoregressive"
+      ],
+      "dataset": null
+    },
+    "study_design": "narrative_review",
+    "quality_score": 0.18,
+    "sample_size": null
+  }
+}

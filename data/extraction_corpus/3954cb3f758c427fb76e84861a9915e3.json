@@ -1,0 +1,100 @@
+{
+  "paper_id": "3954cb3f758c427fb76e84861a9915e3",
+  "metadata": {
+    "title": "Advancing Healthcare with Large Language Models: Techniques and Application",
+    "authors": [
+      "Zhen-Hua Hu",
+      "Zhizhi Peng",
+      "Zhen Bi",
+      "Qing Shen",
+      "Zhenfang Liu",
+      "Jungang Lou",
+      "Xin Luo"
+    ],
+    "year": 2025,
+    "journal": "IEEE/CAA Journal of Automatica Sinica",
+    "doi": "10.1109/jas.2025.125540",
+    "citation_count": 0,
+    "source_database": "semantic_scholar"
+  },
+  "abstract": "As the costs of global healthcare systems continue to rise, large language models (LLMs) have emerged as a promising technology with vast potential and wide-ranging applications in the medical field. We provide a detailed overview of the lifecycle of medical LLMs, encompassing three key stages: get, refine, and use, aimed at assisting healthcare practitioners and patients in utilizing these models more effectively. We also summarize the currently widely used medical evaluation benchmarks, analyzing their advantages and limitations. Furthermore, we conduct a comparative analysis of specialized medical LLMs on benchmarks such as MedQA, PubMedQA, MMLU-MED, and MedM-CQA, revealing that methods like retrieval-augmented generation (RAG) enable smaller models to outperform larger ones by effectively integrating external medical knowledge. This review provides a reference for medical professionals to evaluate LLM capabilities and inspires the development of more effective benchmarking methods. Additionally, we showcase practical applications of medical LLMs in clinical, research, and educational settings, providing healthcare workers with valuable resources. Finally, we identify current challenges faced by medical LLMs and present outlooks for future technological advancements, aiming to inspire users to explore new ways to address existing issues. This review serves as an entry point for interested clinicians, helping them determine whether and how to integrate LLM technology into healthcare for the benefit of patients and practitioners.",
+  "full_text": null,
+  "full_text_source": null,
+  "llm_extraction": {
+    "id": "73a5491347054adbb1c4bab7f02048a0",
+    "created_at": "2026-03-21T22:47:05.767759Z",
+    "paper_id": "3954cb3f758c427fb76e84861a9915e3",
+    "key_findings": [
+      {
+        "claim": "Retrieval-augmented generation (RAG) enables smaller LLMs to outperform larger ones on medical benchmarks by effectively integrating external medical knowledge",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Comparative analysis of specialized medical LLMs on MedQA, PubMedQA, MMLU-MED, and MedM-CQA benchmarks",
+        "paper_id": "advancing-healthcare-llms-techniques-application"
+      },
+      {
+        "claim": "The lifecycle of medical LLMs can be conceptualized in three stages: get (data acquisition), refine (fine-tuning/adaptation), and use (deployment/application)",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Proposed framework for understanding and utilizing medical LLMs",
+        "paper_id": "advancing-healthcare-llms-techniques-application"
+      },
+      {
+        "claim": "Medical LLMs have practical applications across clinical, research, and educational settings in healthcare",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Review of deployed use cases showcased in the paper",
+        "paper_id": "advancing-healthcare-llms-techniques-application"
+      },
+      {
+        "claim": "Current medical evaluation benchmarks (MedQA, PubMedQA, MMLU-MED, MedM-CQA) have identifiable advantages and limitations that affect fair model comparison",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Systematic analysis of widely used medical LLM evaluation benchmarks",
+        "paper_id": "advancing-healthcare-llms-techniques-application"
+      },
+      {
+        "claim": "LLMs represent a promising technology for addressing rising global healthcare costs through automation and decision support",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Motivating premise of the review",
+        "paper_id": "advancing-healthcare-llms-techniques-application"
+      }
+    ],
+    "methods_summary": "Narrative review synthesizing the medical LLM literature. Methodology includes: (1) a lifecycle framework decomposing medical LLM development into 'get, refine, use' stages; (2) a survey and critical analysis of widely used medical evaluation benchmarks; (3) a comparative analysis of specialized medical LLMs evaluated on MedQA, PubMedQA, MMLU-MED, and MedM-CQA; and (4) a showcase of practical clinical, research, and educational applications. Specific literature search strategy, inclusion/exclusion criteria, and number of reviewed papers are not reported in the abstract.",
+    "limitations": "Only the abstract is available, precluding assessment of methodological rigor, search strategy completeness, or reproducibility. The abstract does not report quantitative effect sizes for model comparisons. As a narrative review, it is susceptible to selection bias in paper inclusion. Benchmark analyses are limited to four datasets (MedQA, PubMedQA, MMLU-MED, MedM-CQA), which may not represent the full landscape of medical LLM evaluation. The claim that RAG enables smaller models to outperform larger ones is stated without specific numerical evidence in the abstract.",
+    "relationships": [],
+    "methodology_details": {
+      "approach": "Narrative review with comparative benchmark analysis of specialized medical LLMs; lifecycle framework (get, refine, use) applied to organize the literature",
+      "datasets": [
+        "MedQA",
+        "PubMedQA",
+        "MMLU-MED",
+        "MedM-CQA"
+      ],
+      "metrics": [
+        "Benchmark accuracy (inferred from comparative analysis context)"
+      ],
+      "reproducibility_notes": "No search protocol, PRISMA flow, or code repository mentioned in abstract"
+    },
+    "domain_specific_fields": {
+      "benchmark": [
+        "MedQA",
+        "PubMedQA",
+        "MMLU-MED",
+        "MedM-CQA"
+      ],
+      "model_architecture": "RAG (retrieval-augmented generation) highlighted as key technique enabling smaller models to outperform larger ones",
+      "metrics": "Benchmark performance on medical QA datasets",
+      "dataset": [
+        "MedQA",
+        "PubMedQA",
+        "MMLU-MED",
+        "MedM-CQA"
+      ]
+    },
+    "study_design": "narrative_review",
+    "quality_score": 0.35,
+    "sample_size": null
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "paper_id": "50ecfb5753fd4301b8e35a97443cb8a2",
+  "metadata": {
+    "title": "Survey of Different Large Language Model Architectures: Trends, Benchmarks, and Challenges",
+    "authors": [
+      "Minghao Shao",
+      "Abdul Basit",
+      "Ramesh Karri",
+      "Muhammad Shafique"
+    ],
+    "year": 2024,
+    "journal": "IEEE Access",
+    "doi": "10.1109/access.2024.3482107",
+    "citation_count": 68,
+    "source_database": "semantic_scholar"
+  },
+  "abstract": "Large Language Models (LLMs) represent a class of deep learning models adept at understanding natural language and generating coherent responses to various prompts or queries. These models far exceed the complexity of conventional neural networks, often encompassing dozens of neural network layers and containing billions to trillions of parameters. They are typically trained on vast datasets, utilizing architectures based on transformer blocks. Present-day LLMs are multi-functional, capable of performing a range of tasks from text generation and language translation to question answering, as well as code generation and analysis. An advanced subset of these models, known as Multimodal Large Language Models (MLLMs), extends LLM capabilities to process and interpret multiple data modalities, including images, audio, and video. This enhancement empowers MLLMs with capabilities like video editing, image comprehension, and captioning for visual content. This survey provides a comprehensive overview of the recent advancements in LLMs. We begin by tracing the evolution of LLMs and subsequently delve into the advent and nuances of MLLMs. We analyze emerging state-of-the-art MLLMs, exploring their technical features, strengths, and limitations. Additionally, we present a comparative analysis of these models and discuss their challenges, potential limitations, and prospects for future development.",
+  "full_text": "Survey of Different Large Language Model Architectures: Trends,\nBenchmarks, and Challenges | IEEE Journals & Magazine | IEEE\nXplore\nIEEE Account\n•  Change Username/Password\n•  Update Address\nPurchase Details\n•  Payment Options\n•  Order History\n•  View Purchased Documents\nProfile Information\n•  Communications Preferences\n•  Profession and Education\n•  Technical Interests\nNeed Help?\n•  US & Canada: +1 800 678 4333\n•  Worldwide: +1 732 981 0060\n•  Contact & Support\n•  About IEEE Xplore\n•  Contact Us\n•  Help\n•  Accessibility\n•  Terms of Use\n•  Nondiscrimination Policy\n•  Sitemap\n•  Privacy & Opting Out of Cookies\nA not-for-profit organization, IEEE is the world's largest technical\nprofessional organization dedicated to advancing technology for the\n\nbenefit of humanity.\n© Copyright 2026 IEEE - All rights reserved. Use of this web site\nsignifies your agreement to the terms and conditions.",
+  "full_text_source": "s2_pdf",
+  "llm_extraction": {
+    "id": "extraction-ieee-llm-survey-2026",
+    "created_at": "2026-03-21T00:00:00Z",
+    "paper_id": "50ecfb5753fd4301b8e35a97443cb8a2",
+    "key_findings": [],
+    "methods_summary": "Full text not retrievable. The content retrieved from IEEE Xplore contains only the page navigation, footer, and access control elements — no abstract, body, or figures were returned. The paper is titled 'Survey of Different Large Language Model Architectures: Trends, Benchmarks, and Challenges' and appears to be a survey/review article published in an IEEE journal, but no substantive content was accessible.",
+    "limitations": "Full text inaccessible via the retrieval method used. IEEE Xplore requires institutional access or purchase; only the page shell was returned. No findings, methodology, or quantitative results can be extracted.",
+    "relationships": [],
+    "methodology_details": null,
+    "domain_specific_fields": {
+      "benchmark": null,
+      "metrics": null,
+      "model_architecture": null,
+      "dataset": null,
+      "access_status": "paywalled — full text not retrieved",
+      "source": "IEEE Xplore"
+    },
+    "study_design": "narrative_review",
+    "quality_score": null,
+    "sample_size": null
+  }
+}

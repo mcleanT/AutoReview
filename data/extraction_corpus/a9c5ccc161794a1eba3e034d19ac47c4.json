@@ -1,0 +1,70 @@
+{
+  "paper_id": "a9c5ccc161794a1eba3e034d19ac47c4",
+  "metadata": {
+    "title": "Benchmarking Large Language Models for Code Generation",
+    "authors": [
+      "Rodrigo Pato Nogueira"
+    ],
+    "year": 2025,
+    "journal": "2025 20th European Dependable Computing Conference Companion Proceedings (EDCC-C)",
+    "doi": "10.1109/edcc-c66476.2025.00032",
+    "citation_count": 0,
+    "source_database": "semantic_scholar"
+  },
+  "abstract": "Large Language Models (LLMs) have become increasingly popular for text-to-code generation, a task which involves converting natural language descriptions into code. While they have shown promising results, challenges remain with more complex problems and less common programming languages, highlighting the need for robust and systematic benchmarks. Without such benchmarks, there is a risk of misrepresenting LLMs capabilities and relying on tools that may not perform as expected. Existing benchmarks have several limitations, such as incomplete metrics, small datasets, a focus on a single programming language, and a lack of clear methodology. These shortcomings make it difficult to compare models effectively and limit the benchmarks' ability to expand to cover important aspects such as dependability and security. This work introduces a systematic benchmarking framework to evaluate LLMs on text-to-code tasks. The framework considers the need for diverse problems, multiple evaluation metrics, and supports setups like few-shot learning, aiming to provide meaningful insights into LLMs performance and their applicability in real-world programming scenarios.",
+  "full_text": null,
+  "full_text_source": null,
+  "llm_extraction": {
+    "id": "0b77258e52a040e99b1c487634b6d7a0",
+    "created_at": "2026-03-21T22:47:27.198148Z",
+    "paper_id": "a9c5ccc161794a1eba3e034d19ac47c4",
+    "key_findings": [
+      {
+        "claim": "LLMs have shown promising results for text-to-code generation tasks but continue to face challenges with more complex problems and less common programming languages.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Stated as motivation for the benchmarking framework; no empirical results provided in abstract.",
+        "paper_id": "benchmarking-llms-code-generation"
+      },
+      {
+        "claim": "Existing code generation benchmarks suffer from incomplete metrics, small datasets, focus on a single programming language, and lack of clear methodology.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Critical review of prior benchmark landscape used to motivate this work.",
+        "paper_id": "benchmarking-llms-code-generation"
+      },
+      {
+        "claim": "The proposed systematic benchmarking framework supports diverse problems, multiple evaluation metrics, and few-shot learning setups for evaluating LLMs on text-to-code tasks.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Framework design claim; no empirical validation results are reported in the abstract.",
+        "paper_id": "benchmarking-llms-code-generation"
+      },
+      {
+        "claim": "Without robust and systematic benchmarks, there is a risk of misrepresenting LLM capabilities in code generation and relying on tools that underperform in practice.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Motivational claim; not empirically tested in the abstract.",
+        "paper_id": "benchmarking-llms-code-generation"
+      }
+    ],
+    "methods_summary": "The paper introduces a systematic benchmarking framework for evaluating LLMs on text-to-code (natural language to code) generation tasks. The framework is designed to address gaps in existing benchmarks by incorporating: (1) diverse problem sets spanning multiple difficulty levels and programming languages, (2) multiple evaluation metrics to capture different aspects of code quality, (3) support for few-shot learning experimental setups. The framework aims to enable meaningful, reproducible comparisons across models and to extend coverage to aspects such as dependability and security.",
+    "limitations": "Only the abstract is available; specific experimental results, dataset sizes, model evaluations, and quantitative performance comparisons are not reported. The framework's design principles are described but empirical validation of its advantages over prior benchmarks cannot be assessed. The abstract does not specify which LLMs were evaluated, which programming languages are included, or what metrics are used, making it impossible to assess the framework's actual coverage or rigor.",
+    "relationships": [],
+    "methodology_details": {
+      "approach": "Systematic benchmarking framework for text-to-code LLM evaluation supporting diverse problems, multiple metrics, and few-shot learning.",
+      "datasets": [],
+      "metrics": [],
+      "reproducibility_notes": "Abstract does not provide sufficient detail to assess reproducibility; no code, dataset links, or implementation details mentioned."
+    },
+    "domain_specific_fields": {
+      "benchmark": "Proposed systematic benchmarking framework for text-to-code LLM evaluation; designed to address limitations of existing benchmarks (incomplete metrics, small size, single-language focus).",
+      "metrics": "Multiple evaluation metrics are described as a design goal; specific metrics not named in the abstract.",
+      "model_architecture": "Not specified; framework is described as model-agnostic for evaluating LLMs broadly.",
+      "dataset": "Not specified in the abstract; framework design targets diverse problems across multiple programming languages."
+    },
+    "study_design": "computational",
+    "quality_score": 0.2,
+    "sample_size": null
+  }
+}

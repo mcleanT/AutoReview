@@ -1,0 +1,91 @@
+{
+  "paper_id": "1e3391f2eeb34df68a46cca546177b90",
+  "metadata": {
+    "title": "Quality Evaluation of LLM-based Generated Test Case: A Literature Review",
+    "authors": [
+      "Novi Setiani",
+      "Alifia"
+    ],
+    "year": 2025,
+    "journal": "2025 IEEE International Conference on Data and Software Engineering (ICoDSE)",
+    "doi": "10.1109/icodse68111.2025.11351763",
+    "citation_count": 0,
+    "source_database": "semantic_scholar"
+  },
+  "abstract": "Large Language Models (LLMs) are increasingly applied in automated test case generation. Unlike traditional testing, quality evaluation of their outputs requires novel approaches due to the non-deterministic nature of LLMs and the risks of bias and hallucination. This study conducts a systematic literature review of 25 publications (2020–2025) to examine quality criteria, evaluation metrics, and heuristics in LLM -based test case generation. Findings show that correctness/accuracy and coverage metrics remain dominant, yet there is a growing focus on bias and hallucination detection. Effective heuristics include human-in-the-loop evaluation, gold standard comparison, and multi-agent frameworks. The review highlights emerging frameworks integrating ethical and safety criteria, underscoring the need for comprehensive evaluation to ensure reliability and fairness in automated test generation.",
+  "full_text": null,
+  "full_text_source": null,
+  "llm_extraction": {
+    "id": "extraction-quality-eval-llm-test-case-litreview",
+    "created_at": "2026-03-21T00:00:00Z",
+    "paper_id": "1e3391f2eeb34df68a46cca546177b90",
+    "key_findings": [
+      {
+        "claim": "Correctness/accuracy and coverage metrics remain the dominant quality criteria used to evaluate LLM-generated test cases.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Finding from systematic review of 25 publications (2020–2025) on LLM-based test case generation.",
+        "paper_id": "quality-eval-llm-test-case-litreview"
+      },
+      {
+        "claim": "There is a growing focus on bias and hallucination detection as quality concerns in LLM-generated test cases.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Trend identified across 25 reviewed publications spanning 2020–2025.",
+        "paper_id": "quality-eval-llm-test-case-litreview"
+      },
+      {
+        "claim": "Human-in-the-loop evaluation, gold standard comparison, and multi-agent frameworks are effective heuristics for evaluating LLM-generated test case quality.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Synthesized from systematic review; no individual study results reported in abstract.",
+        "paper_id": "quality-eval-llm-test-case-litreview"
+      },
+      {
+        "claim": "Emerging evaluation frameworks are integrating ethical and safety criteria into the assessment of LLM-generated test cases.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Identified as an emerging trend in the reviewed literature; underscores need for reliability and fairness considerations.",
+        "paper_id": "quality-eval-llm-test-case-litreview"
+      },
+      {
+        "claim": "Quality evaluation of LLM-based test case generation requires novel approaches beyond traditional testing metrics due to LLM non-determinism, bias risk, and hallucination.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Motivation stated in abstract for conducting the systematic review.",
+        "paper_id": "quality-eval-llm-test-case-litreview"
+      }
+    ],
+    "methods_summary": "Systematic literature review of 25 peer-reviewed publications published between 2020 and 2025. The review examined quality criteria, evaluation metrics, and heuristics used in LLM-based test case generation. No additional methodological detail (search databases, inclusion/exclusion criteria, PRISMA compliance) is available from the abstract alone.",
+    "limitations": "Only the abstract is available, so detailed methodological limitations cannot be assessed. From what is reported: (1) the review covers only 25 publications, which may not be exhaustive; (2) no PRISMA flowchart or inter-rater reliability information is mentioned; (3) the 2020–2025 window may underrepresent very recent advances; (4) the abstract does not specify which LLMs or test generation domains were covered, limiting generalizability assessment.",
+    "relationships": [],
+    "methodology_details": {
+      "approach": "Systematic literature review synthesizing quality criteria, evaluation metrics, and heuristics from 25 publications on LLM-based test case generation (2020–2025).",
+      "datasets": [
+        "25 peer-reviewed publications (2020–2025)"
+      ],
+      "metrics": [
+        "correctness/accuracy",
+        "coverage",
+        "bias detection",
+        "hallucination detection"
+      ],
+      "reproducibility_notes": "Search strategy, inclusion/exclusion criteria, and screening protocol not described in the abstract."
+    },
+    "domain_specific_fields": {
+      "benchmark": null,
+      "metrics": [
+        "correctness",
+        "accuracy",
+        "coverage",
+        "bias detection",
+        "hallucination detection"
+      ],
+      "model_architecture": null,
+      "dataset": "25 publications on LLM-based test case generation (2020–2025)"
+    },
+    "study_design": "systematic_review",
+    "quality_score": 0.45,
+    "sample_size": 25
+  }
+}

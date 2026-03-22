@@ -1,0 +1,99 @@
+{
+  "paper_id": "2d070db91e554e129fc5aad8745b2bd9",
+  "metadata": {
+    "title": "Benchmarking Multiple Large Language Models for Automated Clinical Trial Data Extraction in Aging Research",
+    "authors": [
+      "Richard J Young",
+      "Alice Matthews",
+      "B. Poston"
+    ],
+    "year": 2025,
+    "journal": "Algorithms",
+    "doi": "10.3390/a18050296",
+    "citation_count": 5,
+    "source_database": "semantic_scholar"
+  },
+  "abstract": "Large-language models (LLMs) show promise for automating evidence synthesis, yet head-to-head evaluations remain scarce. We benchmarked five state-of-the-art LLMs—openai/o1-mini, x-ai/grok-2-1212, meta-llama/Llama-3.3-70B-Instruct, google/Gemini-Flash-1.5-8B, and deepseek/DeepSeek-R1-70B-Distill—on extracting protocol details from transcranial direct-current stimulation (tDCS) trials enrolling older adults. A multi-LLM ensemble pipeline ingested ClinicalTrials.gov records, applied a structured JSON schema, and generated comparable outputs from unstructured text. The pipeline retrieved 83 aging-related tDCS trials—roughly double the yield of a conventional keyword search. Across models, agreement was almost perfect for the binary field brain stimulation used (Fleiss κ ≈ 0.92) and substantial for the categorical primary target (κ ≈ 0.71). Numeric parameters such as stimulation intensity and session duration showed excellent consistency when explicitly reported (ICC 0.95–0.96); secondary targets and free-text duration phrases remained challenging (κ ≈ 0.61; ICC ≈ 0.35). An ensemble consensus (majority vote or averaging) resolved most disagreements and delivered near-perfect reliability on core stimulation attributes (κ = 0.94). These results demonstrate that multi-LLM ensembles can markedly expand trial coverage and reach expert-level accuracy on well-defined fields while still requiring human oversight for nuanced or sparsely reported details. The benchmark and open-source workflow set a solid baseline for future advances in prompt engineering, model specialization, and ensemble strategies aimed at fully automated evidence synthesis in neurostimulation research involving aging populations. Overall, the five-model multi-LLM ensemble doubled the number of eligible aging-related tDCS trials retrieved versus keyword searching and achieved near-perfect agreement on core stimulation parameters (κ ≈ 0.94), demonstrating expert-level extraction accuracy.",
+  "full_text": "Benchmarking Multiple Large Language Models for Automated Clinical Trial Data Extraction in Aging Research – DOAJ\nThis website uses cookies to ensure you get the best experience.\nLearn more about DOAJ’s privacy policy.\nHide this message\nJournals\nArticles\nSearch by keywords:\nIn the field:\nIn all fields\nTitle\nISSN\nSubject\nPublisher\nCountry of publisher\nSearch\nAbstract\nRead online\nLarge-language models (LLMs) show promise for automating evidence synthesis, yet head-to-head evaluations remain scarce. We benchmarked five state-of-the-art LLMs—openai/o1-mini, x-ai/grok-2-1212, meta-llama/Llama-3.3-70B-Instruct, google/Gemini-Flash-1.5-8B, and deepseek/DeepSeek-R1-70B-Distill—on extracting protocol details from transcranial direct-current stimulation (tDCS) trials enrolling older adults. A multi-LLM ensemble pipeline ingested ClinicalTrials.gov records, applied a structured JSON schema, and generated comparable outputs from unstructured text. The pipeline retrieved 83 aging-related tDCS trials—roughly double the yield of a conventional keyword search. Across models, agreement was almost perfect for the binary field brain stimulation used (Fleiss κ ≈ 0.92) and substantial for the categorical primary target (κ ≈ 0.71). Numeric parameters such as stimulation intensity and session duration showed excellent consistency when explicitly reported (ICC 0.95–0.96); secondary targets and free-text duration phrases remained challenging (κ ≈ 0.61; ICC ≈ 0.35). An ensemble consensus (majority vote or averaging) resolved most disagreements and delivered near-perfect reliability on core stimulation attributes (κ = 0.94). These results demonstrate that multi-LLM ensembles can markedly expand trial coverage and reach expert-level accuracy on well-defined fields while still requiring human oversight for nuanced or sparsely reported details. The benchmark and open-source workflow set a solid baseline for future advances in prompt engineering, model specialization, and ensemble strategies aimed at fully automated evidence synthesis in neurostimulation research involving aging populations. Overall, the five-model multi-LLM ensemble doubled the number of eligible aging-related tDCS trials retrieved versus keyword searching and achieved near-perfect agreement on core stimulation parameters (κ ≈ 0.94), demonstrating expert-level extraction accuracy.\nKeywords\nclinical trial data extraction\nlarge language models (LLMs)\nAPI integration\nmulti-agent systems\nsystematic review methodology\ntranscranial direct current stimulation (tDCS)\nPublished in\nAlgorithms\nISSN\n1999-4893 (Online)\nPublisher\nMDPI AG\nCountry of publisher\nSwitzerland\nLCC subjects\nTechnology: Technology (General): Industrial engineering. Management engineering\nScience: Mathematics: Instruments and machines: Electronic computers. Computer science\nWebsite\nhttps://www.mdpi.com/journal/algorithms\nAbout the journal\nWeChat QR code\nClose",
+  "full_text_source": "unpaywall",
+  "llm_extraction": {
+    "id": "c6c6ab49493c4e0fbe6441ebc8987052",
+    "created_at": "2026-03-21T23:07:16.041405Z",
+    "paper_id": "2d070db91e554e129fc5aad8745b2bd9",
+    "key_findings": [
+      {
+        "claim": "A multi-LLM ensemble pipeline retrieved 83 aging-related tDCS trials from ClinicalTrials.gov, approximately double the yield of a conventional keyword search.",
+        "evidence_strength": "moderate",
+        "quantitative_result": "83 trials retrieved; ~2x yield vs. keyword search",
+        "context": "Pipeline ingested ClinicalTrials.gov records and applied structured JSON schema extraction across 5 LLMs.",
+        "paper_id": "benchmarking-llms-clinical-trial-extraction-aging-2024"
+      },
+      {
+        "claim": "Inter-model agreement was near-perfect for the binary field 'brain stimulation used' across five LLMs.",
+        "evidence_strength": "moderate",
+        "quantitative_result": "Fleiss κ ≈ 0.92",
+        "context": "Binary field extraction showed the highest reliability among all field types evaluated.",
+        "paper_id": "benchmarking-llms-clinical-trial-extraction-aging-2024"
+      },
+      {
+        "claim": "Agreement was substantial for the categorical field 'primary target' across five LLMs.",
+        "evidence_strength": "moderate",
+        "quantitative_result": "Fleiss κ ≈ 0.71",
+        "context": "Categorical fields showed lower reliability than binary fields but remained in the substantial agreement range.",
+        "paper_id": "benchmarking-llms-clinical-trial-extraction-aging-2024"
+      },
+      {
+        "claim": "Numeric stimulation parameters (intensity and session duration) showed excellent inter-model consistency when explicitly reported in source records.",
+        "evidence_strength": "moderate",
+        "quantitative_result": "ICC 0.95–0.96",
+        "context": "High ICC observed only when values were explicitly stated; sparsely reported values degraded reliability.",
+        "paper_id": "benchmarking-llms-clinical-trial-extraction-aging-2024"
+      },
+      {
+        "claim": "Secondary stimulation targets and free-text duration phrases were the most challenging fields, with substantially lower inter-model agreement.",
+        "evidence_strength": "moderate",
+        "quantitative_result": "κ ≈ 0.61 for secondary targets; ICC ≈ 0.35 for free-text duration",
+        "context": "Fields requiring interpretation of ambiguous or underspecified text showed the greatest model disagreement.",
+        "paper_id": "benchmarking-llms-clinical-trial-extraction-aging-2024"
+      },
+      {
+        "claim": "An ensemble consensus strategy (majority vote or averaging) resolved most inter-model disagreements and achieved near-perfect reliability on core stimulation attributes.",
+        "evidence_strength": "moderate",
+        "quantitative_result": "κ = 0.94 on core stimulation attributes after ensemble consensus",
+        "context": "Ensemble outperformed any individual model, reaching expert-level accuracy on well-defined fields.",
+        "paper_id": "benchmarking-llms-clinical-trial-extraction-aging-2024"
+      },
+      {
+        "claim": "Multi-LLM ensembles can reach expert-level extraction accuracy for well-defined structured fields in clinical trial records, but still require human oversight for nuanced or sparsely reported details.",
+        "evidence_strength": "moderate",
+        "quantitative_result": null,
+        "context": "Conclusion drawn from cross-field reliability analysis across five models.",
+        "paper_id": "benchmarking-llms-clinical-trial-extraction-aging-2024"
+      }
+    ],
+    "methods_summary": "Five state-of-the-art LLMs (openai/o1-mini, x-ai/grok-2-1212, meta-llama/Llama-3.3-70B-Instruct, google/Gemini-Flash-1.5-8B, deepseek/DeepSeek-R1-70B-Distill) were benchmarked on extracting protocol details from transcranial direct-current stimulation (tDCS) clinical trials targeting older adults sourced from ClinicalTrials.gov. A multi-LLM ensemble pipeline applied a structured JSON schema to unstructured trial records and generated comparable outputs per model. Inter-model reliability was assessed using Fleiss' kappa for categorical/binary fields and intraclass correlation coefficient (ICC) for numeric fields. An ensemble consensus was formed via majority vote (categorical) or averaging (numeric) to resolve disagreements.",
+    "limitations": "The study is available only as an abstract via DOAJ, limiting assessment of full methodological details. The benchmark is restricted to a single narrow domain (tDCS trials in aging populations), limiting generalizability to other clinical trial types or medical domains. Only five models were evaluated; results may not generalize to other LLM families or sizes. Free-text and sparsely reported fields remain challenging and require human oversight, indicating the pipeline is not yet fully autonomous. Ground truth labels and the process for establishing them are not described in the abstract, making it difficult to assess absolute extraction accuracy beyond inter-model agreement.",
+    "relationships": [],
+    "methodology_details": {
+      "approach": "Multi-LLM ensemble pipeline with structured JSON schema extraction from ClinicalTrials.gov records; inter-model reliability assessed via Fleiss kappa and ICC; consensus via majority vote or averaging.",
+      "datasets": [
+        "ClinicalTrials.gov — aging-related tDCS trials (n=83)"
+      ],
+      "metrics": [
+        "Fleiss kappa (κ) for categorical and binary fields",
+        "Intraclass correlation coefficient (ICC) for numeric fields",
+        "Trial retrieval yield vs. keyword search baseline"
+      ],
+      "reproducibility_notes": "Authors report an open-source workflow and benchmark; published in Algorithms (MDPI, ISSN 1999-4893)."
+    },
+    "domain_specific_fields": {
+      "benchmark": "Extraction of tDCS clinical trial protocol fields from ClinicalTrials.gov records; ensemble vs. individual model reliability",
+      "metrics": "Fleiss κ (binary: 0.92, categorical: 0.71, secondary targets: 0.61, ensemble: 0.94); ICC (numeric params: 0.95–0.96, free-text duration: 0.35)",
+      "model_architecture": "Five models benchmarked: openai/o1-mini, x-ai/grok-2-1212, meta-llama/Llama-3.3-70B-Instruct (70B), google/Gemini-Flash-1.5-8B, deepseek/DeepSeek-R1-70B-Distill (70B); ensemble via majority vote or averaging",
+      "dataset": "ClinicalTrials.gov records for aging-related tDCS trials; 83 trials retrieved by pipeline vs. ~41 by keyword search"
+    },
+    "study_design": "computational",
+    "quality_score": 0.55,
+    "sample_size": 83
+  }
+}

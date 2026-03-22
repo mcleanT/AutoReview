@@ -1,0 +1,1108 @@
+{
+  "created_at": "2026-03-22T01:03:10.699748+00:00",
+  "n_papers": 220,
+  "n_with_full_text": 198,
+  "n_abstract_only": 22,
+  "papers": [
+    {
+      "paper_id": "4749d122bd6e436985d841c9c05f9f0b",
+      "has_full_text": true,
+      "title": "Large language models encode clinical knowledge"
+    },
+    {
+      "paper_id": "5221c2b4a14c431b951d77b2f6ca7b12",
+      "has_full_text": true,
+      "title": "PHYBench: Holistic Evaluation of Physical Perception and Reasoning in Large Language Models"
+    },
+    {
+      "paper_id": "f5cf988c868b4069987d57c0f7f36d71",
+      "has_full_text": true,
+      "title": "Large Language Models Meet Symbolic Provers for Logical Reasoning Evaluation"
+    },
+    {
+      "paper_id": "6dc170bdef6946d4a216d314fe3f6507",
+      "has_full_text": true,
+      "title": "Large Language Models for Code Generation: A Comprehensive Survey of Challenges, Techniques, Evaluation, and Applications"
+    },
+    {
+      "paper_id": "c80ef01dae674e298acca1bd8ea00d6c",
+      "has_full_text": true,
+      "title": "Pragmatics in the Era of Large Language Models: A Survey on Datasets, Evaluation, Opportunities and Challenges"
+    },
+    {
+      "paper_id": "8f0e140fe28848cb98de82fc93a92c19",
+      "has_full_text": false,
+      "title": "ElecBench: a Power Grid Dispatch Evaluation Benchmark for Large Language Models"
+    },
+    {
+      "paper_id": "b84e6e9545fa4833831bb0bda4430060",
+      "has_full_text": true,
+      "title": "A Systematic Review on the Evaluation of Large Language Models in Theory of Mind Tasks"
+    },
+    {
+      "paper_id": "7e1b3e016a2d40d9a64c9fba9fd52ac8",
+      "has_full_text": true,
+      "title": "GATmath and GATLc: Comprehensive benchmarks for evaluating Arabic large language models"
+    },
+    {
+      "paper_id": "d35be1f6e954476f98839d3e6bdafe8c",
+      "has_full_text": true,
+      "title": "Establishing robust benchmarks for evaluating contextual reasoning in large language models"
+    },
+    {
+      "paper_id": "bbda78ad6c94452aa0261a69de9f225a",
+      "has_full_text": true,
+      "title": "Advancing Spatial Reasoning in Large Language Models: An In-Depth Evaluation and Enhancement Using the StepGame Benchmark"
+    },
+    {
+      "paper_id": "4b4762db71b84475ac94926ce7bd2954",
+      "has_full_text": true,
+      "title": "Swedish Medical LLM Benchmark: development and evaluation of a framework for assessing large language models in the Swedish medical domain"
+    },
+    {
+      "paper_id": "617f8fb629a84b10a9e182aac085abbc",
+      "has_full_text": true,
+      "title": "Large Language Models Cannot Reliably Detect Vulnerabilities in JavaScript: The First Systematic Benchmark and Evaluation"
+    },
+    {
+      "paper_id": "e910645bd1ec446487533d121591e64e",
+      "has_full_text": true,
+      "title": "DARG: Dynamic Evaluation of Large Language Models via Adaptive Reasoning Graph"
+    },
+    {
+      "paper_id": "8ce5ca062a4c41afac2d8c83fed5e546",
+      "has_full_text": true,
+      "title": "RealFactBench: A Benchmark for Evaluating Large Language Models in Real-World Fact-Checking"
+    },
+    {
+      "paper_id": "b82496e94770460cb53e8d509e4fcce0",
+      "has_full_text": false,
+      "title": "ToLeaP: Rethinking Development of Tool Learning with Large Language Models"
+    },
+    {
+      "paper_id": "c3ce9533491d40239964727d52e0e08c",
+      "has_full_text": true,
+      "title": "E2Edev: Benchmarking Large Language Models in End-to-End Software Development Task"
+    },
+    {
+      "paper_id": "3954cb3f758c427fb76e84861a9915e3",
+      "has_full_text": false,
+      "title": "Advancing Healthcare with Large Language Models: Techniques and Application"
+    },
+    {
+      "paper_id": "42fb2df6f14d43c68d69d2aab8146cfd",
+      "has_full_text": true,
+      "title": "Evaluating the Limits of Large Language Models in Multilingual Legal Reasoning"
+    },
+    {
+      "paper_id": "a9c5ccc161794a1eba3e034d19ac47c4",
+      "has_full_text": false,
+      "title": "Benchmarking Large Language Models for Code Generation"
+    },
+    {
+      "paper_id": "745d70a4b6c34670a41fde835792ee65",
+      "has_full_text": true,
+      "title": "From Facts to Folklore: Evaluating Large Language Models on Bengali Cultural Knowledge"
+    },
+    {
+      "paper_id": "9bfe82a99ed9461faf633229274a33ba",
+      "has_full_text": true,
+      "title": "CodeJudge-Eval: Can Large Language Models be Good Judges in Code Understanding?"
+    },
+    {
+      "paper_id": "bfe3acb6392e44099ca90dc31a534a60",
+      "has_full_text": true,
+      "title": "RECKON: Large-scale Reference-based Efficient Knowledge Evaluation for Large Language Model"
+    },
+    {
+      "paper_id": "9414fafddd434230bfae05fc268b22a3",
+      "has_full_text": true,
+      "title": "An Empirical Evaluation of Large Language Models on Consumer Health Questions"
+    },
+    {
+      "paper_id": "54a8155672c240aaa3792b7b6f9bc081",
+      "has_full_text": true,
+      "title": "Bridging the Bosphorus: Advancing Turkish Large Language Models through Strategies for Low-Resource Language Adaptation and Benchmarking"
+    },
+    {
+      "paper_id": "454a8ecfd4eb4519af6636b29c8bbc90",
+      "has_full_text": true,
+      "title": "NPHardEval: Dynamic Benchmark on Reasoning Ability of Large Language Models via Complexity Classes"
+    },
+    {
+      "paper_id": "1b579467488e455682136c6294fe4a9c",
+      "has_full_text": true,
+      "title": "Enhancing Logical Reasoning in Large Language Models through Graph-based Synthetic Data"
+    },
+    {
+      "paper_id": "f3f8c3a5217642b1bb9d50db92639d7b",
+      "has_full_text": true,
+      "title": "SEED-Bench-2: Benchmarking Multimodal Large Language Models"
+    },
+    {
+      "paper_id": "d5218af8c0534aa8b027c1b1278a5616",
+      "has_full_text": true,
+      "title": "Evaluating Large Language Models via Linguistic Profiling"
+    },
+    {
+      "paper_id": "17f3ff3554a54918af84e6ebce37b702",
+      "has_full_text": false,
+      "title": "Evaluations of Large Language Models a Bibliometric analysis"
+    },
+    {
+      "paper_id": "ab82fc592e3d4e15bc1cc0dcab824b08",
+      "has_full_text": true,
+      "title": "Assessing the Emergent Symbolic Reasoning Abilities of Llama Large Language Models"
+    },
+    {
+      "paper_id": "7a8d9248b860467c87b8e49725a45947",
+      "has_full_text": true,
+      "title": "Evaluating Large Language Models on Financial Report Summarization: An Empirical Study"
+    },
+    {
+      "paper_id": "2da215505d3b4e0ea2bef0c50755323e",
+      "has_full_text": true,
+      "title": "Golden Touchstone: A Comprehensive Bilingual Benchmark for Evaluating Financial Large Language Models"
+    },
+    {
+      "paper_id": "1c2926d933b149c7a22dd4a95c7168f7",
+      "has_full_text": true,
+      "title": "GPT-Fathom: Benchmarking Large Language Models to Decipher the Evolutionary Path towards GPT-4 and Beyond"
+    },
+    {
+      "paper_id": "1112ad0e38704337915738ecbb60b526",
+      "has_full_text": true,
+      "title": "Inadequacies of Large Language Model Benchmarks in the Era of Generative Artificial Intelligence"
+    },
+    {
+      "paper_id": "dd3a4c8726814880b494cbdf9a0be323",
+      "has_full_text": true,
+      "title": "The Illusion of Thinking: Understanding the Strengths and Limitations of Reasoning Models via the Lens of Problem Complexity"
+    },
+    {
+      "paper_id": "b911980ccf5f477faf7ec7f416d4adec",
+      "has_full_text": true,
+      "title": "Assessing Small Language Models for Code Generation: An Empirical Study with Benchmarks"
+    },
+    {
+      "paper_id": "5ebccf446ad44a34b255046100fa22b6",
+      "has_full_text": true,
+      "title": "Beyond Metrics: A Critical Analysis of the Variability in Large Language Model Evaluation Frameworks"
+    },
+    {
+      "paper_id": "c42491340a5541558104aab73383ffed",
+      "has_full_text": true,
+      "title": "RealMath: A Continuous Benchmark for Evaluating Language Models on Research-Level Mathematics"
+    },
+    {
+      "paper_id": "65a07675a0cb4631ad38bb51fabbe128",
+      "has_full_text": true,
+      "title": "Multilingual European Language Models: Benchmarking Approaches and Challenges"
+    },
+    {
+      "paper_id": "634809bf44a44edc8ae9d7cd492df418",
+      "has_full_text": true,
+      "title": "The Vulnerability of Language Model Benchmarks: Do They Accurately Reflect True LLM Performance?"
+    },
+    {
+      "paper_id": "81fab215b1574e7bb52aca30bca691da",
+      "has_full_text": true,
+      "title": "CIRCUIT: A Benchmark for Circuit Interpretation and Reasoning Capabilities of LLMs"
+    },
+    {
+      "paper_id": "2ad10645e9144b4992e24465ee74bd6e",
+      "has_full_text": true,
+      "title": "VMLU Benchmarks: A comprehensive benchmark toolkit for Vietnamese LLMs"
+    },
+    {
+      "paper_id": "459bde6b55f9494dae12ff5453d82a3f",
+      "has_full_text": true,
+      "title": "BloomAPR: A Bloom's Taxonomy-based Framework for Assessing the Capabilities of LLM-Powered APR Solutions"
+    },
+    {
+      "paper_id": "a6690c377d3c4fb68947d929311bcf06",
+      "has_full_text": true,
+      "title": "CompassVerifier: A Unified and Robust Verifier for LLMs Evaluation and Outcome Reward"
+    },
+    {
+      "paper_id": "a53b1e8524b544ec9e6322ab97f08178",
+      "has_full_text": true,
+      "title": "Benchmark Self-Evolving: A Multi-Agent Framework for Dynamic LLM Evaluation"
+    },
+    {
+      "paper_id": "54a7ebe4350642749f0436d3e2f96fb3",
+      "has_full_text": true,
+      "title": "Exploring Safety Alignment Evaluation of LLMs in Chinese Mental Health Dialogues via LLM-as-Judge"
+    },
+    {
+      "paper_id": "2ed148922ed544b5a7b2e23e4b144e80",
+      "has_full_text": true,
+      "title": "Informed AI Regulation: Comparing the Ethical Frameworks of Leading LLM Chatbots Using an Ethics-Based Audit to Assess Moral Reasoning and Normative Values"
+    },
+    {
+      "paper_id": "75ec057d993541108369d08406535ae1",
+      "has_full_text": true,
+      "title": "LLM ethics benchmark: a three-dimensional assessment system for evaluating moral reasoning in large language models"
+    },
+    {
+      "paper_id": "1536feddc34a48798b39b189e849c537",
+      "has_full_text": true,
+      "title": "MoralReason: Generalizable Moral Decision Alignment For LLM Agents Using Reasoning-Level Reinforcement Learning"
+    },
+    {
+      "paper_id": "19ec1e9ddb254b97ae2fd017e1e4ae92",
+      "has_full_text": true,
+      "title": "SOSBENCH: Benchmarking Safety Alignment on Scientific Knowledge"
+    },
+    {
+      "paper_id": "4b101f65e91c46648acf0863cd941fd9",
+      "has_full_text": true,
+      "title": "Rethinking the Evaluation of Alignment Methods: Insights into Diversity, Generalisation, and Safety"
+    },
+    {
+      "paper_id": "027774000ff945c897e70a8c92a45927",
+      "has_full_text": true,
+      "title": "AgentAuditor: Human-Level Safety and Security Evaluation for LLM Agents"
+    },
+    {
+      "paper_id": "ea4860e8074c40a4b87cdf5404d1c52e",
+      "has_full_text": true,
+      "title": "A Framework for Benchmarking and Aligning Task-Planning Safety in LLM-Based Embodied Agents"
+    },
+    {
+      "paper_id": "7b893d1c9ab8446fb7812f3907bb77bf",
+      "has_full_text": true,
+      "title": "Agent Safety Alignment via Reinforcement Learning"
+    },
+    {
+      "paper_id": "f43c914a80ca4e919c3d52ba3f9743fc",
+      "has_full_text": false,
+      "title": "Can LLMs Identify Event Causality More Accurately through Debate? A Systematic Assessment of LLMs’ Factuality and Reasoning"
+    },
+    {
+      "paper_id": "5a83d7ed7c52448fae787a3d0fc1f6a1",
+      "has_full_text": true,
+      "title": "Beyond Jailbreaks: Revealing Stealthier and Broader LLM Security Risks Stemming from Alignment Failures"
+    },
+    {
+      "paper_id": "c7cfe9f99ee940e6842258c9b323285d",
+      "has_full_text": true,
+      "title": "Knowledge-Level Consistency Reinforcement Learning: Dual-Fact Alignment for Long-Form Factuality"
+    },
+    {
+      "paper_id": "5e8a5b25f2b74a2bb2c9be3ee272b4a7",
+      "has_full_text": true,
+      "title": "From LLM Reasoning to Autonomous AI Agents: A Comprehensive Review"
+    },
+    {
+      "paper_id": "9d06aed155794b6d9357f07e0ff0a08d",
+      "has_full_text": true,
+      "title": "Shape it Up! Restoring LLM Safety during Finetuning"
+    },
+    {
+      "paper_id": "e01c3b10b8ce467db6c119e381562aa6",
+      "has_full_text": true,
+      "title": "OpenEval: Benchmarking Chinese LLMs across Capability, Alignment and Safety"
+    },
+    {
+      "paper_id": "eda1cf4964dd4c73b10a29c60cc0380c",
+      "has_full_text": true,
+      "title": "From to : Multidimensional Supervision of Reasoning Process for LLM Optimization"
+    },
+    {
+      "paper_id": "e75619dc7174410f87144b3af78767ea",
+      "has_full_text": true,
+      "title": "LocalValueBench: A Collaboratively Built and Extensible Benchmark for Evaluating Localized Value Alignment and Ethical Safety in Large Language Models"
+    },
+    {
+      "paper_id": "b58f61d34251428b99c21db6abc5206d",
+      "has_full_text": false,
+      "title": "Safety Assessment of Generative AI Models in Home IoT Contexts"
+    },
+    {
+      "paper_id": "908ad45d736845e28a5f4ecc8874ecad",
+      "has_full_text": true,
+      "title": "AlphaAlign: Incentivizing Safety Alignment with Extremely Simplified Reinforcement Learning"
+    },
+    {
+      "paper_id": "297799e626344354897e0ade2472ae56",
+      "has_full_text": true,
+      "title": "EnchTable: Unified Safety Alignment Transfer in Fine-tuned Large Language Models"
+    },
+    {
+      "paper_id": "159b8787e4a34fa78bc2d225c9f92f43",
+      "has_full_text": true,
+      "title": "Refining Input Guardrails: Enhancing LLM-as-a-Judge Efficiency Through Chain-of-Thought Fine-Tuning and Alignment"
+    },
+    {
+      "paper_id": "cd38d63426ee461ebed3fbaa55a25bf0",
+      "has_full_text": true,
+      "title": "Black-Box Behavioral Distillation Breaks Safety Alignment in Medical LLMs"
+    },
+    {
+      "paper_id": "80c2a37e5ec64bcfad3633a2fb7076e6",
+      "has_full_text": true,
+      "title": "Enhancing Model Defense Against Jailbreaks with Proactive Safety Reasoning"
+    },
+    {
+      "paper_id": "b70041c492ee47308a56aac925355b1c",
+      "has_full_text": true,
+      "title": "SafeRBench: A Comprehensive Benchmark for Safety Assessment in Large Reasoning Models"
+    },
+    {
+      "paper_id": "4df000e1b75041a7a3bf6cff3b5ed4a2",
+      "has_full_text": true,
+      "title": "FalseReject: A Resource for Improving Contextual Safety and Mitigating Over-Refusals in LLMs via Structured Reasoning"
+    },
+    {
+      "paper_id": "441e1e969fd74f96a74d89552204a500",
+      "has_full_text": false,
+      "title": "PandaGuard: Systematic Evaluation of LLM Safety against Jailbreaking Attacks"
+    },
+    {
+      "paper_id": "4574792a049f462c8e98245ea426072f",
+      "has_full_text": true,
+      "title": "LLM Can be a Dangerous Persuader: Empirical Study of Persuasion Safety in Large Language Models"
+    },
+    {
+      "paper_id": "b12e758b4828411099860d70f53457f2",
+      "has_full_text": true,
+      "title": "CIA+TA Risk Assessment for AI Reasoning Vulnerabilities"
+    },
+    {
+      "paper_id": "072c5d9f13b845029270165a580c777b",
+      "has_full_text": true,
+      "title": "Internal Activation as the Polar Star for Steering Unsafe LLM Behavior"
+    },
+    {
+      "paper_id": "cbdb63de11544e83b28df6c1819f1b84",
+      "has_full_text": true,
+      "title": "FactReasoner: A Probabilistic Approach to Long-Form Factuality Assessment for Large Language Models"
+    },
+    {
+      "paper_id": "b1f5f80b3f304764b1670a6a2b9a4b48",
+      "has_full_text": true,
+      "title": "Improving Alignment Between Human and Machine Codes: An Empirical Assessment of Prompt Engineering for Construct Identification in Psychology"
+    },
+    {
+      "paper_id": "515aa80a0e3d448587ac512e5a1cc940",
+      "has_full_text": true,
+      "title": "LLM evaluation for thyroid nodule assessment: comparing ACR-TIRADS, C-TIRADS, and clinician-AI trust gap"
+    },
+    {
+      "paper_id": "6294e6751f7e4841b022c2cc84cdc1c7",
+      "has_full_text": true,
+      "title": "Persistent Instability in LLM's Personality Measurements: Effects of Scale, Reasoning, and Conversation History"
+    },
+    {
+      "paper_id": "dde0e23120d547fdbc9c03ba4e2b6dcd",
+      "has_full_text": true,
+      "title": "FactAlign: Long-form Factuality Alignment of Large Language Models"
+    },
+    {
+      "paper_id": "74f464083e15409297071f81781afbdb",
+      "has_full_text": true,
+      "title": "Evaluation of Automated Machinery Functional Safety Risk Assessment Using LLMs"
+    },
+    {
+      "paper_id": "9be137c26b8d49c5b06cfb61f8e2d672",
+      "has_full_text": true,
+      "title": "GRAFT: GRaPH and Table Reasoning for Textual Alignment - A Benchmark for Structured Instruction Following and Visual Reasoning"
+    },
+    {
+      "paper_id": "1c65792a19b745db911cc383415424e5",
+      "has_full_text": false,
+      "title": "Contextualizing Clinical Benchmarks: A Tripartite Approach to Evaluating LLM-Based Tools in Mental Health Settings."
+    },
+    {
+      "paper_id": "97d39ff27af949499bcda75b205ae8ce",
+      "has_full_text": true,
+      "title": "BenchMAX: A Comprehensive Multilingual Evaluation Suite for Large Language Models"
+    },
+    {
+      "paper_id": "799a89720fe44cb988952e4553e5dc02",
+      "has_full_text": true,
+      "title": "Capabilities of GPT-4 on Medical Challenge Problems"
+    },
+    {
+      "paper_id": "b0fa343777954d9a9e63e93de0982591",
+      "has_full_text": true,
+      "title": "Mixture-of-Agents Enhances Large Language Model Capabilities"
+    },
+    {
+      "paper_id": "21dd9bb7d7ac42b5b72845747fef7cdf",
+      "has_full_text": true,
+      "title": "CodeT5+: Open Code Large Language Models for Code Understanding and Generation"
+    },
+    {
+      "paper_id": "a12b594696d947dab24e7cc88288ba39",
+      "has_full_text": true,
+      "title": "Large Language Model for Multi-Domain Translation: Benchmarking and Domain CoT Fine-tuning"
+    },
+    {
+      "paper_id": "8efcc541303c4885aebc76fdfccae081",
+      "has_full_text": true,
+      "title": "Natural Context Drift Undermines the Natural Language Understanding of Large Language Models"
+    },
+    {
+      "paper_id": "6da6fc15595244cfa4b15c2314779e12",
+      "has_full_text": true,
+      "title": "Large Language Model-Brained GUI Agents: A Survey"
+    },
+    {
+      "paper_id": "4bfc7e1c9ec647158679ec2309d7495f",
+      "has_full_text": true,
+      "title": "SaulLM-7B: A pioneering Large Language Model for Law"
+    },
+    {
+      "paper_id": "0f0d69b37b47421fb17a619fb94a60c2",
+      "has_full_text": false,
+      "title": "Evaluating Large Language Models for Code Generation: Assessing Accuracy, Quality, and Performance"
+    },
+    {
+      "paper_id": "50ecfb5753fd4301b8e35a97443cb8a2",
+      "has_full_text": true,
+      "title": "Survey of Different Large Language Model Architectures: Trends, Benchmarks, and Challenges"
+    },
+    {
+      "paper_id": "7366889bc0fc4230a8ea9d20ad1db0b9",
+      "has_full_text": true,
+      "title": "Large Language Models: A Survey"
+    },
+    {
+      "paper_id": "aea6ebfeb9d14778b096b013b3f6fcaf",
+      "has_full_text": true,
+      "title": "Quantifying Uncertainty in Natural Language Explanations of Large Language Models for Question Answering"
+    },
+    {
+      "paper_id": "00c8586b27e9454fae25dc433ae1af47",
+      "has_full_text": true,
+      "title": "The Hidden Cost of Structure: How Constrained Decoding Affects Language Model Performance"
+    },
+    {
+      "paper_id": "fe59a47dcf4146ed88461ba6f3577c4f",
+      "has_full_text": true,
+      "title": "A Survey on Large Language Model (LLM) Security and Privacy: The Good, the Bad, and the Ugly"
+    },
+    {
+      "paper_id": "324ab882db1f498ca13026118e76e625",
+      "has_full_text": true,
+      "title": "Developing a Pragmatic Benchmark for Assessing Korean Legal Language Understanding in Large Language Models"
+    },
+    {
+      "paper_id": "2ccd4d39637f45e2878ef22026756f31",
+      "has_full_text": true,
+      "title": "Branch-Solve-Merge Improves Large Language Model Evaluation and Generation"
+    },
+    {
+      "paper_id": "c153a14ca28b470687fbc3e72663e870",
+      "has_full_text": true,
+      "title": "CritiqueLLM: Towards an Informative Critique Generation Model for Evaluation of Large Language Model Generation"
+    },
+    {
+      "paper_id": "c998afa8d8ac4611ad19a4011ac7a92a",
+      "has_full_text": true,
+      "title": "FVEval: Understanding Language Model Capabilities in Formal Verification of Digital Hardware"
+    },
+    {
+      "paper_id": "7a9f3d0222084cb1a67d8c8fff76c748",
+      "has_full_text": true,
+      "title": "A Survey on Large Language Model Benchmarks"
+    },
+    {
+      "paper_id": "2b20cbca37084fa49b005f910b0acc4d",
+      "has_full_text": true,
+      "title": "Krikri: Advancing Open Large Language Models for Greek"
+    },
+    {
+      "paper_id": "679ff11dbe7b4e469f2d8d70b89a9688",
+      "has_full_text": true,
+      "title": "SuperCLUE: A Comprehensive Chinese Large Language Model Benchmark"
+    },
+    {
+      "paper_id": "c5938db0450a4629b4bec6f880251594",
+      "has_full_text": true,
+      "title": "StoryAnalogy: Deriving Story-level Analogies from Large Language Models to Unlock Analogical Understanding"
+    },
+    {
+      "paper_id": "9658b49937ea4e5884961cbb3aabc739",
+      "has_full_text": true,
+      "title": "Large Language Model as Attributed Training Data Generator: A Tale of Diversity and Bias"
+    },
+    {
+      "paper_id": "1214f550fc72469f9f7d04945edecc4d",
+      "has_full_text": true,
+      "title": "PersianLLaMA: Towards Building First Persian Large Language Model"
+    },
+    {
+      "paper_id": "8b162a3f82944876b0e24bb38594b8a1",
+      "has_full_text": true,
+      "title": "Visualization Generation with Large Language Models: An Evaluation"
+    },
+    {
+      "paper_id": "13b4d38d5b1a4010b8a6f8fa47028b91",
+      "has_full_text": true,
+      "title": "Are Large Language Model-based Evaluators the Solution to Scaling Up Multilingual Evaluation?"
+    },
+    {
+      "paper_id": "c95c80771ccc44878f0bd9b3936bb57b",
+      "has_full_text": true,
+      "title": "GraphLLM: Boosting Graph Reasoning Ability of Large Language Model"
+    },
+    {
+      "paper_id": "fbe96cedaeb54d15903438e7f0eb6951",
+      "has_full_text": true,
+      "title": "E2LLM: Encoder Elongated Large Language Models for Long-Context Understanding and Reasoning"
+    },
+    {
+      "paper_id": "3e929221672e4483b029b9f84f66099d",
+      "has_full_text": true,
+      "title": "mHumanEval - A Multilingual Benchmark to Evaluate Large Language Models for Code Generation"
+    },
+    {
+      "paper_id": "7a12f349dc544bfb8582533a22565dc2",
+      "has_full_text": true,
+      "title": "DERA: Enhancing Large Language Model Completions with Dialog-Enabled Resolving Agents"
+    },
+    {
+      "paper_id": "cd78fe54c6984bbd8d981d68ea0165cd",
+      "has_full_text": true,
+      "title": "Memorization ≠ Understanding: Do Large Language Models Have the Ability of Scenario Cognition?"
+    },
+    {
+      "paper_id": "241f4110ad754bc8821cbacc6b51147f",
+      "has_full_text": true,
+      "title": "Efficient Real-time Refinement of Language Model Text Generation"
+    },
+    {
+      "paper_id": "465aadaf6bf44c9aa181aaf281b7eae9",
+      "has_full_text": true,
+      "title": "Large Language Models Meet Knowledge Graphs for Question Answering: Synthesis and Opportunities"
+    },
+    {
+      "paper_id": "2338588396e64d8db38658cdb2400f75",
+      "has_full_text": true,
+      "title": "Runaway is Ashamed, But Helpful: On the Early-Exit Behavior of Large Language Model-based Agents in Embodied Environments"
+    },
+    {
+      "paper_id": "ac8900735eaf4cc48db08a87bd5e2ef8",
+      "has_full_text": true,
+      "title": "ULLME: A Unified Framework for Large Language Model Embeddings with Generation-Augmented Learning"
+    },
+    {
+      "paper_id": "28ae022e80774adba298aa9f3bd7852b",
+      "has_full_text": true,
+      "title": "CMMLU: Measuring massive multitask language understanding in Chinese"
+    },
+    {
+      "paper_id": "3ee6144b1a684f5481607cb371afb15a",
+      "has_full_text": true,
+      "title": "Aligning with Human Judgement: The Role of Pairwise Preference in Large Language Model Evaluators"
+    },
+    {
+      "paper_id": "0a57ad3dbb514753b9c9c69dbcad6f47",
+      "has_full_text": true,
+      "title": "Large language model performance versus human expert ratings in automated suicide risk assessment"
+    },
+    {
+      "paper_id": "404c9cd5ffb74a14a6bb3b011d65eadc",
+      "has_full_text": true,
+      "title": "Human-Calibrated Automated Testing and Validation of Generative Language Models"
+    },
+    {
+      "paper_id": "bed718422dcf47bfbcc3b9c48cfe1e78",
+      "has_full_text": true,
+      "title": "Socio-Emotional Response Generation: A Human Evaluation Protocol for LLM-Based Conversational Systems"
+    },
+    {
+      "paper_id": "c9067f0982104929bb78207a75edb06c",
+      "has_full_text": true,
+      "title": "SemScore: Automated Evaluation of Instruction-Tuned LLMs based on Semantic Textual Similarity"
+    },
+    {
+      "paper_id": "9fd6fb712f414b2e83c491df0515fd3c",
+      "has_full_text": true,
+      "title": "Re-visiting Automated Topic Model Evaluation with Large Language Models"
+    },
+    {
+      "paper_id": "b5ab4f5de34d4ccabd1dd281ba4f83e5",
+      "has_full_text": true,
+      "title": "The Advantages of Human Evaluation of Sociomedical Question Answering Systems"
+    },
+    {
+      "paper_id": "a6618d3328154cdba7a40d514557d04a",
+      "has_full_text": true,
+      "title": "Assessment of ChatGPT performance in orbital MRI reporting with multimetric evaluation of transformer based language models"
+    },
+    {
+      "paper_id": "3dc78187833f4dfc92d464e7ee161585",
+      "has_full_text": true,
+      "title": "HUMANELY: HUMAN EVALUATION OF LLM YIELD, USING A NOVEL WEB BASED EVALUATION TOOL"
+    },
+    {
+      "paper_id": "a962b70db551491eae2ec0ea42a97d42",
+      "has_full_text": true,
+      "title": "Exploring Subjectivity for more Human-Centric Assessment of Social Biases in Large Language Models"
+    },
+    {
+      "paper_id": "b13215e04c5b434d990cd53500cd8a77",
+      "has_full_text": true,
+      "title": "Automated Evaluation of Personalized Text Generation using Large Language Models"
+    },
+    {
+      "paper_id": "1709c068ede0495eaabf077f563b1769",
+      "has_full_text": false,
+      "title": "Human vs. AI: A comparative effectiveness study of large language models for automated biomarker extraction."
+    },
+    {
+      "paper_id": "40d1ad66944e48658915dd72278383cf",
+      "has_full_text": false,
+      "title": "Distributed Evaluation Systems for Large Language Models: A Technical Overview"
+    },
+    {
+      "paper_id": "5e54f81d3c634fcb9056b4d25f89bab6",
+      "has_full_text": false,
+      "title": "Evaluating LLMs for Automated Requirement and Test Case Generation in Railway Signaling Systems"
+    },
+    {
+      "paper_id": "9ca8c184ded64c0facbebdc65349013c",
+      "has_full_text": true,
+      "title": "Reference-Free Summarization Evaluation with Large Language Models"
+    },
+    {
+      "paper_id": "2d070db91e554e129fc5aad8745b2bd9",
+      "has_full_text": true,
+      "title": "Benchmarking Multiple Large Language Models for Automated Clinical Trial Data Extraction in Aging Research"
+    },
+    {
+      "paper_id": "f8307a049d694f0f96ec17bdc8d1f74b",
+      "has_full_text": true,
+      "title": "Research on Hallucination Mitigation in Large Language Models"
+    },
+    {
+      "paper_id": "2b602bfcb5cb435881f651e981f15951",
+      "has_full_text": true,
+      "title": "LLM Evaluation Panel Selection Based on Cross Assessment and Similarity Matrix"
+    },
+    {
+      "paper_id": "a4be64bbe08c45c99e0dfdc08f479ed8",
+      "has_full_text": true,
+      "title": "A Comprehensive Survey on Various Fully Automatic Machine Translation Evaluation Metrics"
+    },
+    {
+      "paper_id": "4265416f6f504829bec9b5f833a1bb1c",
+      "has_full_text": true,
+      "title": "Validating Radiology AI Model Performance on Photon-Counting CT Images Using Large Language Models for Ground Truth Extraction."
+    },
+    {
+      "paper_id": "84929f13ea5f492a811e24b3435ae883",
+      "has_full_text": true,
+      "title": "Creative Thought Embeddings: A Framework for Instilling Creativity in Large Language Models"
+    },
+    {
+      "paper_id": "47d689d69c104d4aa3defc517b75c44e",
+      "has_full_text": true,
+      "title": "A SYSTEMATIC LITERATURE REVIEW OF EVALUATING THE ACCURACY OF NVIVO, R, AND LARGE LANGUAGE MODELS IN THEMATIC ANALYSIS OF INTERVIEW DATA: A COMPARATIVE STUDY"
+    },
+    {
+      "paper_id": "1e3391f2eeb34df68a46cca546177b90",
+      "has_full_text": false,
+      "title": "Quality Evaluation of LLM-based Generated Test Case: A Literature Review"
+    },
+    {
+      "paper_id": "d752aa5cf0d2411abeb80e5db2dc4e94",
+      "has_full_text": true,
+      "title": "ViBidirectionMT-Eval: Machine Translation for Vietnamese-Chinese and Vietnamese-Lao language pair"
+    },
+    {
+      "paper_id": "822171756a0b434ca3a7c8f75015c4fe",
+      "has_full_text": true,
+      "title": "WildBench: Benchmarking LLMs with Challenging Tasks from Real Users in the Wild"
+    },
+    {
+      "paper_id": "4110fdd9361d44e4b953d9708eff991c",
+      "has_full_text": true,
+      "title": "DCR-Consistency: Divide-Conquer-Reasoning for Consistency Evaluation and Improvement of Large Language Models"
+    },
+    {
+      "paper_id": "cc2970d43cbe445894a5f5bbaa91ffe3",
+      "has_full_text": true,
+      "title": "Can LLMs Replace Human Evaluators? An Empirical Study of LLM-as-a-Judge in Software Engineering"
+    },
+    {
+      "paper_id": "eeafebe8a0664bf6addfe4f3c04df493",
+      "has_full_text": true,
+      "title": "ARISE: Agentic Rubric-Guided Iterative Survey Engine for Automated Scholarly Paper Generation"
+    },
+    {
+      "paper_id": "718a9452866d40c58bd003ab59c88e92",
+      "has_full_text": true,
+      "title": "What's the Difference? Supporting Users in Identifying the Effects of Prompt and Model Changes Through Token Patterns"
+    },
+    {
+      "paper_id": "f07af9188e0a4a61a609159c385e0670",
+      "has_full_text": true,
+      "title": "Reference-Guided Verdict: LLMs-as-Judges in Automatic Evaluation of Free-Form QA"
+    },
+    {
+      "paper_id": "887fbd10a0ca4e69b808fc80b7e75b95",
+      "has_full_text": true,
+      "title": "Prompt-to-Leaderboard"
+    },
+    {
+      "paper_id": "07f88dbaa8454d3eb13f71fafe12b161",
+      "has_full_text": true,
+      "title": "Igniting Creative Writing in Small Language Models: LLM-as-a-Judge versus Multi-Agent Refined Rewards"
+    },
+    {
+      "paper_id": "b53874d9dd2f4adbb543d749347eb472",
+      "has_full_text": true,
+      "title": "ChatGPT-4.0 as a Tool for Automated Review of Ethics and Transparency in Biomedical Literature"
+    },
+    {
+      "paper_id": "23b80f4277354b799d991cd319836d83",
+      "has_full_text": false,
+      "title": "THE IMPACT OF MORPHOSYNTACTIC FEATURES ON AI-GENERATED TEXTS"
+    },
+    {
+      "paper_id": "ed338f8e23ca4937a60dede740c73c19",
+      "has_full_text": false,
+      "title": "Evaluating Retrieval-Augmented Generation in Scholarly Domains: A Contextual and Semantic Assessment"
+    },
+    {
+      "paper_id": "6ee12d893cf248cfbbcb13667535ce68",
+      "has_full_text": true,
+      "title": "Vintage Code, Modern Judges: Meta-Validation in Low Data Regimes"
+    },
+    {
+      "paper_id": "390a5ff70264435797feaf9ea2efdc1d",
+      "has_full_text": true,
+      "title": "Evaluating Generative AI: Challenges, Methods, and Future Directions"
+    },
+    {
+      "paper_id": "91bd5f6d4c924983a426b462e0cc5c9b",
+      "has_full_text": true,
+      "title": "Predictable Emergent Abilities of LLMs: Proxy Tasks Are All You Need"
+    },
+    {
+      "paper_id": "9ac63daed2d34867897845b521300708",
+      "has_full_text": true,
+      "title": "A Survey on Large Language Models with some Insights on their Capabilities and Limitations"
+    },
+    {
+      "paper_id": "9130eaf7e66b434c88d514c3e900da15",
+      "has_full_text": true,
+      "title": "OCCULT: Evaluating Large Language Models for Offensive Cyber Operation Capabilities"
+    },
+    {
+      "paper_id": "2c3ba307fff64813a13ad1769326a735",
+      "has_full_text": true,
+      "title": "m1: Unleash the Potential of Test-Time Scaling for Medical Reasoning with Large Language Models"
+    },
+    {
+      "paper_id": "c42e0995a6db4493b666ad0385524e92",
+      "has_full_text": true,
+      "title": "Emergent Abilities of Large Language Models"
+    },
+    {
+      "paper_id": "77149f0655534e19aeb1a1a6c4f82768",
+      "has_full_text": true,
+      "title": "CYBERSECEVAL 3: Advancing the Evaluation of Cybersecurity Risks and Capabilities in Large Language Models"
+    },
+    {
+      "paper_id": "931eb9222e3443e1abc19faf32873c47",
+      "has_full_text": true,
+      "title": "How do Scaling Laws Apply to Knowledge Graph Engineering Tasks? The Impact of Model Size on Large Language Model Performance"
+    },
+    {
+      "paper_id": "508b840120554a09801cbf11f981ade0",
+      "has_full_text": false,
+      "title": "Exploring and Mitigating Shortcut Learning for Generative Large Language Models"
+    },
+    {
+      "paper_id": "855b7755e9a149c2bbf3a9a6ac7f4096",
+      "has_full_text": true,
+      "title": "Efficient Prediction of Pass@k Scaling in Large Language Models"
+    },
+    {
+      "paper_id": "0350479443904acea56af337b78fc1bb",
+      "has_full_text": true,
+      "title": "Text2World: Benchmarking Large Language Models for Symbolic World Model Generation"
+    },
+    {
+      "paper_id": "b202510d5d4549bcb2c112e6c2d380aa",
+      "has_full_text": true,
+      "title": "Observational Scaling Laws and the Predictability of Language Model Performance"
+    },
+    {
+      "paper_id": "4c0c194b894948e8bb45537d6e62edda",
+      "has_full_text": true,
+      "title": "S-Eval: Towards Automated and Comprehensive Safety Evaluation for Large Language Models"
+    },
+    {
+      "paper_id": "7f8fa11298584ca5bf701e48832754f6",
+      "has_full_text": true,
+      "title": "Emergent Abilities in Large Language Models: A Survey"
+    },
+    {
+      "paper_id": "587923ad5c4f47339a8bfb4266e06017",
+      "has_full_text": true,
+      "title": "Are Large Language Models Reliable Judges? A Study on the Factuality Evaluation Capabilities of LLMs"
+    },
+    {
+      "paper_id": "c9ff34b462ce45f5ad84a52805524eb9",
+      "has_full_text": false,
+      "title": "Fundamental Capabilities and Applications of Large Language Models: A Survey"
+    },
+    {
+      "paper_id": "9c2b6563626d4b60a5caea3d783bcff2",
+      "has_full_text": true,
+      "title": "Emergent and Predictable Memorization in Large Language Models"
+    },
+    {
+      "paper_id": "5780ceb524484afa81bc57cf1f87177a",
+      "has_full_text": true,
+      "title": "Scaling Laws for Forgetting When Fine-Tuning Large Language Models"
+    },
+    {
+      "paper_id": "b7e9bc35c4df436182e8aae6e935164d",
+      "has_full_text": true,
+      "title": "Comparative analysis of large language models in clinical diagnosis: performance evaluation across common and complex medical cases"
+    },
+    {
+      "paper_id": "e03d40ebce434ec2a03a70b3dacb20af",
+      "has_full_text": true,
+      "title": "Assessing Large Language Models on Islamic Legal Reasoning: Evidence from Inheritance Law Evaluation"
+    },
+    {
+      "paper_id": "5d918b8ce8974088b667aea9cf6c7025",
+      "has_full_text": true,
+      "title": "Distributional Scaling Laws for Emergent Capabilities"
+    },
+    {
+      "paper_id": "0817ef90ed90461f9b6e74fee072611b",
+      "has_full_text": true,
+      "title": "SURGE: On the Potential of Large Language Models as General-Purpose Surrogate Code Executors"
+    },
+    {
+      "paper_id": "d08a86ecea464cfb8c183b6b83ad0314",
+      "has_full_text": false,
+      "title": "ProRL: Prolonged Reinforcement Learning Expands Reasoning Boundaries in Large Language Models"
+    },
+    {
+      "paper_id": "2a18cbfcd6b143f1885bdd3d58c2c898",
+      "has_full_text": true,
+      "title": "LLM-SRBench: A New Benchmark for Scientific Equation Discovery with Large Language Models"
+    },
+    {
+      "paper_id": "7998eb1db72d4751bc4fc494648667f6",
+      "has_full_text": true,
+      "title": "UGPhysics: A Comprehensive Benchmark for Undergraduate Physics Reasoning with Large Language Models"
+    },
+    {
+      "paper_id": "ced74b307075420fae349e2f2a255035",
+      "has_full_text": true,
+      "title": "FACT-AUDIT: An Adaptive Multi-Agent Framework for Dynamic Fact-Checking Evaluation of Large Language Models"
+    },
+    {
+      "paper_id": "5b61359affcd489caaffa2fbf7b66eed",
+      "has_full_text": true,
+      "title": "MedArabiQ: Benchmarking Large Language Models on Arabic Medical Tasks"
+    },
+    {
+      "paper_id": "18787a6cc9b4435a9192fb2b3333a82c",
+      "has_full_text": true,
+      "title": "Persuade Me if You Can: A Framework for Evaluating Persuasion Effectiveness and Susceptibility Among Large Language Models"
+    },
+    {
+      "paper_id": "eda62e5d6d834c65a90a82d5f80377eb",
+      "has_full_text": true,
+      "title": "Large Language Monkeys: Scaling Inference Compute with Repeated Sampling"
+    },
+    {
+      "paper_id": "04869d6b8dae4b348684932b17860772",
+      "has_full_text": true,
+      "title": "EssayJudge: A Multi-Granular Benchmark for Assessing Automated Essay Scoring Capabilities of Multimodal Large Language Models"
+    },
+    {
+      "paper_id": "051022fe24d742e39a4a29373eca9076",
+      "has_full_text": true,
+      "title": "LLM Comparative Assessment: Zero-shot NLG Evaluation through Pairwise Comparisons using Large Language Models"
+    },
+    {
+      "paper_id": "5b979356b03a40cf827703920193bbea",
+      "has_full_text": true,
+      "title": "Large Language Models are Zero-Shot Reasoners"
+    },
+    {
+      "paper_id": "202b14310ba548f6a0b29acfe22d6204",
+      "has_full_text": true,
+      "title": "Lost in the Logic: An Evaluation of Large Language Models' Reasoning Capabilities on LSAT Logic Games"
+    },
+    {
+      "paper_id": "f4f44fb5de564dc4b529923533e109be",
+      "has_full_text": false,
+      "title": "Physics of Language Models: Part 3.3, Knowledge Capacity Scaling Laws"
+    },
+    {
+      "paper_id": "b0b244a15124454e9c6a35709504f37f",
+      "has_full_text": true,
+      "title": "Towards Trustable Language Models: Investigating Information Quality of Large Language Models"
+    },
+    {
+      "paper_id": "0bdf8b71c5ae4bdab3f56d3827567ff8",
+      "has_full_text": true,
+      "title": "Large Language Model Agent: A Survey on Methodology, Applications and Challenges"
+    },
+    {
+      "paper_id": "c6418ebc25a04ef49c2874baae863240",
+      "has_full_text": true,
+      "title": "Reasoning Capabilities of Large Language Models on Dynamic Tasks"
+    },
+    {
+      "paper_id": "6ceab98cb3d642578e1732b3f60a6c32",
+      "has_full_text": true,
+      "title": "Scalable Best-of-N Selection for Large Language Models via Self-Certainty"
+    },
+    {
+      "paper_id": "8ea4a44c610a46b89c45d0461a473be6",
+      "has_full_text": true,
+      "title": "Eliciting and Analyzing Emergent Misalignment in State-of-the-Art Large Language Models"
+    },
+    {
+      "paper_id": "9ab771b98f3a4362bf5f4b0986b35d3d",
+      "has_full_text": true,
+      "title": "LLM-as-a-Judge: automated evaluation of search query parsing using large language models"
+    },
+    {
+      "paper_id": "6715a33168e241dabb4eb619c6fcae04",
+      "has_full_text": true,
+      "title": "Assessing the Accuracy of Diagnostic Capabilities of Large Language Models"
+    },
+    {
+      "paper_id": "2999dcccacc74c94b0746589a05f45cd",
+      "has_full_text": true,
+      "title": "Heterogeneous Value Alignment Evaluation for Large Language Models"
+    },
+    {
+      "paper_id": "605b8d564b914635a07369f309f8a957",
+      "has_full_text": true,
+      "title": "Heterogeneous Value Evaluation for Large Language Models"
+    },
+    {
+      "paper_id": "26af9c7d72c342a281ed6c75abae80eb",
+      "has_full_text": true,
+      "title": "An Iterative Comprehensive Evaluation of Large Language and Vision Models in Medical AI: Benchmarks, Adaptability, and Deployment Challenges"
+    },
+    {
+      "paper_id": "af35d8dba73944928ee0da4bc095db9a",
+      "has_full_text": true,
+      "title": "Benchmarking Multimodal Large Language Models for Forensic Science and Medicine: A Comprehensive Dataset and Evaluation Framework"
+    },
+    {
+      "paper_id": "832d889528214af694caabc71094d003",
+      "has_full_text": true,
+      "title": "Digitally Assisted Clinical Decision-Making in Traditional Chinese Medicine: Comparative Study of 5 Large Language Models"
+    },
+    {
+      "paper_id": "7b41dabab24b4eea9a40cba52f35bf7c",
+      "has_full_text": true,
+      "title": "Chatbots in the ICU: Unveiling the Accuracy and Limitations of AI in Critical Care Knowledge Assessment"
+    },
+    {
+      "paper_id": "67be6f05b2ec40a8acd525a21ce049f1",
+      "has_full_text": false,
+      "title": "LENS: Layers of Evaluation of Hallucination in GenAI Systems"
+    },
+    {
+      "paper_id": "f8f6dc4605104fa4a73c804cda1fe532",
+      "has_full_text": true,
+      "title": "Evaluating General-Purpose LLMs for Patient-Facing Use: Dermatology-Centered Systematic Review and Meta-Analysis"
+    },
+    {
+      "paper_id": "34365456ae8543d6ab51fb880d8a4067",
+      "has_full_text": true,
+      "title": "Performance evaluation of large language models on Korean medical licensing examination: a three-year comparative analysis"
+    },
+    {
+      "paper_id": "2da281f867da404b892dd6fb707c400a",
+      "has_full_text": true,
+      "title": "Evaluation of Large Language Models in Medical Examinations:A Scoping Review Protocol"
+    },
+    {
+      "paper_id": "517f41b680664220bdeb73d1998f86cf",
+      "has_full_text": true,
+      "title": "CP-Env: Evaluating Large Language Models on Clinical Pathways in a Controllable Hospital Environment"
+    },
+    {
+      "paper_id": "e8cf9b7aac9346d0aa9158deb39f3d3a",
+      "has_full_text": true,
+      "title": "Benchmarking of Large Language Models for the Dental Admission Test"
+    },
+    {
+      "paper_id": "efc0aa35da4d4c688c7e85e1656b221c",
+      "has_full_text": true,
+      "title": "Exploration of the assessment of clinical decision-making capabilities in Clinical Oncology based on generative large language models."
+    },
+    {
+      "paper_id": "f9485e6c69eb4bfe8caa57836b50e8dc",
+      "has_full_text": true,
+      "title": "Success of ChatGPT, an AI language model, in taking the French language version of the European Board of Ophthalmology examination: A novel approach to medical knowledge assessment."
+    },
+    {
+      "paper_id": "1996d3dd46154adaac86b8ff06df920e",
+      "has_full_text": true,
+      "title": "MediConfusion: Can you trust your AI radiologist? Probing the reliability of multimodal medical foundation models"
+    },
+    {
+      "paper_id": "b5812884fafc4856851e675d7fa04417",
+      "has_full_text": true,
+      "title": "Comparative evaluation of ChatGPT and Gemini in brain-computer interfaces patient education: A multi-dimensional analysis of reliability, accuracy, comprehensibility, and readability"
+    },
+    {
+      "paper_id": "e2243ed1166c41d283508db38e21870f",
+      "has_full_text": true,
+      "title": "Performance of the ChatGPT-5 Language Model in Solving a Specialty Examination in Balneology and Physical Medicine"
+    },
+    {
+      "paper_id": "85f349304c894729beb3e7ad0ac747f4",
+      "has_full_text": true,
+      "title": "Performance of ChatGPT on UK Standardized Admission Tests: Insights From the BMAT, TMUA, LNAT, and TSA Examinations"
+    },
+    {
+      "paper_id": "f87bc0d7a55b4039a6edfe939a602f76",
+      "has_full_text": true,
+      "title": "Optimizing RAG-based LLMs for healthcare question answering tasks"
+    },
+    {
+      "paper_id": "d0d28bff9e5240db8fe92503ae58a10c",
+      "has_full_text": true,
+      "title": "Classifying Domains, Benchmarking GPT-4, A Portuguese Dataset for Medical AI Q&A"
+    },
+    {
+      "paper_id": "a19f304e94df4a13b3cd73d0f0610851",
+      "has_full_text": true,
+      "title": "Revolutionizing Patient Outcomes with AI-Powered Generative Models: A New Paradigm in Specialty Pharmacy and Automated Distribution Systems"
+    },
+    {
+      "paper_id": "c684135cc08e4ab186deb8ea877fce53",
+      "has_full_text": true,
+      "title": "HaluEval: A Large-Scale Hallucination Evaluation Benchmark for Large Language Models"
+    },
+    {
+      "paper_id": "2ff488bf53cf45db8fc7e71b4deaee0f",
+      "has_full_text": true,
+      "title": "SciEval: A Multi-Level Large Language Model Evaluation Benchmark for Scientific Research"
+    },
+    {
+      "paper_id": "d6bfbd3411b34a78b8be2ae87674fe3a",
+      "has_full_text": false,
+      "title": "Text-to-SQL Empowered by Large Language Models: A Benchmark Evaluation"
+    },
+    {
+      "paper_id": "237f15a201fd49c4b8665fab02d2fecc",
+      "has_full_text": true,
+      "title": "Benchmark evaluation of DeepSeek large language models in clinical decision-making"
+    }
+  ]
+}

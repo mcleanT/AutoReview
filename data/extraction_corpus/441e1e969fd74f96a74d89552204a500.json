@@ -1,0 +1,66 @@
+{
+  "paper_id": "441e1e969fd74f96a74d89552204a500",
+  "metadata": {
+    "title": "PandaGuard: Systematic Evaluation of LLM Safety against Jailbreaking Attacks",
+    "authors": [
+      "Guobin Shen",
+      "Dongcheng Zhao",
+      "Linghao Feng",
+      "Xiang He",
+      "Jihang Wang",
+      "Sicheng Shen",
+      "Haibo Tong",
+      "Yiting Dong",
+      "Jindong Li",
+      "Xiang Zheng",
+      "Yi Zeng"
+    ],
+    "year": 2025,
+    "journal": "ArXiv",
+    "doi": "10.48550/arxiv.2505.13862",
+    "citation_count": 9,
+    "source_database": "semantic_scholar"
+  },
+  "abstract": null,
+  "full_text": null,
+  "full_text_source": null,
+  "llm_extraction": {
+    "id": "dc1133151ff4472786892173b99e9191",
+    "created_at": "2026-03-21T00:00:00Z",
+    "paper_id": "441e1e969fd74f96a74d89552204a500",
+    "key_findings": [
+      {
+        "claim": "PandaGuard provides a systematic evaluation framework for assessing LLM safety against jailbreaking attacks",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Inferred from title only; no full text available",
+        "paper_id": "pandaguard_llm_safety_jailbreaking"
+      },
+      {
+        "claim": "LLMs exhibit vulnerabilities to jailbreaking attacks that can be systematically characterized and evaluated",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Inferred from title; paper appears to benchmark jailbreak susceptibility across LLMs",
+        "paper_id": "pandaguard_llm_safety_jailbreaking"
+      }
+    ],
+    "methods_summary": "Unknown — only the paper title is available. Based on the title, the work likely involves a benchmark or evaluation suite (PandaGuard) designed to systematically test LLM safety against a range of jailbreaking attack strategies.",
+    "limitations": "Full text unavailable; all extracted information is speculative and inferred from the title alone. Methodology, sample sizes, specific models evaluated, attack types covered, and quantitative results are all unknown.",
+    "relationships": [],
+    "methodology_details": {
+      "approach": "Systematic evaluation / benchmarking of LLM safety against jailbreaking attacks (inferred from title)",
+      "datasets": [],
+      "metrics": [],
+      "reproducibility_notes": "Unknown — full text not available"
+    },
+    "domain_specific_fields": {
+      "benchmark": "PandaGuard (proposed evaluation framework for LLM jailbreak safety)",
+      "metrics": "Unknown",
+      "model_architecture": "Unknown — likely evaluates one or more large language models",
+      "dataset": "Unknown"
+    },
+    "study_design": "computational",
+    "quality_score": 0.1,
+    "sample_size": null
+  }
+}

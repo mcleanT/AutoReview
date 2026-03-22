@@ -1,0 +1,102 @@
+{
+  "paper_id": "23b80f4277354b799d991cd319836d83",
+  "metadata": {
+    "title": "THE IMPACT OF MORPHOSYNTACTIC FEATURES ON AI-GENERATED TEXTS",
+    "authors": [
+      "E. C. Simatupang",
+      "Ida Zuraida Supri",
+      "Hero Gunawan"
+    ],
+    "year": 2025,
+    "journal": "English Review: Journal of English Education",
+    "doi": "10.25134/k9x3sr16",
+    "citation_count": 0,
+    "source_database": "semantic_scholar"
+  },
+  "abstract": "This study explored the impact of morphosyntactic features on AI-generated text, focusing on how morphological complexity and syntactic structure influence large language model (LLM) performance in terms of response quality, coherence, and processing efficiency. A mixed-methods design was adopted, combining quantitative computational evaluation with qualitative linguistic analysis. Experimental procedures involved constructing 60 prompts with controlled variations in morphological complexity (simple vs. complex derivational forms, e.g., nationalization, reindustrialization) and syntactic structure (single-clause, multi-clause, and compound-complex sentences). Each prompt was submitted to three state-of-the-art LLMs under identical conditions (temperature = 0.7, top-p = 0.9, max tokens = 512). Outputs were assessed using automated metrics (BLEU, ROUGE-L, perplexity) and human-rated coherence scores from three trained linguists, with inter-rater reliability measured by Cronbach’s alpha (≥ 0.80). Statistical analysis employed two-way ANOVA with post-hoc Tukey HSD tests, reporting effect sizes (η²) and using α = 0.05. Results showed that morphologically complex prompts generated 27% more contextually rich responses, with average processing times 34% longer and perplexity scores 35% higher than simpler inputs. Complex multi-clause prompts achieved coherence scores 18% higher than single-clause prompts, while compound-complex structures produced the most accurate outputs but required 38% more processing time and 21% more computational resources. Prompts combining both morphological and syntactic complexity yielded the highest quality (coherence scores 25% above mean) but also the highest computational cost, reflecting increased cognitive load. Prompts that combined both complex morphological and syntactic elements demonstrated the highest overall quality, with coherence scores 25% above average, but also the greatest computational demand, reflecting the cognitive load required for deep linguistic processing. These findings underscore the importance of carefully balancing morphological and syntactic complexity in prompt design, depending on the specific goals of the application. ",
+  "full_text": null,
+  "full_text_source": null,
+  "llm_extraction": {
+    "id": "extraction-morphosyntactic-features-ai-generated-texts",
+    "created_at": "2026-03-21T00:00:00Z",
+    "paper_id": "23b80f4277354b799d991cd319836d83",
+    "key_findings": [
+      {
+        "claim": "Morphologically complex prompts generate 27% more contextually rich responses compared to simple prompts",
+        "evidence_strength": "preliminary",
+        "quantitative_result": "27% increase in contextually rich responses",
+        "context": "Assessed via BLEU, ROUGE-L, perplexity, and human coherence scores across three LLMs under controlled conditions",
+        "paper_id": "morphosyntactic-features-ai-generated-texts"
+      },
+      {
+        "claim": "Morphologically complex prompts incur 34% longer average processing times than simpler inputs",
+        "evidence_strength": "preliminary",
+        "quantitative_result": "34% longer processing time",
+        "context": "Measured under identical LLM conditions (temperature=0.7, top-p=0.9, max_tokens=512)",
+        "paper_id": "morphosyntactic-features-ai-generated-texts"
+      },
+      {
+        "claim": "Morphologically complex prompts produce outputs with 35% higher perplexity scores than simpler inputs",
+        "evidence_strength": "preliminary",
+        "quantitative_result": "35% higher perplexity scores",
+        "context": "Perplexity used as one of three automated evaluation metrics alongside BLEU and ROUGE-L",
+        "paper_id": "morphosyntactic-features-ai-generated-texts"
+      },
+      {
+        "claim": "Complex multi-clause prompts achieve human-rated coherence scores 18% higher than single-clause prompts",
+        "evidence_strength": "preliminary",
+        "quantitative_result": "18% higher coherence scores vs. single-clause prompts",
+        "context": "Coherence rated by three trained linguists; inter-rater reliability Cronbach's alpha ≥ 0.80",
+        "paper_id": "morphosyntactic-features-ai-generated-texts"
+      },
+      {
+        "claim": "Compound-complex syntactic structures produce the most accurate LLM outputs but at substantially higher computational cost than simpler structures",
+        "evidence_strength": "preliminary",
+        "quantitative_result": "38% more processing time and 21% more computational resources vs. simpler structures",
+        "context": "Compared across single-clause, multi-clause, and compound-complex syntactic conditions",
+        "paper_id": "morphosyntactic-features-ai-generated-texts"
+      },
+      {
+        "claim": "Prompts combining morphological and syntactic complexity yield the highest output quality with coherence scores 25% above mean, but also the greatest computational demand",
+        "evidence_strength": "preliminary",
+        "quantitative_result": "Coherence scores 25% above mean; highest computational cost across all conditions",
+        "context": "Combined complexity condition interpreted as reflecting increased cognitive load for deep linguistic processing",
+        "paper_id": "morphosyntactic-features-ai-generated-texts"
+      }
+    ],
+    "methods_summary": "Mixed-methods design combining quantitative computational evaluation with qualitative linguistic analysis. Sixty prompts were constructed with controlled variations in morphological complexity (simple vs. complex derivational forms, e.g., 'nationalization', 'reindustrialization') and syntactic structure (single-clause, multi-clause, and compound-complex sentences). Each prompt was submitted to three unnamed state-of-the-art LLMs under identical conditions (temperature=0.7, top-p=0.9, max_tokens=512). Outputs were assessed using automated metrics (BLEU, ROUGE-L, perplexity) and human-rated coherence scores from three trained linguists with inter-rater reliability measured by Cronbach's alpha (≥0.80). Statistical analysis used two-way ANOVA with post-hoc Tukey HSD tests, reporting η² effect sizes at α=0.05.",
+    "limitations": "Only the abstract is available, limiting detailed methodological assessment. The prompt corpus is small (60 prompts), and only three LLMs were evaluated, which constrains generalizability across models and domains. The specific LLMs are not named in the abstract, precluding direct replication and model-specific interpretation. Controlled prompt construction may not capture the diversity of real-world prompting practices. Automated metrics (BLEU, ROUGE-L, perplexity) have well-documented limitations as proxies for response quality. No cross-domain, cross-language, or longitudinal validation is described. The relationship between observed computational load increases and real-world deployment costs is not established.",
+    "relationships": [],
+    "methodology_details": {
+      "approach": "Controlled experiment with 60 prompts varying in morphological complexity (2 levels) and syntactic structure (3 levels), submitted to three LLMs; evaluated with BLEU, ROUGE-L, perplexity, and human coherence ratings; two-way ANOVA with post-hoc Tukey HSD tests and η² effect sizes",
+      "datasets": [
+        "60 researcher-constructed prompts with controlled morphological complexity and syntactic structure variations"
+      ],
+      "metrics": [
+        "BLEU",
+        "ROUGE-L",
+        "perplexity",
+        "human-rated coherence (Cronbach's alpha ≥ 0.80)",
+        "processing time",
+        "computational resource usage"
+      ],
+      "reproducibility_notes": "LLM hyperparameters reported (temperature=0.7, top-p=0.9, max_tokens=512); specific LLMs not named in abstract; prompt construction criteria described at category level only; Cronbach's alpha ≥ 0.80 reported for inter-rater reliability"
+    },
+    "domain_specific_fields": {
+      "benchmark": "Custom controlled prompt evaluation using BLEU, ROUGE-L, perplexity, and human coherence scoring with Cronbach's alpha ≥ 0.80",
+      "metrics": [
+        "BLEU",
+        "ROUGE-L",
+        "perplexity",
+        "coherence scores",
+        "processing time",
+        "computational resource usage"
+      ],
+      "model_architecture": "Three unspecified state-of-the-art LLMs tested under identical decoding conditions (temperature=0.7, top-p=0.9, max_tokens=512)",
+      "dataset": "60 controlled prompts with 2-level morphological complexity (simple vs. complex derivational forms) × 3-level syntactic structure (single-clause, multi-clause, compound-complex)"
+    },
+    "study_design": "computational",
+    "quality_score": 0.52,
+    "sample_size": 60
+  }
+}

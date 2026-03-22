@@ -1,0 +1,153 @@
+{
+  "paper_id": "67be6f05b2ec40a8acd525a21ce049f1",
+  "metadata": {
+    "title": "LENS: Layers of Evaluation of Hallucination in GenAI Systems",
+    "authors": [
+      "Chuqiao Gu",
+      "Wuyang Zhang",
+      "Zhenqian Huang",
+      "Jieren Kou",
+      "Zhenyao Liu",
+      "Chenjun Zhao",
+      "Chang Liu",
+      "Lifeng Zhang",
+      "Wenjie Lin",
+      "Zhongda Wang",
+      "Jianwei Deng",
+      "Yuhuan Xie",
+      "Guoxi Huang",
+      "Charles Zhang",
+      "Xiuyuan Lu",
+      "Chengming Wang",
+      "Zejun Zhang",
+      "Hao Yuan",
+      "Xiaoman Duan",
+      "Yajun Fang"
+    ],
+    "year": 2024,
+    "journal": "2024 7th International Conference on Universal Village (UV)",
+    "doi": "10.1109/uv63228.2024.11189150",
+    "citation_count": 1,
+    "source_database": "semantic_scholar"
+  },
+  "abstract": "Large Language Models (LLMs) and Vision-Language Models (VLMs) demonstrate remarkable capabilities but remain vulnerable to hallucinations—producing plausible yet factually incorrect content—with error rates ranging from as low as 1.47% in clinical applications [1] to as high as 75% in domain-specific queries [2]. Despite growing attention, existing hallucination evaluation frameworks remain insufficient to meet critical needs. Through a comprehensive survey of over 100 evaluation methods spanning six methodological paradigms (probe-based, adversarial testing, causal intervention, uncertainty-guided, internal state analysis, and online evaluation), we identify fundamental limitations: current approaches fall short of enabling objective model comparison, providing diagnostic insights into failure modes, supporting domain-evolving benchmark construction, and guiding targeted mitigation strategies. Our analysis reveals that evaluations remain fragmented, operating either horizontally—comparing models across tasks and domains—or vertically—probing reasoning chains within single outputs. This fragmentation limits holistic assessment: horizontal evaluations provide breadth but risk superficiality, while vertical assessments deliver depth but lack generalizability. Moreover, we identify five critical gaps: (1) dimensional poverty reducing hallucinations to binary metrics, (2) failure to integrate horizontal breadth with vertical depth, (3) metacognitive blind spots overlooking when models should seek external verification, (4) adaptability crisis from static benchmarks, and (5) transparency deficits providing scores without actionable insights. Beyond surveying the landscape, this paper articulates eight fundamental challenges confronting comprehensive evaluation—from epistemological difficulties in defining ground truth and computational complexity of scaling assessment, to attribution opacity obscuring causal mechanisms and dynamic knowledge evolution rendering benchmarks obsolete. These challenges span multimodal complexity, scale and diversity requirements, adversarial robustness, and human alignment considerations. We present LENS (Layers of Evaluation of Hallucination in GenAI Systems), a unified framework addressing these gaps through hierarchical, tree-based query decomposition. LENS transforms complex evaluation tasks into multi-layered assessment structures via a six-stage pipeline (task formulation, decomposition, tool-augmented execution, structured generation, multi-dimensional scoring, and trace analysis), enabling MRI-like scanning of inference processes to reveal where and why hallucinations originate. The framework introduces four key innovations: (1) Tool Necessity Detection and Selection (TND/TSA) – explicitly evaluating when models should consult external sources versus relying on parametric memory, addressing a fundamental hallucination source. (2) Multi-Dimensional Metrics – assessing degree (accuracy, faithfulness, tool appropriateness), quantity (coverage, completeness), stability (consistency, robustness), and risk (uncertainty quantification) beyond binary detection. (3) User-Centric Benchmark Construction – empowering organizations to design custom evaluations from their evolving knowledge bases while maintaining methodological rigor. (4) Actionable Error Attribution – providing hierarchical decomposition traces with causal attribution, evidence chains, and OpenTelemetry-based reproducibility for transparent auditing. Our systematic taxonomy unifies previously fragmented approaches across evaluation targets (task-specific, modality-based, hallucination-type, domain-specific), dimensions (factuality, faithfulness, consistency, robustness, causal reasoning, interpretability), and methodologies. We introduce unified metrics transcending individual dimensions and present mitigation-aware evaluation strategies integrating RAG, parameter-efficient fine-tuning, knowledge distillation, preference optimization, and temporal intervention approaches. By combining horizontal breadth (across domains and architectures) with vertical depth (into reasoning processes), LENS advances hallucination evaluation from post-hoc error detection to proactive risk assessment. Case studies in medical diagnosis, legal analysis, and financial reasoning demonstrate the framework’s transformative impact, enabling objective model comparison, informed selection, diagnostic insights, domain-evolving benchmarks, and targeted mitigation development—fostering calibrated trust in AI systems deployed in safety-critical applications where accuracy, interpretability, and accountability are indispensable.",
+  "full_text": null,
+  "full_text_source": null,
+  "llm_extraction": {
+    "id": "a3f2c1e4-7b89-4d56-9e01-2f3a4b5c6d7e",
+    "created_at": "2026-03-21T00:00:00Z",
+    "paper_id": "67be6f05b2ec40a8acd525a21ce049f1",
+    "key_findings": [
+      {
+        "claim": "LLM/VLM hallucination error rates span a wide range, from 1.47% in clinical applications to 75% in domain-specific queries.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": "1.47% (clinical) to 75% (domain-specific)",
+        "context": "Cited from referenced studies [1] and [2]; not directly measured in this paper.",
+        "paper_id": "lens_hallucination_eval_survey"
+      },
+      {
+        "claim": "Existing hallucination evaluation frameworks are insufficient across four critical dimensions: objective model comparison, diagnostic failure-mode insights, domain-evolving benchmark construction, and targeted mitigation guidance.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Conclusion drawn from a comprehensive survey of 100+ evaluation methods across six paradigms.",
+        "paper_id": "lens_hallucination_eval_survey"
+      },
+      {
+        "claim": "Current hallucination evaluations are fragmented into horizontal (cross-task/domain model comparison) and vertical (within-output reasoning chain probing) paradigms, with neither approach enabling holistic assessment.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Horizontal evaluations provide breadth but risk superficiality; vertical assessments provide depth but lack generalizability.",
+        "paper_id": "lens_hallucination_eval_survey"
+      },
+      {
+        "claim": "Five critical gaps exist in current hallucination evaluation: (1) dimensional poverty using binary metrics, (2) failure to integrate horizontal and vertical assessment, (3) metacognitive blind spots, (4) static benchmark adaptability crisis, and (5) transparency deficits lacking actionable insights.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Identified through the authors' survey and synthesis of 100+ evaluation methods.",
+        "paper_id": "lens_hallucination_eval_survey"
+      },
+      {
+        "claim": "Eight fundamental challenges confront comprehensive hallucination evaluation, spanning epistemological difficulty in defining ground truth, computational complexity, attribution opacity, dynamic knowledge evolution, multimodal complexity, scale/diversity, adversarial robustness, and human alignment.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Identified via systematic analysis of the evaluation landscape.",
+        "paper_id": "lens_hallucination_eval_survey"
+      },
+      {
+        "claim": "The LENS framework transforms hallucination evaluation from post-hoc error detection to proactive risk assessment through hierarchical, tree-based query decomposition via a six-stage pipeline.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Demonstrated via case studies in medical diagnosis, legal analysis, and financial reasoning.",
+        "paper_id": "lens_hallucination_eval_survey"
+      },
+      {
+        "claim": "Tool Necessity Detection and Selection (TND/TSA) addresses a fundamental hallucination source by explicitly evaluating when models should consult external sources versus relying on parametric memory.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "One of four key innovations in the LENS framework.",
+        "paper_id": "lens_hallucination_eval_survey"
+      },
+      {
+        "claim": "LENS introduces multi-dimensional hallucination metrics assessing degree (accuracy, faithfulness, tool appropriateness), quantity (coverage, completeness), stability (consistency, robustness), and risk (uncertainty quantification) beyond binary detection.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Second key innovation in the LENS framework.",
+        "paper_id": "lens_hallucination_eval_survey"
+      },
+      {
+        "claim": "LENS supports user-centric benchmark construction, allowing organizations to design custom evaluations from evolving knowledge bases while maintaining methodological rigor.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Third key innovation; addresses the adaptability crisis of static benchmarks.",
+        "paper_id": "lens_hallucination_eval_survey"
+      },
+      {
+        "claim": "LENS provides actionable error attribution via hierarchical decomposition traces with causal attribution, evidence chains, and OpenTelemetry-based reproducibility for transparent auditing.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Fourth key innovation; addresses transparency deficits in current frameworks.",
+        "paper_id": "lens_hallucination_eval_survey"
+      }
+    ],
+    "methods_summary": "Systematic survey of over 100 hallucination evaluation methods for LLMs and VLMs, organized across six methodological paradigms: probe-based, adversarial testing, causal intervention, uncertainty-guided, internal state analysis, and online evaluation. The authors synthesize a taxonomy spanning evaluation targets (task-specific, modality-based, hallucination-type, domain-specific), dimensions (factuality, faithfulness, consistency, robustness, causal reasoning, interpretability), and methodologies. Based on gap analysis, they propose LENS, a unified framework using hierarchical tree-based query decomposition through a six-stage pipeline: task formulation, decomposition, tool-augmented execution, structured generation, multi-dimensional scoring, and trace analysis. Framework is validated via case studies in medical, legal, and financial domains.",
+    "limitations": "Only the abstract is available; full experimental details, quantitative benchmark results, and ablation studies are not assessable. The LENS framework's performance claims are supported only by case studies (medical, legal, financial), which limits generalizability. No statistical comparison against baseline frameworks is reported in the abstract. The survey scope (100+ methods) and taxonomy construction criteria are not detailed, raising potential selection bias concerns. Hallucination rate figures (1.47%–75%) are cited from external studies and may not be directly comparable due to differing evaluation protocols.",
+    "relationships": [
+      {
+        "source_paper_id": "lens_hallucination_eval_survey",
+        "target_paper_id": "ref_1_clinical_hallucination_147",
+        "relationship_type": "extends",
+        "description": "LENS extends prior work reporting 1.47% hallucination rates in clinical LLM applications by providing a more comprehensive multi-dimensional evaluation framework applicable to clinical and other safety-critical domains."
+      },
+      {
+        "source_paper_id": "lens_hallucination_eval_survey",
+        "target_paper_id": "ref_2_domain_specific_hallucination_75pct",
+        "relationship_type": "extends",
+        "description": "LENS addresses the high hallucination rates (75%) in domain-specific queries reported in prior work by introducing domain-evolving benchmark construction and user-centric evaluation to handle shifting knowledge bases."
+      }
+    ],
+    "methodology_details": {
+      "approach": "Systematic survey and framework proposal: (1) comprehensive review of 100+ hallucination evaluation methods across six paradigms; (2) gap and challenge analysis yielding five critical gaps and eight fundamental challenges; (3) design of the LENS unified framework with hierarchical query decomposition; (4) case study validation in medical, legal, and financial reasoning domains.",
+      "datasets": [],
+      "metrics": [
+        "accuracy",
+        "faithfulness",
+        "tool appropriateness",
+        "coverage",
+        "completeness",
+        "consistency",
+        "robustness",
+        "uncertainty quantification"
+      ],
+      "reproducibility_notes": "OpenTelemetry-based trace logging is proposed for reproducibility and transparent auditing of inference processes."
+    },
+    "domain_specific_fields": {
+      "benchmark": "LENS (Layers of Evaluation of Hallucination in GenAI Systems) — proposed framework, not a fixed benchmark dataset; supports user-centric custom benchmark construction",
+      "metrics": "Multi-dimensional: degree (accuracy, faithfulness, tool appropriateness), quantity (coverage, completeness), stability (consistency, robustness), risk (uncertainty quantification)",
+      "model_architecture": "Applicable to LLMs and VLMs broadly; no single model architecture specified",
+      "dataset": "No specific dataset reported; survey covers 100+ evaluation methods; case studies in medical, legal, and financial domains"
+    },
+    "study_design": "systematic_review",
+    "quality_score": 0.55,
+    "sample_size": null
+  }
+}

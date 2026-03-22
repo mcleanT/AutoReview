@@ -1,0 +1,83 @@
+{
+  "paper_id": "b58f61d34251428b99c21db6abc5206d",
+  "metadata": {
+    "title": "Safety Assessment of Generative AI Models in Home IoT Contexts",
+    "authors": [
+      "Eunyoung Byun",
+      "Jemin Hwang"
+    ],
+    "year": 2025,
+    "journal": "Proceedings of the 15th International Conference on the Internet of Things",
+    "doi": "10.1145/3770501.3771308",
+    "citation_count": 0,
+    "source_database": "semantic_scholar"
+  },
+  "abstract": "This study investigates the safety behavior of open-source generative AI models acting as smart home assistants for IoT device control. A total of 140 prompts were constructed across seven categories derived from international IoT security and AI risk frameworks (e.g., ETSI EN 303 645, NIST AI RMF), covering both routine and high-risk scenarios such as emergency overrides, privacy-sensitive requests, and adversarial misuse. Six models—base and instruction-tuned variants of Llama 3.1, Qwen 2.5, and Gemma 7B—were evaluated using a hybrid method combining keyword-based pattern matching with LLM-as-a-judge scoring, leveraging a safety-aligned Mistral model. Instruction-tuned models showed noticeable improvements in categories involving bias, abnormal input, and misuse, but residual vulnerabilities were still observed in authorization and privacy-related prompts. These findings underscore the limitations of current LLMs in context-sensitive reasoning and highlight the need for scenario-specific safeguards. This pilot study offers a reproducible benchmark and methodological framework for safety-aligned LLM evaluation in embedded environments.",
+  "full_text": null,
+  "full_text_source": null,
+  "llm_extraction": {
+    "id": "extract-safety-genai-iot-2024",
+    "created_at": "2026-03-21T00:00:00Z",
+    "paper_id": "b58f61d34251428b99c21db6abc5206d",
+    "key_findings": [
+      {
+        "claim": "Instruction-tuned variants of Llama 3.1, Qwen 2.5, and Gemma 7B showed noticeable safety improvements over base models in categories involving bias, abnormal input, and misuse.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Evaluated across 140 prompts in 7 categories derived from ETSI EN 303 645 and NIST AI RMF frameworks in a smart home IoT control scenario.",
+        "paper_id": "safety-assessment-genai-iot-contexts"
+      },
+      {
+        "claim": "Residual safety vulnerabilities persist in instruction-tuned models specifically in authorization and privacy-related prompt categories.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Observed after instruction tuning improved performance in other categories, indicating category-specific weaknesses remain.",
+        "paper_id": "safety-assessment-genai-iot-contexts"
+      },
+      {
+        "claim": "Current LLMs demonstrate limitations in context-sensitive reasoning when applied to safety-critical IoT scenarios such as emergency overrides and adversarial misuse.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Finding derived from evaluation of six models across high-risk IoT scenarios.",
+        "paper_id": "safety-assessment-genai-iot-contexts"
+      },
+      {
+        "claim": "A hybrid evaluation methodology combining keyword-based pattern matching with LLM-as-a-judge scoring provides a reproducible framework for safety-aligned LLM evaluation in embedded environments.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "The LLM-as-a-judge component used a safety-aligned Mistral model. Described as a pilot study offering a reusable benchmark methodology.",
+        "paper_id": "safety-assessment-genai-iot-contexts"
+      },
+      {
+        "claim": "Scenario-specific safeguards are necessary beyond general instruction tuning to adequately address safety gaps in LLMs deployed as IoT smart home assistants.",
+        "evidence_strength": "preliminary",
+        "quantitative_result": null,
+        "context": "Inferred from persistent vulnerabilities despite instruction tuning, particularly in authorization and privacy categories.",
+        "paper_id": "safety-assessment-genai-iot-contexts"
+      }
+    ],
+    "methods_summary": "A benchmark of 140 prompts was constructed across seven safety categories derived from international IoT security and AI risk frameworks (ETSI EN 303 645, NIST AI RMF), covering routine use, emergency overrides, privacy-sensitive requests, and adversarial misuse scenarios. Six models were evaluated: base and instruction-tuned variants of Llama 3.1, Qwen 2.5, and Gemma 7B. Safety responses were assessed using a hybrid method combining keyword-based pattern matching with LLM-as-a-judge scoring, leveraging a safety-aligned Mistral model as the judge.",
+    "limitations": "Abstract-only source limits methodological detail and precludes access to quantitative results, effect sizes, or inter-rater reliability metrics. The study is self-described as a pilot, indicating limited scale. The 140-prompt benchmark covering only 7 categories may not comprehensively represent the full IoT threat surface. Evaluation is restricted to three model families (6 variants total), limiting generalizability. LLM-as-a-judge scoring introduces potential bias from the Mistral judge model's own safety alignment. No comparison to human-annotated ground truth is mentioned. The embedded/IoT deployment context may not fully reflect real-world smart home system architectures.",
+    "relationships": [],
+    "methodology_details": {
+      "approach": "Empirical benchmark evaluation of six open-source LLMs (base and instruction-tuned variants of Llama 3.1, Qwen 2.5, Gemma 7B) on a 140-prompt IoT safety dataset using hybrid keyword matching and LLM-as-a-judge scoring with a safety-aligned Mistral model.",
+      "datasets": [
+        "Custom 140-prompt IoT safety benchmark across 7 categories (routine and high-risk scenarios)"
+      ],
+      "metrics": [
+        "Keyword-based pattern matching scores",
+        "LLM-as-a-judge safety scores (Mistral-based)"
+      ],
+      "reproducibility_notes": "Authors describe the benchmark and methodology as reproducible; prompt dataset and evaluation framework appear to be contributions of the paper."
+    },
+    "domain_specific_fields": {
+      "benchmark": "140-prompt custom IoT safety benchmark across 7 categories derived from ETSI EN 303 645 and NIST AI RMF",
+      "metrics": "Hybrid keyword-based pattern matching combined with LLM-as-a-judge scoring using safety-aligned Mistral",
+      "model_architecture": "Llama 3.1 (base and instruction-tuned), Qwen 2.5 (base and instruction-tuned), Gemma 7B (base and instruction-tuned)",
+      "dataset": "Custom 140-prompt dataset covering 7 IoT safety categories including emergency overrides, privacy-sensitive requests, adversarial misuse, bias, and authorization scenarios"
+    },
+    "study_design": "computational",
+    "quality_score": 0.32,
+    "sample_size": 140
+  }
+}

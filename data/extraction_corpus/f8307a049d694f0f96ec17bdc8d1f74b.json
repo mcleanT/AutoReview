@@ -1,0 +1,175 @@
+{
+  "paper_id": "f8307a049d694f0f96ec17bdc8d1f74b",
+  "metadata": {
+    "title": "Research on Hallucination Mitigation in Large Language Models",
+    "authors": [
+      "Yihan Wang"
+    ],
+    "year": 2025,
+    "journal": "Exploring Science Academic Conference Series",
+    "doi": "10.70267/ic-aimees.202511",
+    "citation_count": 0,
+    "source_database": "semantic_scholar"
+  },
+  "abstract": "The proliferation of large language models has brought the issue of hallucinations, which are outputs that deviate from inputs or fabricate information, to the forefront of concerns regarding reliability and deployment safety. This paper provides a systematic review of existing mitigation strategies and evaluation frameworks for hallucinations. Among mitigation approaches, supervised fine-tuning and reinforcement learning from human feedback have demonstrated moderate success; however, their heavy reliance on extensive, high-quality human annotations renders them costly and difficult to scale. On the evaluation side, this study examines several multimodal benchmarks, including POPE, MMHal-Bench, MM-Vet, and MMBench, which enable comprehensive assessment of model outputs through a blend of automated metrics and human judgment across multiple dimensions. Overall, substantial progress has been achieved in hallucination evaluation frameworks, yet scalable and cost-effective mitigation techniques remain elusive, particularly for hallucinations in complex multimodal settings, where further breakthroughs are urgently needed.",
+  "full_text": "Vol. 9 (2025): Proceedings of the 2025 International Conference on Artificial Intelligence, Modern Engineering and Environmental \nSustainability \n(IC-AIMEES 2025)  \nE-ISSN: 3105-0522  P-ISSN：3105-0514 \nDOI: https://doi.org/10.70267/ ic-aimees.202511 \n  \n \n \n86 \nResearch on Hallucination Mitigation in Large \nLanguage Models \n \nYihan Wang* \nCollege of Sciences, Nanjing Agricultural University, Nanjing, 210000, China  \n*Corresponding author: Yihan Wang* \n \nAbstract \nThe proliferation of large language models has brought the issue of hallucinations, which are outputs that \ndeviate from inputs or fabricate information, to the forefront of concerns regarding reliability and deployment \nsafety. This paper provides a systematic review of existing mitigation strategies and evaluation frameworks \nfor hallucinations. Among mitigation approaches, supervised fine-tuning and reinforcement learning from \nhuman feedback have demonstrated moderate success; however, their heavy reliance on extensive, high-\nquality human annotations renders them costly and difficult to scale. On the evaluation side, this study \nexamines several multimodal benchmarks, including POPE, MMHal-Bench, MM-Vet, and MMBench, which \nenable comprehensive assessment of model outputs through a blend of automated metrics and human judgment \nacross multiple dimensions. Overall, substantial progress has been achieved in hallucination evaluation \nframeworks, yet scalable and cost-effective mitigation techniques remain elusive, particularly for \nhallucinations in complex multimodal settings, where further breakthroughs are urgently needed. \nKeywords \nlarge language models, hallucination mitigation, multimodality \n \n1. Introduction \nThe rapid advancement of generative artificial intelligence in recent years has positioned large language \nmodels as powerful tools with remarkable intelligence and generalization capabilities, unlocking substantial \npotential across diverse industries (Li et al., 2025). Despite these strengths, such models frequently exhibit \n“hallucinations” during generation and reasoning—producing outputs that diverge from the input or are \nentirely fabricated. In practice, this phenomenon undermines system reliability and user trust while posing \nconsiderable risks in real-world applications. From an academic perspective, in-depth investigation of \nmultimodal hallucinations and the development of effective mitigation strategies hold significant value. \nMoreover, enhancing the factual accuracy of model outputs and ensuring safety in deployment render this line \nof inquiry critically important. Recent work has introduced a hallucination detection approach tailored to \nretrieval-augmented private question-answering models, which integrates uncertainty-based metrics with \nautomated evaluation by the language model itself, leveraging both intrinsic generation patterns and the \nmodel’s self-assessment capabilities (Zhang, 2025). The present study evaluates this method against three \ndistinct baselines, highlighting an imbalance in the literature: while evaluation methodologies for \nhallucinations in large language models have progressed toward systematic frameworks, they continue to face \n\nVol. 9 (2025): Proceedings of the 2025 International Conference on Artificial Intelligence, Modern Engineering and Environmental Sustainability  \n(IC-AIMEES 2025) \n \n87 \nsubstantial challenges. Collectively, these observations underscore the necessity of further exploration in this \ndomain. \n2. Research Methods and Data \n2.1 \nMainstream Research Methods \nCurrent efforts to mitigate hallucinations in generative models predominantly rely on supervised fine-\ntuning (SFT) and reinforcement learning from human feedback (RLHF) (Zheng, 2025). SFT leverages \nextensive, high-quality human-annotated data to refine the model, thereby enhancing its grasp of real-world \nsemantics and commonsense knowledge, which in turn reduces the generation of erroneous information. In \ncontrast, RLHF incorporates human judgments into the optimization loop by iteratively aligning outputs with \nhuman preferences, yielding further improvements in factual accuracy and plausibility. Although these \napproaches have achieved measurable success in curbing hallucinations, their practical deployment reveals \nnotable limitations. Both methods depend critically on high-quality annotations—a resource that is not only \ncostly to acquire but also challenging to scale. For multimodal tasks, the annotation process is particularly \ncomplex and susceptible to subjective bias, complicating the creation of robust training datasets. Moreover, \nRLHF necessitates the development of a reward model and sustained interaction with human feedback, \nrendering the training pipeline intricate and hindering rapid adoption. Consequently, devising strategies that \nminimize reliance on human annotations while streamlining the training process—without compromising \nhallucination control—emerges as a pressing challenge in the field. \n2.2 \nDatasets and Evaluation Metrics  \nPOPE serves as a widely adopted evaluation protocol for hallucination mitigation (Li et al.). Tailored to \nlarge-scale vision-language models (LVLMs), its core design requires the model to respond only with “yes” \nor “no” to simple binary questions, thereby probing for hallucinatory outputs. For instance, questions are \nframed as “Does the image contain a car?” and constructed by introducing objects that either do or do not \nappear in the image, yielding a binary classification task. The POPE dataset comprises 3,000 such questions \nderived from 500 images. Model responses are treated as binary predictions, enabling the computation of \naccuracy, precision, recall, and F1 score. Higher values across these metrics indicate reduced hallucination \npropensity. Three sampling strategies, namely random, popularity-based, and adversarial, are incorporated to \ngenerate negative examples, differing primarily in how absent objects are selected.Random sampling draws \nfrom objects never present in the image; popularity sampling selects high-frequency objects absent from the \nspecific image; and adversarial sampling targets entities that frequently co-occur in typical contexts but are \nmissing in the given instance. This framework provides a robust mechanism for quantifying hallucinations in \nmultimodal model outputs, a principle underpinning the MMHal-Bench benchmark (Sun et al., 2024). \nThe MMHal-Bench dataset consists of 8 categories, each containing 12 image groups, yielding a total of \n96 groups. During evaluation, the image, model response, and human-annotated ground truth are scored by \nGPT-4 on a 0–5 scale; responses below 3 are classified as hallucinatory. \nMM-Vet is designed to assess the integrated capabilities of multimodal large language models on complex \ntasks. It encompasses six core competencies: recognition, knowledge comprehension, optical character \nrecognition (OCR), spatial awareness, language generation, and mathematical reasoning. Using GPT-4, model \noutputs are automatically compared against human-provided reference answers across a dataset comprising \n200 images and 218 questions, with performance quantified through scoring. \nMMBench, centered on perception and reasoning, further decomposes these into 6 second-level dimensions \nand 20 third-level subdimensions, spanning image style, scene understanding, emotion recognition, attribute \njudgment, logical reasoning, and beyond, thus establishing a comprehensive capability evaluation framework. \nIn total, the benchmark includes 3,217 samples, split in a 4:6 ratio into development and test sets. The \ndevelopment set, along with its answers, is publicly available, whereas only the questions are released for the \ntest set. In subsequent experiments, 500 samples are randomly drawn from the development set for model \nperformance evaluation. \nTo systematically examine the effectiveness of hallucination reduction and the preservation of original \n\nVol. 9 (2025): Proceedings of the 2025 International Conference on Artificial Intelligence, Modern Engineering and Environmental Sustainability  \n(IC-AIMEES 2025) \n \n88 \nmultimodal proficiency, this study employs two evaluation paradigms: (1) Hallucination suppression \nmetrics: precision and F1 score are measured on the POPE dataset under all three sampling conditions, \nsupplemented by MMHal-Bench scores and hallucination frequency; (2) Multimodal general capability \nmetrics: aggregate scores across the six dimensions of MM-Vet (recognition, knowledge comprehension, \nOCR, spatial relation judgment, language generation, and logical reasoning), alongside consolidated \nperception and reasoning results from MMBench. \n3. Experimental Results and Analysis \nTo systematically evaluate the performance of the proposed method, three baseline models are selected as \ncomparisons in this study, with experimental conditions configured accordingly. First, LLaVA-1.5 serves as \nthe unoptimized vanilla benchmark, reflecting the initial capabilities of the base architecture. Second, HA-\nDPO implements direct preference optimization using 16,000 preference pairs automatically annotated by \nGPT-4, representing a mainstream approach to multimodal hallucination suppression. Third, HDPO conducts \ntargeted optimization for specific hallucination categories. It systematically constructs a training dataset \nencompassing three major problem types, namely visual distractor interference, long-text comprehension bias, \nand multimodal semantic inconsistency, with a data scale of 20,000 samples, enabling precise refinement of \nrecognized failure modes and enhancing semantic understanding in complex scenarios. \nThe core value of this strategy lies in its ability to deliver targeted improvements for identified hallucination \npatterns, thereby effectively strengthening the model's semantic understanding in complex contexts. For \nhallucination evaluation, this study compares different baseline methods through experimental results on two \nprimary metrics: POPE and MMHal. To assess the model's overall multimodal capabilities, additional tests are \nconducted on the MMBench and MM-Vet benchmarks. Specifically, Table 1 reports accuracy, F1 scores, and \nyes-response rates across three sampling conditions in POPE, while Table 2 presents performance in terms of \nMMHal scores and their corresponding hallucination rates. \nTable 1: Accuracy and F1 Score on the POPE Hallucination Benchmark \nPOPE Sampling \nMethod \nAccuracy \nF1 Score \nRandom \nLLaVA-1.5 \n86 \n85.71 \n \nHA-DPO \n88.7 \n80.26 \n \nHDPO \n89.6 \n89.67 \nPopularity \nLLaVA-1.5 \n76.67 \n78.79 \n \nHA-DPO \n83.36 \n84.33 \n \nHDPO \n86.2 \n86.79 \nAdversarial \nLLaVA-1.5 \n73.33 \n76.05 \n \nHA-DPO \n74.5 \n78.64 \n \nHDPO \n80.76 \n82.54 \nTable 2: Mean Score and Hallucination Rate on the MMHal-Bench Hallucination Benchmark \nMethod \nMean Score \nHallucination Rate \nLLaVA-1.5 \n1.84 \n0.64 \nHA-DPO \n2.09 \n0.58 \nHDPO \n2.1 \n0.55 \nTables 1 and 2 present the performance of each method on hallucination benchmarks. The AID-optimized \nLLaVA-1.5 consistently outperforms the baseline model across all configurations. In the most challenging \nPOPE adversarial setting, it surpasses HA-DPO yet falls slightly behind HDPO, aligning with expectations. \nHA-DPO's reliance on GPT-4 for high-quality annotations may account for its slightly weaker performance, \npotentially constrained by the learning capacity of LLaVA-1.5-7B's vision module; scaling to larger models \ncould yield further improvements, though GPT-4's prohibitive cost limits widespread adoption. HDPO \nleverages distractor prompts to capture hallucination patterns, showing certain advantages in complex \nscenarios, but the injected noise diminishes the discriminability of preference learning. AID enhances \nreliability by explicitly delineating objects to anchor model attention to image regions, mitigating language \nprior interference and improving attribute and relation descriptions, thereby corroborating the efficacy of \nheightened visual focus for generating reliable descriptions. \n\nVol. 9 (2025): Proceedings of the 2025 International Conference on Artificial Intelligence, Modern Engineering and Environmental Sustainability  \n(IC-AIMEES 2025) \n \n89 \n4. Current State of the Field  \nResearch on hallucinations in large language models reveals a marked imbalance in that evaluation \nmethodologies have advanced far more rapidly than mitigation strategies. Evaluation frameworks have \nmatured into systematic, hierarchical, and multidimensional systems that integrate automated metrics with \nhuman oversight. In contrast, mitigation approaches remain heavily reliant on human intervention and have \nyet to overcome scalability and cost barriers, challenges that are particularly acute in multimodal and complex \nreasoning contexts. \nIn the evaluation domain, concerted efforts have yielded a well-structured benchmark ecosystem capable \nof quantifying hallucinations at multiple granularities. Fine-grained assessment encompasses sentence-level \ncredibility scoring, factuality verification, and entity-specific truthfulness checks. Holistic output evaluation \nfocuses on coherence, logical consistency, and factual fidelity across entire generations. Task-specific \nmultidimensional profiling examines hallucination patterns in knowledge-intensive question answering, \nlogical reasoning, dialogue generation, and related domains. Established benchmarks such as TruthfulQA, \nHaluEval, and FACTOR (Lin, 2025) enhance reliability and reproducibility by combining automated signals, \nsuch as natural language inference-based fidelity scores and retrieval-augmented fact checking, with targeted \nhuman annotation. \nIn the realm of hallucination mitigation, despite the introduction of diverse techniques, the field remains \npredominantly anchored in labor-intensive paradigms and continues to grapple with scalability constraints. \nSupervised fine-tuning (SFT) refines models using high-quality, low-hallucination corpora, whereas \nreinforcement learning from human feedback (RLHF) aligns generation policies with preference signals. Both \napproaches demonstrably reduce hallucination rates; however, their dependence on extensive, precise human \nannotations incurs prohibitive costs and procedural complexity, rendering them ill-suited for rapid iteration or \nlarge-scale deployment. \nIn the pursuit of low-cost alternatives, methods such as leveraging the model’s self-supervised capabilities \nfor consistency verification, incorporating retrieval-augmented generation to reduce factual errors, and \nconstructing synthetic data for hallucination mitigation training have proven effective to some extent in \nspecific scenarios. However, their generalization ability remains limited overall, with stability particularly \ncompromised in the face of complex reasoning or dynamic knowledge updates.  \nWith respect to the distinct challenges in multimodal settings, vision-language models must simultaneously \naddress issues including modality alignment errors, absence of cross-modal commonsense knowledge, and \ncontextual understanding biases. Cross-modal hallucinations are more readily induced under adversarial \nexamples or complex reasoning tasks compared to other conditions, yet existing approaches frequently \nunderperform in out-of-distribution generalization. In summary, current research has established a relatively \nmature framework for hallucination evaluation that clearly guides model improvement. Nevertheless, \nmitigation techniques continue to depend heavily on high-quality human feedback, rendering scalable and low-\ncost de-hallucination solutions a critical challenge that awaits breakthrough. To systematically enhance \ntrustworthy generation in a comprehensive and in-depth manner, future investigations should more thoroughly \nexplore lightweight self-correction mechanisms, multimodal alignment techniques, and generation constraint \nstrategies capable of dynamically adapting to knowledge updates. \n5. Conclusion \nThis paper systematically reviews hallucination mitigation techniques and evaluation frameworks for large \nlanguage models. It critically examines the efficacy and limitations of prevailing approaches, such as \nsupervised fine-tuning (SFT) and reinforcement learning from human feedback (RLHF). While these methods \nreduce hallucinations to some extent, their dependence on extensive, high-quality human annotations incurs \nsubstantial costs and scalability constraints—challenges that are amplified in complex multimodal scenarios. \nOn the evaluation front, the study surveys key multimodal benchmarks, including POPE, MMHal-Bench, \nMM-Vet, and MMBench. These have evolved into systematic, multidimensional frameworks that robustly \nassess output fidelity and consistency. Through comparative experiments, we demonstrate that optimized \nmethods can suppress hallucinations while preserving—or even enhancing—multimodal comprehension and \n\nVol. 9 (2025): Proceedings of the 2025 International Conference on Artificial Intelligence, Modern Engineering and Environmental Sustainability  \n(IC-AIMEES 2025) \n \n90 \nreasoning capabilities, underscoring their refinement potential. \nNevertheless, the field of hallucination mitigation remains anchored in human-intensive workflows and has \nyet to yield scalable, cost-effective, generalizable solutions. Looking ahead, research should prioritize \nlightweight, adaptive paradigms—such as self-supervised correction mechanisms, improved cross-modal \nalignment, and dynamic knowledge integration strategies. To ensure trustworthy generation and safe \ndeployment in real-world applications (e.g., conversational agents and writing assistants), future efforts must \nalso bridge evaluation benchmarks with practical use cases, thereby facilitating reliable integration of \nhallucination mitigation into operational systems. \nReferences \nLi, Y., Du, Y., Zhou, K., Wang, J., Zhao, X. and Wen, J.-R., Published. Evaluating Object Hallucination in \nLarge Vision-Language Models.  The 2023 Conference on Empirical Methods in Natural Language \nProcessing, Singapore. Optica Publishing Group, pp. 292-305. \nLi, Y. Q., Wang, X. W. and Wang, Q. Y., (2025). Research on multimodal sentiment analysis models for social \nmedia based on multimodal large language models. Information Studies:Theory & Application, vol. 48, no. \n11, pp. 188-197. \nLin, Y. W., (2025). Research on large model hal lucination mitigation methods based on contrastive decoding. \nMaster's Theses, Guangzhou University. \nSun, Z., Shen, S., Cao, S., Liu, H., Li, C., Shen, Y., Gan, C., Gui, L., Wang, Y.-X. and Yang, Y., (2024). \nPublished. Aligning large multimodal models with factually augmented rlhf.  Findings of the Association \nfor Computational Linguistics: ACL 2024, Bangkok, Thailand. Association for Computational Linguistics \n(ACL), pp. 13088-13110. \nZhang, J. Q., (2025). Research on hallucination mitigation in multi-modal large language models. Master's \nTheses, University of Electronic Science and Technology of China. \nZheng, H. J., (2025). From ChatGPT to Deep Seek: A regulatory approach to the risk of illusion in large \nmodels [Online]. Journal of Intelligence. Available: \nhttp://kns.cnki.net/kcms/detail/61.1167.g3.20250909.1241.002.html. \n \nFunding \nThis research received no external funding.  \nConflicts of Interest \nThe authors declare no conflict of interest.  \nAcknowledgment \nThis paper is an output of the science project. \nOpen Access  \nThis chapter is licensed under the terms of the Creative Commons Attribution-NonCommercial 4.0 \nInternational License (http://creativecommons.org/licenses/by-nc/4.0/), which permits any noncommercial use, \nsharing, adaptation, distribution and reproduction in any medium or format, as long as you give appropriate \n\nVol. 9 (2025): Proceedings of the 2025 International Conference on Artificial Intelligence, Modern Engineering and Environmental Sustainability  \n(IC-AIMEES 2025) \n \n91 \ncredit to the original author(s) and the source, provide a link to the Creative Commons license and indicate if \nchanges were made. \nThe images or other third party material in this chapter are included in the chapter's Creative Commons license, \nunless indicated otherwise in a credit line to the material. If material is not included in the chapter's Creative \nCommons license and your intended use is not permitted by statutory regulation or exceeds the permitted use, \nyou will need to obtain permission directly from the copyright holder.",
+  "full_text_source": "unpaywall",
+  "llm_extraction": {
+    "id": "extraction-wang2025hallucination",
+    "created_at": "2026-03-21T00:00:00Z",
+    "paper_id": "f8307a049d694f0f96ec17bdc8d1f74b",
+    "key_findings": [
+      {
+        "claim": "Supervised fine-tuning (SFT) and reinforcement learning from human feedback (RLHF) have demonstrated moderate success in hallucination mitigation but are costly and difficult to scale due to reliance on extensive high-quality human annotations.",
+        "evidence_strength": "moderate",
+        "quantitative_result": null,
+        "context": "Systematic review of mainstream hallucination mitigation approaches across generative LLMs",
+        "paper_id": "wang2025hallucination"
+      },
+      {
+        "claim": "HDPO outperforms LLaVA-1.5 baseline and HA-DPO on POPE random and popularity sampling conditions in both accuracy and F1 score.",
+        "evidence_strength": "moderate",
+        "quantitative_result": "HDPO: random accuracy 89.6%, F1 89.67%; HA-DPO: random accuracy 88.7%, F1 80.26%; LLaVA-1.5: random accuracy 86%, F1 85.71%",
+        "context": "Comparative evaluation on POPE hallucination benchmark across three sampling strategies",
+        "paper_id": "wang2025hallucination"
+      },
+      {
+        "claim": "Under adversarial POPE sampling, HDPO outperforms both LLaVA-1.5 and HA-DPO, achieving the highest accuracy and F1 score.",
+        "evidence_strength": "moderate",
+        "quantitative_result": "HDPO: adversarial accuracy 80.76%, F1 82.54%; HA-DPO: 74.5%, F1 78.64%; LLaVA-1.5: 73.33%, F1 76.05%",
+        "context": "Adversarial POPE sampling targets objects that frequently co-occur in typical contexts but are absent from the given image",
+        "paper_id": "wang2025hallucination"
+      },
+      {
+        "claim": "On MMHal-Bench, HDPO achieves the highest mean score and lowest hallucination rate among compared methods.",
+        "evidence_strength": "moderate",
+        "quantitative_result": "HDPO: mean score 2.1, hallucination rate 0.55; HA-DPO: 2.09, 0.58; LLaVA-1.5: 1.84, 0.64",
+        "context": "MMHal-Bench uses GPT-4 scoring on 0–5 scale across 96 image groups; responses below 3 classified as hallucinatory",
+        "paper_id": "wang2025hallucination"
+      },
+      {
+        "claim": "Hallucination evaluation frameworks have advanced substantially faster than mitigation strategies, creating a marked imbalance in the field.",
+        "evidence_strength": "moderate",
+        "quantitative_result": null,
+        "context": "Field-level synthesis based on review of benchmarks (POPE, MMHal-Bench, TruthfulQA, HaluEval, FACTOR) and mitigation methods (SFT, RLHF)",
+        "paper_id": "wang2025hallucination"
+      },
+      {
+        "claim": "The AID method improves hallucination suppression by explicitly delineating objects to anchor model attention to image regions, mitigating language prior interference.",
+        "evidence_strength": "moderate",
+        "quantitative_result": null,
+        "context": "AID-optimized LLaVA-1.5 consistently outperforms the baseline across all POPE configurations",
+        "paper_id": "wang2025hallucination"
+      },
+      {
+        "claim": "HA-DPO relies on GPT-4 for high-quality annotation of 16,000 preference pairs, which constrains scalability and may limit performance due to the learning capacity of LLaVA-1.5-7B's vision module.",
+        "evidence_strength": "weak",
+        "quantitative_result": "HA-DPO uses 16,000 GPT-4-annotated preference pairs",
+        "context": "Authors interpret HA-DPO's slightly weaker performance as potentially due to annotation costs and vision module limitations",
+        "paper_id": "wang2025hallucination"
+      },
+      {
+        "claim": "Cross-modal hallucinations in vision-language models are more readily induced under adversarial examples or complex reasoning tasks, and existing approaches frequently underperform in out-of-distribution generalization.",
+        "evidence_strength": "moderate",
+        "quantitative_result": null,
+        "context": "Synthesis from multimodal hallucination literature; identified as a critical open challenge",
+        "paper_id": "wang2025hallucination"
+      },
+      {
+        "claim": "Self-supervised consistency verification, retrieval-augmented generation, and synthetic data construction for hallucination mitigation show limited generalization, with stability particularly compromised under complex reasoning or dynamic knowledge updates.",
+        "evidence_strength": "weak",
+        "quantitative_result": null,
+        "context": "Discussed as low-cost alternatives to SFT and RLHF in the field review section",
+        "paper_id": "wang2025hallucination"
+      }
+    ],
+    "methods_summary": "This paper presents a narrative review of hallucination mitigation strategies and evaluation frameworks for large language models, supplemented by comparative experiments. Three baseline models are evaluated: LLaVA-1.5 (unoptimized baseline), HA-DPO (direct preference optimization using 16,000 GPT-4-annotated preference pairs), and HDPO (targeted optimization across three hallucination categories—visual distractor interference, long-text comprehension bias, and multimodal semantic inconsistency—using 20,000 samples). An AID-optimized LLaVA-1.5 variant is also introduced and compared. Evaluation uses two paradigms: (1) hallucination suppression metrics—precision and F1 on POPE under random, popularity, and adversarial sampling, plus MMHal-Bench scores and hallucination rates; (2) multimodal general capability metrics—MM-Vet aggregate scores across six dimensions and MMBench perception/reasoning results. POPE comprises 3,000 binary yes/no questions from 500 images; MMHal-Bench uses GPT-4 scoring across 96 image groups; MM-Vet covers 200 images and 218 questions; MMBench contains 3,217 samples with 500 randomly drawn from the development set for evaluation.",
+    "limitations": "1. Scalability and cost: SFT and RLHF both depend on extensive, high-quality human annotations that are expensive and difficult to scale, especially for multimodal tasks where annotation is complex and prone to subjective bias. 2. Limited generalization of low-cost alternatives: Methods such as self-supervised correction, RAG, and synthetic data generation show restricted generalization and reduced stability under complex reasoning or dynamic knowledge. 3. Venue and methodological rigor: The paper is a short conference proceedings contribution from a broad interdisciplinary venue (IC-AIMEES); experimental comparisons are limited in depth, and the paper does not provide training or hyperparameter details for the proposed AID method. 4. Incomplete evaluation: MM-Vet and MMBench results are described qualitatively without tabulated numerical results in the manuscript as presented. 5. Multimodal out-of-distribution generalization: Existing approaches consistently underperform on adversarial and OOD multimodal inputs, a challenge not resolved by methods evaluated here. 6. Single-model architecture: All experiments use LLaVA-1.5 as the backbone; generalizability to other VLM architectures is not demonstrated.",
+    "relationships": [
+      {
+        "source_paper_id": "wang2025hallucination",
+        "target_paper_id": "zhang2025rag_hallucination",
+        "relationship_type": "extends",
+        "description": "Wang et al. evaluate Zhang (2025)'s hallucination detection approach for RAG-based private QA models against three baselines, framing it as an example of recent progress in uncertainty-based hallucination detection."
+      },
+      {
+        "source_paper_id": "wang2025hallucination",
+        "target_paper_id": "li_pope_benchmark",
+        "relationship_type": "extends",
+        "description": "Wang et al. use the POPE benchmark (Li et al.) as a primary hallucination evaluation protocol and report model accuracy and F1 under all three POPE sampling strategies."
+      },
+      {
+        "source_paper_id": "wang2025hallucination",
+        "target_paper_id": "sun2024mmhalbench",
+        "relationship_type": "extends",
+        "description": "Wang et al. adopt MMHal-Bench (Sun et al., 2024) as a secondary hallucination evaluation benchmark, reporting mean scores and hallucination rates for all compared methods."
+      },
+      {
+        "source_paper_id": "wang2025hallucination",
+        "target_paper_id": "lin2025factor",
+        "relationship_type": "supports",
+        "description": "Wang et al. cite FACTOR (Lin, 2025) alongside TruthfulQA and HaluEval as examples of benchmarks that enhance reliability by combining automated signals with human annotation, supporting the claim of a mature evaluation ecosystem."
+      },
+      {
+        "source_paper_id": "wang2025hallucination",
+        "target_paper_id": "zheng2025rlhf",
+        "relationship_type": "extends",
+        "description": "Wang et al. build on Zheng (2025)'s characterization of SFT and RLHF as the predominant hallucination mitigation paradigms, then extend the analysis by comparing them against preference-optimization alternatives."
+      }
+    ],
+    "methodology_details": {
+      "approach": "Narrative review with comparative experiments evaluating hallucination mitigation methods (LLaVA-1.5 baseline, HA-DPO, HDPO, AID-optimized LLaVA-1.5) on multimodal hallucination and general capability benchmarks",
+      "datasets": [
+        "POPE (3,000 questions, 500 images, binary yes/no format)",
+        "MMHal-Bench (96 image groups, 8 categories × 12 groups, GPT-4 scored)",
+        "MM-Vet (200 images, 218 questions, 6 capability dimensions)",
+        "MMBench (3,217 samples; 500 from dev set used for evaluation)"
+      ],
+      "metrics": [
+        "POPE accuracy",
+        "POPE F1 score",
+        "POPE yes-response rate",
+        "MMHal-Bench mean score (0–5 scale)",
+        "MMHal-Bench hallucination rate",
+        "MM-Vet aggregate score across 6 dimensions",
+        "MMBench perception and reasoning scores"
+      ],
+      "reproducibility_notes": "No training hyperparameters, code, or model checkpoints are provided. HA-DPO training data (16,000 GPT-4-annotated preference pairs) and HDPO training data (20,000 samples across 3 hallucination categories) are described but not released. The AID method is described conceptually without implementation details."
+    },
+    "domain_specific_fields": {
+      "benchmark": [
+        "POPE",
+        "MMHal-Bench",
+        "MM-Vet",
+        "MMBench",
+        "TruthfulQA",
+        "HaluEval",
+        "FACTOR"
+      ],
+      "metrics": [
+        "accuracy",
+        "F1 score",
+        "precision",
+        "recall",
+        "hallucination rate",
+        "mean score (GPT-4 0–5 scale)"
+      ],
+      "model_architecture": [
+        "LLaVA-1.5",
+        "LLaVA-1.5-7B",
+        "HA-DPO",
+        "HDPO",
+        "AID-optimized LLaVA-1.5"
+      ],
+      "dataset": [
+        "POPE (3,000 questions / 500 images)",
+        "MMHal-Bench (96 groups)",
+        "MM-Vet (218 questions / 200 images)",
+        "MMBench (3,217 samples)"
+      ]
+    },
+    "study_design": "narrative_review",
+    "quality_score": 0.28,
+    "sample_size": null
+  }
+}
