@@ -77,15 +77,26 @@ class HybridExtractor:
         max_concurrent: Maximum number of concurrent LLM refinement calls.
     """
 
+    # Default concurrency by provider type
+    _DEFAULT_CONCURRENT_CLAUDE_CODE = 20
+    _DEFAULT_CONCURRENT_API = 5
+
     def __init__(
         self,
         programmatic: ProgrammaticExtractor,
         llm: Any,
-        max_concurrent: int = 5,
+        max_concurrent: int | None = None,
     ) -> None:
         self.programmatic = programmatic
         self.llm = llm
-        self._semaphore = asyncio.Semaphore(max_concurrent)
+        # Auto-detect concurrency from provider type
+        if max_concurrent is not None:
+            concurrency = max_concurrent
+        elif type(llm).__name__ == "ClaudeCodeProvider":
+            concurrency = self._DEFAULT_CONCURRENT_CLAUDE_CODE
+        else:
+            concurrency = self._DEFAULT_CONCURRENT_API
+        self._semaphore = asyncio.Semaphore(concurrency)
 
     async def extract(self, sp: ScreenedPaper) -> PaperExtraction:
         """Extract structured data from a screened paper.

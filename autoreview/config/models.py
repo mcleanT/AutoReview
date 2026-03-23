@@ -101,6 +101,8 @@ class ExtractionConfig(BaseModel):
     extraction_mode: Literal["llm", "programmatic", "hybrid"] = "llm"  # noqa: UP040
     domain_fields: dict[str, bool] = {}
     max_concurrent: int = 10
+    max_concurrent_claude_code: int = 20
+    max_concurrent_api: int = 5
     ollama_max_concurrent: int = 2
     full_text_max_chars: int = 80_000
     extraction_batch_size: int = 20

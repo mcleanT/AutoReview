@@ -184,17 +184,17 @@ async def run_benchmark(
         extractor = ProgrammaticExtractor(config)
     elif strategy in ("hybrid-haiku", "hybrid-sonnet"):
         from autoreview.extraction.hybrid import HybridExtractor
-        from autoreview.llm.claude import ClaudeLLMProvider
+        from autoreview.llm.claude_code import ClaudeCodeProvider
 
-        model = "claude-haiku-4-5-20251001" if "haiku" in strategy else "claude-sonnet-4-6-20250514"
-        llm = ClaudeLLMProvider(model=model)
+        model = "haiku" if "haiku" in strategy else "sonnet"
+        llm = ClaudeCodeProvider(model=model)
         extractor = HybridExtractor(ProgrammaticExtractor(config), llm)
         is_async = True
     elif strategy == "direct-haiku":
         from autoreview.extraction.extractor import PaperExtractor
-        from autoreview.llm.claude import ClaudeLLMProvider
+        from autoreview.llm.claude_code import ClaudeCodeProvider
 
-        llm = ClaudeLLMProvider(model="claude-haiku-4-5-20251001")
+        llm = ClaudeCodeProvider(model="haiku")
         extractor = PaperExtractor(llm)
         is_async = True
     else:
@@ -216,7 +216,9 @@ async def run_benchmark(
 
     t0 = time.perf_counter()
 
-    for entry in corpus:
+    # --- Process one paper (used by both sequential and concurrent paths) ---
+    async def _process_paper(entry: dict) -> dict:
+        """Extract, score, and return result dict for a single paper."""
         paper_id = entry["paper_id"]
         try:
             candidate = build_candidate_paper(entry)
@@ -226,43 +228,28 @@ async def run_benchmark(
             # --- Run extraction ---
             if is_async:
                 if strategy == "direct-haiku":
-                    # PaperExtractor.extract_one takes (CandidatePaper, relevance_score)
-                    programmatic_result = await extractor.extract_one(candidate, relevance_score=4)
+                    extraction_result = await extractor.extract_one(candidate, relevance_score=4)
                 else:
-                    # HybridExtractor.extract takes ScreenedPaper
-                    programmatic_result = await extractor.extract(screened)
+                    extraction_result = await extractor.extract(screened)
             else:
-                programmatic_result = extractor.extract(screened)
+                extraction_result = extractor.extract(screened)
 
             # --- Similarity scoring ---
             if embedding_model is not None:
                 scores = score_extraction_pair_with_embeddings(
-                    programmatic_result, llm_extraction, model=embedding_model
+                    extraction_result, llm_extraction, model=embedding_model
                 )
             else:
-                scores = score_extraction_pair(programmatic_result, llm_extraction)
+                scores = score_extraction_pair(extraction_result, llm_extraction)
             composite = compute_composite_score(scores)
 
             # --- Factual scoring layer ---
             factual_scores = score_extraction_pair_factual(
-                programmatic_result, llm_extraction, similarity_scores=scores
+                extraction_result, llm_extraction, similarity_scores=scores
             )
             factual_composite = compute_composite_score(factual_scores)
 
-            if candidate.full_text:
-                n_full_text += 1
-            else:
-                n_abstract_only += 1
-
-            for field in all_report_fields:
-                field_scores_accum[field].append(scores.get(field, 0.0))
-            composites.append(composite)
-
-            for field in FACTUAL_FIELDS:
-                factual_field_scores_accum[field].append(factual_scores.get(field, 0.0))
-            factual_composites.append(factual_composite)
-
-            paper_result = {
+            return {
                 "paper_id": paper_id,
                 "title": candidate.title[:80],
                 "has_full_text": bool(candidate.full_text),
@@ -271,27 +258,64 @@ async def run_benchmark(
                 "field_scores": {k: round(v, 4) for k, v in scores.items()},
                 "factual_field_scores": {k: round(v, 4) for k, v in factual_scores.items()},
             }
-            per_paper_results.append(paper_result)
 
         except Exception as exc:
-            n_errors += 1
             logger.error(
                 "benchmark.paper_failed",
                 paper_id=paper_id,
                 error=f"{type(exc).__name__}: {exc}",
             )
-            per_paper_results.append(
-                {
-                    "paper_id": paper_id,
-                    "title": entry.get("metadata", {}).get("title", "unknown")[:80],
-                    "has_full_text": bool(entry.get("full_text")),
-                    "composite": 0.0,
-                    "factual_composite": 0.0,
-                    "field_scores": {},
-                    "factual_field_scores": {},
-                    "error": f"{type(exc).__name__}: {exc}",
-                }
-            )
+            return {
+                "paper_id": paper_id,
+                "title": entry.get("metadata", {}).get("title", "unknown")[:80],
+                "has_full_text": bool(entry.get("full_text")),
+                "composite": 0.0,
+                "factual_composite": 0.0,
+                "field_scores": {},
+                "factual_field_scores": {},
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+
+    # --- Run papers concurrently for async strategies, sequentially otherwise ---
+    # claude -p is I/O-bound (waiting for API), so 20 concurrent is fine
+    max_concurrent = 20 if is_async else 1
+    sem = asyncio.Semaphore(max_concurrent)
+
+    async def _process_with_sem(entry: dict) -> dict:
+        async with sem:
+            return await _process_paper(entry)
+
+    if is_async:
+        print(f"Processing {len(corpus)} papers concurrently (max {max_concurrent})...")
+        per_paper_results = await asyncio.gather(*[_process_with_sem(entry) for entry in corpus])
+        per_paper_results = list(per_paper_results)
+    else:
+        per_paper_results = []
+        for entry in corpus:
+            result = await _process_paper(entry)
+            per_paper_results.append(result)
+
+    # --- Aggregate results ---
+    for paper_result in per_paper_results:
+        if "error" in paper_result:
+            n_errors += 1
+            continue
+
+        if paper_result["has_full_text"]:
+            n_full_text += 1
+        else:
+            n_abstract_only += 1
+
+        scores = paper_result["field_scores"]
+        factual_scores = paper_result.get("factual_field_scores", {})
+
+        for field in all_report_fields:
+            field_scores_accum[field].append(scores.get(field, 0.0))
+        composites.append(paper_result["composite"])
+
+        for field in FACTUAL_FIELDS:
+            factual_field_scores_accum[field].append(factual_scores.get(field, 0.0))
+        factual_composites.append(paper_result.get("factual_composite", 0.0))
 
     elapsed = time.perf_counter() - t0
 
