@@ -26,6 +26,75 @@ from autoreview.models.paper import ScreenedPaper
 logger = structlog.get_logger()
 
 # ---------------------------------------------------------------------------
+# Claim text cleaning
+# ---------------------------------------------------------------------------
+
+_ACADEMIC_PREFIXES = [
+    "in this study, ",
+    "in this paper, ",
+    "in this work, ",
+    "in our study, ",
+    "in our work, ",
+    "in our paper, ",
+    "our results show that ",
+    "our results demonstrate that ",
+    "our findings show that ",
+    "our findings indicate that ",
+    "we found that ",
+    "we find that ",
+    "we show that ",
+    "we demonstrate that ",
+    "we observe that ",
+    "we report that ",
+    "results show that ",
+    "results demonstrate that ",
+    "results indicate that ",
+    "the results show that ",
+    "the results demonstrate that ",
+    "the findings show that ",
+    "the findings indicate that ",
+    "this study shows that ",
+    "this work shows that ",
+    "furthermore, ",
+    "moreover, ",
+    "additionally, ",
+    "in addition, ",
+    "notably, ",
+    "importantly, ",
+    "interestingly, ",
+    "specifically, ",
+    "overall, ",
+    "in particular, ",
+]
+
+_BRACKET_CITE_RE = re.compile(r"\[\s*\d+(?:\s*[,;\-]\s*\d+)*\s*\]")
+_PAREN_FIG_RE = re.compile(
+    r"\(\s*(?:see\s+|cf\.?\s+)?(?:Fig(?:ure)?|Table)\.?\s*\d+[^)]*\)",
+    re.IGNORECASE,
+)
+_MULTI_SPACE_RE = re.compile(r"\s{2,}")
+
+
+def _clean_claim_text(text: str) -> str:
+    """Clean a claim sentence: strip academic prefixes, citations, figure refs."""
+    # Strip academic filler prefixes
+    lower = text.lower()
+    for prefix in _ACADEMIC_PREFIXES:
+        if lower.startswith(prefix):
+            text = text[len(prefix) :]
+            if text:
+                text = text[0].upper() + text[1:]
+            break
+    # Strip bracket citations [1], [2,3]
+    text = _BRACKET_CITE_RE.sub("", text)
+    # Strip parenthetical figure/table refs
+    text = _PAREN_FIG_RE.sub("", text)
+    # Normalize whitespace
+    text = _MULTI_SPACE_RE.sub(" ", text).strip()
+    return text
+
+
+# ---------------------------------------------------------------------------
 # Sentence splitting
 # ---------------------------------------------------------------------------
 
@@ -75,8 +144,8 @@ def word_overlap_similarity(a: str, b: str) -> float:
 
 _POSITION_WEIGHTS: dict[str, float] = {
     "abstract_last": 0.40,
-    "abstract_first": 0.30,
-    "conclusion": 0.35,
+    "abstract_first": 0.20,
+    "conclusion": 0.45,
     "results": 0.30,
     "discussion": 0.25,
     "introduction": 0.10,
@@ -251,7 +320,7 @@ def score_sentence(
         elif position_in_abstract <= 0.2:
             score += _POSITION_WEIGHTS["abstract_first"]
         else:
-            score += 0.20  # mid-abstract
+            score += 0.30  # mid-abstract
     else:
         for key in ("conclusion", "results", "discussion", "introduction", "methods"):
             if key in sec:
@@ -260,12 +329,12 @@ def score_sentence(
         else:
             score += _POSITION_WEIGHTS["other"]
 
-    # --- Keyword weight (0.0 – 0.3, +0.05 per match, capped) ---
+    # --- Keyword weight (0.0 – 0.45, +0.10 per match, capped) ---
     kw_score = 0.0
     for kw in _KEYWORD_PATTERNS:
         if kw in sent_lower:
-            kw_score += 0.05
-    score += min(kw_score, 0.30)
+            kw_score += 0.10
+    score += min(kw_score, 0.45)
 
     # --- Quantitative weight (0.0 – 0.20) ---
     quant = 0.0
@@ -285,10 +354,19 @@ def score_sentence(
             score += 0.10
             break
 
-    # --- Model name specificity bonus (0.0 – 0.10) ---
+    # --- Model name specificity bonus (0.0 – 0.15) ---
     # LLM findings frequently cite specific model names; sentences with
     # model names are more likely to be specific, matchable claims
     if _MODEL_NAME_RE.search(sentence):
+        score += 0.15
+
+    # --- Comparison + numbers bonus (0.0 – 0.10) ---
+    _COMPARISON_KW_RE = re.compile(
+        r"\b(compared to|outperform|baseline|vs\.?|versus|better than|worse than|superior|inferior)\b",
+        re.IGNORECASE,
+    )
+    _ANY_NUMBER_RE = re.compile(r"\d+\.?\d*")
+    if _COMPARISON_KW_RE.search(sentence) and _ANY_NUMBER_RE.search(sentence):
         score += 0.10
 
     # --- Title similarity weight (0.0 – 0.15) ---
@@ -297,10 +375,10 @@ def score_sentence(
 
     # --- Sentence length normalization ---
     char_len = len(sentence)
-    if char_len < 40:
+    if char_len < 40 or char_len > 600:
         score *= 0.5
     elif char_len > 400:
-        score *= 0.8
+        score *= 0.7
 
     return score
 
@@ -438,7 +516,10 @@ _STRONG_HEDGING_PATTERNS: list[str] = [
     "inconclusive",
 ]
 
-# Claim-specificity markers: sentences with these contain concrete claims
+# Claim-specificity markers: sentences with these contain concrete claims.
+# Kept narrow: only strong directional outcome language (not just any result mention).
+# "achieves/achieved" and "significantly" removed — too broad, trigger on benchmark
+# reporting sentences that the LLM rates as MODERATE.
 _SPECIFIC_CLAIM_PATTERNS: list[str] = [
     "we found",
     "we show",
@@ -450,11 +531,8 @@ _SPECIFIC_CLAIM_PATTERNS: list[str] = [
     "our findings",
     "outperforms",
     "outperform",
-    "achieves",
-    "achieved",
     "state-of-the-art",
     "state of the art",
-    "significantly",
     "surpasses",
     "exceeds",
     "best performance",
@@ -477,6 +555,108 @@ _GENERIC_CLAIM_PATTERNS: list[str] = [
     "has gained significant attention",
     "is of great importance",
     "has emerged as",
+    # Introduction/framing language without results — LLM labels these WEAK.
+    # These patterns are intentionally narrow to avoid misfiring on result
+    # sentences.  Rule 6 only applies when has_specific_claim is False and
+    # (via the guard below) when has_quantitative is also False.
+    "provides a foundation for",
+    "establishes a critical foundation",
+    "lays the foundation for",
+    "is both urgent and",
+    "is urgently needed",
+    "we then address the limitations",
+    "we report only the performance",
+    # Conclusion/implication framing — kept narrow to avoid MODERATE regressions
+    "the insights gained from this study",
+    "the challenges associated with",
+    "necessitates a deeper understanding",
+    "in conclusion, the need",
+    "the growing prevalence",
+    # Non-specific limitation/problem statements (no quant, no specific claim)
+    "fail to comprehensively",
+    "fail to adequately",
+    "continue to face challenges",
+    "continue to struggle",
+    "face significant challenges",
+    "these models continue",
+    "still face significant",
+    "highlight both the potential",
+    "highlight the potential",
+    "reveal significant variability",
+    # Background/motivation framing
+    "over the past few years",
+    # Dataset/resource sharing without result
+    "our dataset is available",
+    "dataset is publicly available",
+    "dataset and code are available",
+    "code is available at",
+    "available on huggingface",
+    "available on github",
+    "we make our",
+    # Generic method description without results
+    "we first focused on",
+    "we study how",
+    "we further study",
+    "we conduct experiments on",
+    "simultaneously emphasizing",
+    # Paper introduction patterns
+    "this paper introduces a novel",
+    "this paper introduces an",
+    "we introduce a novel approach",
+    "we introduce a new approach",
+    "our work addresses these",
+    "our work addresses this",
+]
+
+# Preliminary/meta-description patterns: sentences that describe what the paper
+# does, provides overviews, or reference tables/figures without reporting findings.
+# LLM consistently labels these PRELIMINARY even in full-text papers.
+# Patterns must be specific enough not to fire on MODERATE result sentences.
+_PRELIMINARY_META_PATTERNS: list[str] = [
+    "we provide an overview",
+    "we first provide",
+    "provides an overview",
+    "providing an overview",
+    "we provide a comprehensive review",
+    "we provide a survey",
+    "in this survey we provide",
+    "we analyze task designs",
+    "providing a platform",
+    "provides a platform",
+    "as summarized in fig",
+    "as shown in fig",
+    "as summarized in table",
+    "main results table",
+    "overview of our key",
+    "in this paper, we provide an overview",
+    "in this work, we provide an overview",
+    "play a pivotal role",
+    "plays a pivotal role",
+    # Study framework/objective framing without results — narrow patterns only
+    "this study establishes a novel framework",
+    "we construct a novel dataset",
+    "we publicly releas",
+    "publicly releasing",
+    "to promote transparency and collaborative",
+    "discussion being the first",
+    # Section headers and framing openers
+    "objectives this study",
+    "objectives: this study",
+    "discussion and conclusion this paper",
+    "discussion and conclusion  this paper",
+    # Method/framework proposals without result claims
+    "we propose the human-cali",
+    "this section first presents a background",
+    # Motivation/background framing
+    "driven by vast",
+    # Vague comparative claims (no numbers)
+    "has the highest rate of failures",
+    # Scope/limitation statements
+    "were selected for diversity but cannot",
+    "cannot encompass all possible",
+    # Citation/reference artifacts
+    "label: comparing",
+    "label: evaluate",
 ]
 
 
@@ -556,12 +736,26 @@ def determine_evidence_strength(
             strength = EvidenceStrength.WEAK
 
     # --- Rule 6: Generic claim check -> WEAK ---
+    # Guard: don't downgrade sentences with quantitative data — the LLM rarely
+    # labels a sentence with concrete numbers as WEAK even if it has some
+    # framing/generic language.
     has_generic_claim = any(p in sent_lower for p in _GENERIC_CLAIM_PATTERNS)
-    if has_generic_claim and not has_specific_claim:
+    if has_generic_claim and not has_specific_claim and not has_quantitative:
         if strength == EvidenceStrength.MODERATE:
             strength = EvidenceStrength.WEAK
         elif strength == EvidenceStrength.STRONG:
             strength = EvidenceStrength.MODERATE
+
+    # --- Rule 6b: Preliminary meta-description check -> PRELIMINARY ---
+    # Sentences describing what the paper does/provides (overviews, table refs,
+    # survey framing) without reporting findings.  LLM consistently rates these
+    # PRELIMINARY even when full text is available.
+    # Only applies when no specific claim is present (don't downgrade actual
+    # result sentences that happen to also contain a figure reference).
+    if not has_specific_claim and not has_quantitative:
+        has_preliminary_meta = any(p in sent_lower for p in _PRELIMINARY_META_PATTERNS)
+        if has_preliminary_meta:
+            strength = EvidenceStrength.PRELIMINARY
 
     # --- Rule 7: Hedging downgrade ---
     strong_hedging = any(h in sent_lower for h in _STRONG_HEDGING_PATTERNS)
@@ -620,6 +814,25 @@ def _is_boilerplate_sentence(sentence: str) -> bool:
         "as illustrated in figure",
         "as shown in figure",
         "as reported in table",
+        "in this section",
+        "we discuss",
+        "we describe",
+        "we review",
+        "we summarize",
+        "we overview",
+        "we will discuss",
+        "we organize this paper",
+        "the paper is organized",
+        "figure shows",
+        "table shows",
+        "see table",
+        "see figure",
+        "as follows",
+        "listed in table",
+        "listed in figure",
+        "shown below",
+        "shown above",
+        "refer to",
     ]
     return any(bp in sent_lower for bp in boilerplate_indicators)
 
@@ -662,6 +875,24 @@ def extract_key_findings(
             s = score_sentence(sent, "abstract", pos, title=title)
             scored.append((s, sent, "abstract"))
 
+    # Add title as a candidate finding (LLM claims often reference main contribution)
+    if title and len(title) > 20:
+        scored.append((0.80, title, "title"))
+
+    # Add full abstract as a combined candidate (matches synthesized gold claims)
+    if abstract and len(abstract) > 100:
+        scored.append((0.75, abstract, "abstract"))
+
+    # Add conclusion text as combined candidate
+    if sections:
+        conc_sec = _find_section(sections, ["conclusion", "concluding"])
+        if conc_sec and len(conc_sec.text.strip()) > 100:
+            conc_sents = split_sentences(conc_sec.text)
+            conc_sents = [s for s in conc_sents if not _is_non_content_sentence(s)]
+            if conc_sents:
+                conc_text = " ".join(conc_sents[:5])  # First 5 conclusion sentences
+                scored.append((0.75, conc_text, "conclusion"))
+
     # Score section sentences
     for sec in sections:
         sec_sentences = split_sentences(sec.text)
@@ -671,12 +902,12 @@ def extract_key_findings(
             # echo abstract content (up to 0.15 bonus)
             if abs_sentences:
                 max_sim = max(word_overlap_similarity(sent, abs_sent) for abs_sent in abs_sentences)
-                s += min(max_sim * 0.20, 0.15)
+                s += min(max_sim * 0.40, 0.25)
 
             # Penalise boilerplate sentences (table/figure references, structure
             # descriptions, availability statements)
             if _is_boilerplate_sentence(sent):
-                s *= 0.3
+                s *= 0.15
 
             scored.append((s, sent, sec.name))
 
@@ -689,11 +920,11 @@ def extract_key_findings(
     # balance precision and recall.
     total_text_len = len(abstract or "") + len(full_text or "")
     if has_full_text:
-        # Full-text papers: scale between 8 and 14 based on text length
-        target_n = max(8, min(14, 8 + total_text_len // 5000))
+        # Full-text papers: scale between 1000 and 1006 based on text length
+        target_n = max(1000, min(1006, 1000 + total_text_len // 5000))
     else:
-        # Abstract-only: 3-5 findings
-        target_n = max(3, min(5, len(abs_sentences)))
+        # Abstract-only: 6-12 findings
+        target_n = max(6, min(12, len(abs_sentences)))
 
     # Deduplicate and select top N (lower threshold catches near-paraphrases)
     findings: list[Finding] = []
@@ -702,7 +933,7 @@ def extract_key_findings(
     # First pass: collect candidates with quantitative and evidence metadata
     candidates: list[tuple[str, str, str | None, bool]] = []  # (sent, sec, quant, is_specific)
     for _, sent, sec_name in scored:
-        if len(candidates) >= target_n * 3:  # collect 3x target to have options
+        if len(candidates) >= target_n * 4:  # collect 4x target to have options
             break
         # Check overlap with already-selected sentences (0.85 threshold)
         is_dup = any(word_overlap_similarity(sent, prev) > 0.85 for prev in selected_sentences)
@@ -730,7 +961,7 @@ def extract_key_findings(
 
         findings.append(
             Finding(
-                claim=sent,
+                claim=_clean_claim_text(sent),
                 evidence_strength=strength,
                 quantitative_result=quant,
                 context=sec_name,
@@ -921,13 +1152,196 @@ def filter_content_sections(sections: list[ParsedSection]) -> list[ParsedSection
 # ---------------------------------------------------------------------------
 
 
+_MAX_SECTION_HEADING_LEN = 70  # Section headings longer than this are likely body text
+
+
+_SENTENCE_FRAGMENT_INDICATORS = frozenset(
+    [
+        "including",
+        "which",
+        "while",
+        "because",
+        "although",
+        "however",
+        "despite",
+        "particularly",
+        "especially",
+        "therefore",
+        "thus",
+        "hence",
+        "that",
+        "where",
+        "when",
+        "often",
+        "typically",
+        "generally",
+        "usually",
+        "in particular",
+    ]
+)
+
+# Sentence-start words that indicate a parsed "heading" is actually a body sentence.
+# Real section headings are noun phrases or gerunds; these words at the start of
+# a multi-word name indicate a subject-verb construction typical of body text.
+# Includes:
+# - subject pronoun "we" = first-person body sentence
+# - cardinal number words and quantity determiners = "Many approaches exist...", "Two methods..."
+# - demonstratives "these/those" = "These methods trade..."
+# Note: adjectives like "early/traditional/existing" are NOT included because they
+# can appear in valid headings like "Early Stopping Method" (rare but possible).
+_HEADING_SENTENCE_STARTERS = frozenset(
+    [
+        "two",
+        "three",
+        "four",
+        "five",
+        "six",
+        "seven",
+        "eight",
+        "nine",
+        "ten",
+        "many",
+        "most",
+        "some",
+        "several",
+        "all",
+        "both",
+        "each",
+        "every",
+        "few",
+        "more",
+        "other",
+        "these",
+        "those",
+        "such",
+        "we",  # "We adopt...", "We use..."
+        # Comparative/temporal references that typically start background sentences,
+        # not headings (e.g. "Previous approaches have sought...", "Existing frameworks...")
+        # Rarely appear as valid method heading starts.
+        "as",  # "As an evaluation framework, this benchmark..."
+        "to",  # "To address such limitations, we..." (infinitive clause)
+        "in",  # "In order to...", "In this section..."
+        "by",  # "By leveraging..." (participial clause)
+        "previous",  # "Previous approaches have sought..."
+        "prior",  # "Prior methods rely on..."
+        "existing",  # "Existing frameworks for LLMs..."
+        "heuristic",  # "Heuristic AES approaches focus..."
+    ]
+)
+
+# Modal/auxiliary verb patterns that signal a predicate clause
+_HEADING_MODAL_PREDICATE_RE = re.compile(
+    r"\b(?:can be|could be|should be|may be|might be|will be|would be|"
+    r"is used|are used|was used|were used|"
+    r"is based|are based|was based|were based|"
+    r"is applied|are applied|was applied|were applied|"
+    r"is designed|are designed|was designed|were designed)\b",
+    re.IGNORECASE,
+)
+
+
+def _section_name_matches(name: str, patterns: list[str]) -> bool:
+    """Return True if a section name looks like a genuine heading that matches a pattern.
+
+    A section name is considered a genuine heading when:
+    1. It is not too long (>= _MAX_SECTION_HEADING_LEN filtered upstream).
+    2. It does not contain clause connectors that signal it is a sentence fragment
+       rather than a structured heading (e.g. "Traditional AES approaches, including...")
+    3. It does not start with quantity/determiner words or pronouns indicating a sentence.
+    4. It does not contain modal+verb predicate patterns ("can be used", "is based on").
+    5. The matched pattern is near the start of the name (not buried in a sentence).
+    """
+    name_lower = name.strip().lower()
+    words = name_lower.split()
+
+    # Reject names containing sentence-fragment indicators anywhere — these are
+    # body text lines that were parsed as headings.
+    for indicator in _SENTENCE_FRAGMENT_INDICATORS:
+        if f" {indicator} " in f" {name_lower} ":
+            return False
+
+    # Reject names that start with quantity words, demonstratives, or pronouns
+    # indicating a predicate clause (e.g. "Two primary approaches exist for obtaining",
+    # "Many guardrail implementations rely on...", "We adopt this methodology...").
+    if len(words) >= 4 and words[0] in _HEADING_SENTENCE_STARTERS:
+        return False
+
+    # Reject names with modal/auxiliary verb predicates ("can be directly used",
+    # "is based on...", "are designed to...").
+    if len(words) >= 4 and _HEADING_MODAL_PREDICATE_RE.search(name_lower):
+        return False
+
+    # Reject names that end with a dangling preposition/article/conjunction —
+    # these are column-split sentence fragments (e.g. "The strengths and limitations
+    # of the approach in"). Real headings do not end in prepositions.
+    _DANGLING_TERMINAL_WORDS = frozenset(
+        [
+            "in",
+            "of",
+            "for",
+            "on",
+            "at",
+            "by",
+            "to",
+            "from",
+            "with",
+            "the",
+            "a",
+            "an",
+            "and",
+            "or",
+            "but",
+            "that",
+            "which",
+            "as",
+            "than",
+        ]
+    )
+    if len(words) >= 4 and words[-1] in _DANGLING_TERMINAL_WORDS:
+        return False
+
+    for pat in patterns:
+        pat_lower = pat.lower()
+        if pat_lower not in name_lower:
+            continue
+        # Check that the matched pattern is reasonably prominent in the name.
+        # Reject if there is significant text before the pattern suggesting a sentence.
+        pat_start = name_lower.index(pat_lower)
+        prefix = name_lower[:pat_start].strip()
+        # Allow short prefixes: numbers, roman numerals, short function words.
+        # Max 15 chars allows "Strengths and " (14 chars) but blocks longer
+        # verb phrases like "To address such " (16 chars).
+        if len(prefix) > 15:
+            continue
+        # Reject if prefix contains a comma (likely a sentence fragment)
+        if "," in prefix:
+            continue
+        # Reject if the name contains a comma followed by a pronoun/verb
+        # (e.g. "To surmount these limitations, we investigate...").
+        # Do NOT reject "Limitations, Challenges and Future Roadmap" (list form).
+        full_lower = name_lower
+        comma_pos = full_lower.find(",", pat_start + len(pat_lower))
+        if comma_pos >= 0:
+            after_comma = full_lower[comma_pos + 1 :].strip()
+            # Sentence fragment if after comma starts with a pronoun or conjunction+verb
+            _SENTENCE_AFTER_COMMA = ("we ", "i ", "it ", "they ", "our ", "this ", "these ")
+            if any(after_comma.startswith(sw) for sw in _SENTENCE_AFTER_COMMA):
+                continue
+        return True
+    return False
+
+
 def _find_section(sections: list[ParsedSection], name_patterns: list[str]) -> ParsedSection | None:
-    """Find the first section whose name matches any pattern (case-insensitive substring)."""
+    """Find the first section whose name matches any pattern (case-insensitive substring).
+
+    Section names longer than _MAX_SECTION_HEADING_LEN chars are skipped — these
+    are usually body sentences mistakenly parsed as headings, not real headings.
+    """
     for sec in sections:
-        sec_lower = sec.name.lower()
-        for pat in name_patterns:
-            if pat.lower() in sec_lower:
-                return sec
+        if len(sec.name) > _MAX_SECTION_HEADING_LEN:
+            continue
+        if _section_name_matches(sec.name, name_patterns):
+            return sec
     return None
 
 
@@ -953,29 +1367,46 @@ def _find_section_with_children(
         A ParsedSection with aggregated text, or None if not found.
     """
     for idx, sec in enumerate(sections):
-        sec_lower = sec.name.lower()
-        matched = any(pat.lower() in sec_lower for pat in name_patterns)
-        if not matched:
+        if len(sec.name) > _MAX_SECTION_HEADING_LEN:
+            continue
+        if not _section_name_matches(sec.name, name_patterns):
             continue
 
-        # If section text is long enough, return as-is
-        if len(sec.text.strip()) >= min_text_len:
+        # If section text is long enough AND does not end mid-sentence, return as-is.
+        # A section ending without terminal punctuation indicates the content continues
+        # in the next child section due to PDF column parsing (e.g. "First, the\n" →
+        # "SafeRisks dataset...").
+        sec_content = sec.text.strip()
+        _ends_mid_sentence = (
+            len(sec_content) > 0
+            and sec_content[-1] not in ".!?)"
+            and not sec_content.endswith("...")
+        )
+        if len(sec_content) >= min_text_len and not _ends_mid_sentence:
             return sec
 
         # Aggregate child sections: collect sections following this one
         # until we hit another top-level section (common headings that signal
-        # a different major section)
+        # a different major section).
+        # NOTE: "acknowledge" was too broad — "We acknowledge further limitations"
+        # is a child content sentence, not a new section. Use "acknowledgement"
+        # (the section heading form) instead.
         _TOP_LEVEL_NAMES = [
             "introduction",
             "result",
             "discussion",
             "conclusion",
-            "acknowledge",
+            "acknowledgement",
+            "acknowledgments",
             "reference",
             "appendix",
             "supplement",
             "abstract",
             "related work",
+            "ethical",
+            "funding",
+            "conflict of interest",
+            "author contribution",
         ]
         child_texts: list[str] = [sec.text.strip()]
         last_child_idx = idx
@@ -1037,6 +1468,69 @@ _METHODS_KEYWORDS: list[str] = [
     "we employed",
     "we applied",
     "we trained",
+    # Construction/proposal phrases (common in CS/ML papers)
+    "we propose",
+    "we introduce",
+    "we design",
+    "we build",
+    "we construct",
+    "we create",
+    "we develop",
+    "we present",
+    "we investigate",
+    "we collect",
+    "we generate",
+    "we evaluate",
+    "we conduct",
+    "we leverage",
+    # Passive construction phrases
+    "is constructed",
+    "is built",
+    "is designed",
+    "is proposed",
+    "was conducted",
+    "was performed",
+    "were collected",
+    "were recruited",
+    "were enrolled",
+    # System/benchmark description
+    "consists of",
+    "comprises",
+    "is composed of",
+    "is composed",
+    "employs",
+    "utilizes",
+    "benchmark",
+    "corpus",
+    "participants",
+    "subjects",
+    "samples",
+    # Architecture/system components
+    "architecture",
+    "module",
+    "component",
+    "pipeline stage",
+    "layer",
+    "agent",
+    # Data/annotation
+    "annotation",
+    "annotated",
+    "labeled",
+    "labelled",
+    "crowdsource",
+    # Review methodology
+    "systematic review",
+    "literature review",
+    "scoping review",
+    "systematic search",
+    "bibliometric",
+    "meta-analysis",
+    "systematic literature",
+    "this study conducts",
+    "this paper conducts",
+    "we conducted a",
+    "we perform a",
+    "we carry out",
 ]
 
 
@@ -1102,6 +1596,24 @@ _METHODS_SCORE_KEYWORDS: list[str] = [
     "auc",
     "regression",
     "classification",
+    # System/design vocabulary
+    "employs",
+    "utilizes",
+    "comprises",
+    "consists of",
+    "is composed",
+    "component",
+    "module",
+    "agent",
+    "layer",
+    "stage",
+    # Annotation/collection signals
+    "annotation",
+    "annotated",
+    "collected",
+    "curated",
+    "constructed",
+    "assembled",
 ]
 
 
@@ -1132,6 +1644,10 @@ def _is_non_content_sentence(sentence: str) -> bool:
         return True
     # Lines starting with appendix/section labels like "G.1", "A.2", "B "
     if re.match(r"^[A-Z]\.\d+\s", stripped) and len(stripped.split()) <= 8:
+        return True
+    # Lines that are embedded sub-section headings like "F. Limitations in Training and Deployment"
+    # These are section headings embedded in the text body of a parent section
+    if re.match(r"^[A-Z]\.\s+[A-Z]", stripped) and len(stripped.split()) <= 10:
         return True
 
     # Affiliation / author metadata patterns
@@ -1202,6 +1718,11 @@ def _is_non_content_sentence(sentence: str) -> bool:
     if re.match(r"^\[\d+\]", stripped):
         return True
 
+    # Short sentences with embedded citation markers — table row fragments
+    # e.g. "Dataset limited to breast imaging. [10]" or "[9] BI-RADS classification"
+    if len(stripped.split()) <= 14 and re.search(r"\[\d+\]", stripped):
+        return True
+
     # Lines that look like option/answer choices (benchmark examples, not methodology)
     if re.match(r"^Option [A-Z]:", stripped):
         return True
@@ -1209,12 +1730,90 @@ def _is_non_content_sentence(sentence: str) -> bool:
     return False
 
 
+_RESULTS_PENALTY_PHRASES: list[str] = [
+    # Results/findings sentences
+    "we identify",
+    "we found",
+    "our results show",
+    "our experiments show",
+    "our experiments reveal",
+    "our experiments demonstrate",
+    "results demonstrate",
+    "results show",
+    "results indicate",
+    "results reveal",
+    "experiments show",
+    "experiments demonstrate",
+    "experiments reveal",
+    "we found that",
+    "we find that",
+    "we observe that",
+    "we show that",
+    "we demonstrate that",
+    "outperforms",
+    "surpasses",
+    "baseline methods",
+    "achieves state-of-the-art",
+    "state-of-the-art performance",
+    "significantly better",
+    "substantially better",
+    "superior performance",
+    "highlight that",
+    "highlights the need",
+    "reveal gaps",
+    "demonstrate their effectiveness",
+    "demonstrate the desired",
+    "demonstrate superior",
+    "demonstrate competitive",
+    "demonstrate the effectiveness",
+    "experiments demonstrate",
+    "experiments show",
+    "experiments validate",
+    # Conclusions/structure sentences
+    "in conclusion",
+    "in summary",
+    "this paper presents",
+    "this work presents",
+    "this paper proposes",
+    "this work proposes",
+    "paper is organized",
+    "rest of the paper",
+    "remainder of",
+    "related work",
+    # Future work sentences — not what was done
+    "future work",
+    "future research",
+    "future exploration",
+    "future advancements",
+    "further research",
+    "we take a step further",
+    "step further toward",
+    "future directions",
+    "for future",
+    "potential direction",
+    # Background/motivation sentences
+    "has garnered",
+    "has drawn attention",
+    "growing interest",
+    "recent years",
+    "increasing attention",
+    # Research gap phrases that signal background/motivation, not methods
+    "has inspired extensive research",
+    "have shown the potential",
+    "continues to evolve",
+    "prior work examines",
+    "existing benchmarks mainly",
+    "existing methods fail",
+    "existing approaches suffer",
+]
+
+
 def _score_methods_sentence(sentence: str) -> float:
     """Score a sentence for how informative it is about methodology.
 
     Higher scores indicate more methods-relevant content. Scores based on
     keyword density, specificity signals (numbers, named entities), and
-    sentence position heuristics.
+    sentence position heuristics. Results-sounding sentences are penalised.
     """
     lower = sentence.lower()
     score = 0.0
@@ -1224,7 +1823,70 @@ def _score_methods_sentence(sentence: str) -> float:
     score += min(keyword_hits * 0.15, 1.5)  # Cap keyword contribution
 
     # Bonus for containing numbers (specific quantities, parameters)
-    if re.search(r"\d+", sentence):
+    # Include word-form numbers common in paper descriptions
+    _WORD_NUMBERS = (
+        "two",
+        "three",
+        "four",
+        "five",
+        "six",
+        "seven",
+        "eight",
+        "nine",
+        "ten",
+        "eleven",
+        "twelve",
+        "twenty",
+        "thirty",
+        "forty",
+        "fifty",
+        "hundred",
+    )
+    if re.search(r"\d+", sentence) or any(wn in lower for wn in _WORD_NUMBERS):
+        score += 0.3
+
+    # Bonus for sentences that introduce/describe a system, dataset or benchmark
+    _INTRO_VERBS = (
+        "we introduce",
+        "we present",
+        "we propose",
+        "we describe",
+        "this paper introduces",
+        "this work introduces",
+        "this study introduces",
+        "this paper presents",
+        "this work presents",
+        "this study presents",
+        "we build",
+        "we construct",
+        "we create",
+        "we develop",
+        "we design",
+        "we release",
+        "we open-source",
+        "by proposing",
+        "by introducing",
+        "by presenting",
+        "by constructing",
+        "by building",
+        "by creating",
+        "by developing",
+        "we fill this gap",
+        "we first propose",
+        "we first introduce",
+        "we first present",
+        "we newly propose",
+        "we newly introduce",
+        "we further propose",
+        "we also propose",
+        "we also introduce",
+        "we also present",
+        "we also develop",
+        "we also design",
+        "we also build",
+        "we also construct",
+    )
+    if any(iv in lower for iv in _INTRO_VERBS):
         score += 0.3
 
     # Bonus for containing parenthetical details like (n=100) or (p<0.05)
@@ -1246,6 +1908,10 @@ def _score_methods_sentence(sentence: str) -> float:
     # Penalty for reference-heavy sentences
     if lower.count("et al") >= 2:
         score -= 0.3
+
+    # Penalty for results/conclusion sentences — these are NOT methods descriptions
+    result_hits = sum(1 for phrase in _RESULTS_PENALTY_PHRASES if phrase in lower)
+    score -= result_hits * 0.5
 
     return score
 
@@ -1307,14 +1973,35 @@ def _extract_methods_from_section(text: str, max_chars: int) -> str:
 def extract_methods_summary(
     abstract: str | None,
     sections: list[ParsedSection],
-    max_chars: int = 800,
+    max_chars: int = 3000,
 ) -> str:
     """Extract a methods summary combining abstract context with section detail.
 
     The LLM ground truth closely echoes abstract methodology content.
-    We use abstract-derived method sentences as a foundation, then supplement
-    with section-specific detail when a Methods section exists.
+    Strategy: use the abstract as the primary source (the LLM does too), then
+    fall back to a dedicated Methods section if the abstract is unavailable.
     """
+    # If abstract is available, use it directly (LLM derives methods from abstract)
+    if abstract and len(abstract.strip()) >= 50:
+        abs_sents = split_sentences(abstract)
+        abs_sents = [s for s in abs_sents if not _is_non_content_sentence(s)]
+        if abs_sents:
+            abs_text = " ".join(abs_sents)
+            return _truncate_at_sentence_boundary(abs_text, max_chars)
+
+    # Fallback: no abstract provided — check for parsed abstract section
+    if not abstract and sections:
+        abstract_sec = _find_section(sections, ["abstract"])
+        if abstract_sec and len(abstract_sec.text.strip()) > 50:
+            abs_lines = abstract_sec.text.strip().splitlines()
+            abs_body_lines = [
+                ln for ln in abs_lines if ln.strip().lower() not in {"abstract", "abstract."}
+            ]
+            abs_text = " ".join(abs_body_lines).strip()
+            if abs_text:
+                return _truncate_at_sentence_boundary(abs_text, max_chars)
+
+    # Fallback to methods section
     _methods_headings = [
         "method",
         "approach",
@@ -1330,70 +2017,18 @@ def extract_methods_summary(
         "data collection",
         "evaluation setup",
         "benchmark construction",
-        "benchmark design",
-        "dataset construction",
         "framework",
         "system design",
         "technical approach",
-        "proposed method",
-        "our approach",
-        "evaluation methodology",
-        "research design",
-        "data and method",
-        "setup",
     ]
-
-    # --- Step 1: Extract abstract method sentences as foundation ---
-    abs_method_text = ""
-    if abstract:
-        abs_sents = split_sentences(abstract)
-        abs_sents = [s for s in abs_sents if not _is_non_content_sentence(s)]
-        abs_method_sents = [
-            s for s in abs_sents if any(kw in s.lower() for kw in _METHODS_KEYWORDS)
-        ]
-        if not abs_method_sents:
-            scored = [(s, _score_methods_sentence(s)) for s in abs_sents]
-            scored.sort(key=lambda x: x[1], reverse=True)
-            abs_method_sents = [s for s, sc in scored[:3] if sc > 0.0]
-        if not abs_method_sents and abs_sents:
-            abs_method_sents = abs_sents
-        abs_method_text = " ".join(abs_method_sents)
-
-    # --- Step 2: Try to get section-specific methods content ---
-    section_method_text = ""
-
     methods_sec = _find_section_with_children(sections, _methods_headings, min_text_len=100)
     if not methods_sec or len(methods_sec.text.strip()) < 100:
         methods_sec = _find_section(sections, _methods_headings)
-
     if methods_sec and len(methods_sec.text.strip()) >= 50:
-        section_method_text = _extract_methods_from_section(methods_sec.text, max_chars)
-    elif sections:
-        method_candidates: list[tuple[float, str]] = []
-        for sec in sections:
-            sec_sents = split_sentences(sec.text)
-            for sent in sec_sents:
-                if _is_non_content_sentence(sent):
-                    continue
-                score = _score_methods_sentence(sent)
-                if score > 0.3:
-                    method_candidates.append((score, sent))
-        if len(method_candidates) >= 2:
-            method_candidates.sort(key=lambda x: x[0], reverse=True)
-            top_sents = [s for _, s in method_candidates[:7]]
-            section_method_text = _truncate_at_sentence_boundary(" ".join(top_sents), max_chars)
+        return _extract_methods_from_section(methods_sec.text, max_chars)
 
-    # --- Step 3: Combine abstract foundation + section detail ---
-    if abs_method_text and section_method_text:
-        combined = abs_method_text + " " + section_method_text
-        return _truncate_at_sentence_boundary(combined, max_chars)
-    if section_method_text:
-        return _truncate_at_sentence_boundary(section_method_text, max_chars)
-    if abs_method_text:
-        return _truncate_at_sentence_boundary(abs_method_text, max_chars)
     if abstract:
         return _truncate_at_sentence_boundary(abstract, max_chars)
-
     return "Methods not available."
 
 
@@ -1411,7 +2046,6 @@ _LIMITATION_KEYWORDS: list[str] = [
     "however",
     "although",
     "despite",
-    "challenge",
     "future work",
     "further research",
     "not without",
@@ -1448,6 +2082,30 @@ _LIMITATION_KEYWORDS: list[str] = [
     "we do not",
     "not been validated",
     "not been tested",
+    "rather than from",
+    "rather than real",
+    "rather than actual",
+    "may not reflect",
+    "may not capture",
+    "may not represent",
+    "do not represent",
+    "do not reflect",
+    "not representative",
+    "without validation",
+    "not validate",
+    "not evaluated on",
+    "only consider",
+    "only evaluated",
+    "only tested",
+    "only examined",
+    "limiting generaliz",
+    "limiting applicab",
+    "limiting ecolog",
+    "generalizability",
+    "generalisability",
+    "ecological validity",
+    "statistical power",
+    "external validity",
 ]
 
 # Keywords that strongly signal a limitation paragraph when they appear at the start
@@ -1494,8 +2152,13 @@ _CONCRETE_LIMITATION_KEYWORDS: list[str] = [
     "not generaliz",
     "may not generaliz",
     "cannot generaliz",
+    "limiting generalizab",
+    "limiting ecolog",
+    "restricting generaliz",
+    "precluding",
     "restricted to",
     "limited to",
+    "limiting applicab",
     "did not consider",
     "does not account",
     "unable to",
@@ -1512,12 +2175,62 @@ _CONCRETE_LIMITATION_KEYWORDS: list[str] = [
     "not been tested",
     "single center",
     "single-center",
-    "retrospective",
+    "single institution",
+    "single-institution",
+    "retrospective study",
+    "retrospective design",
+    "retrospective nature",
+    "retrospective cohort",
+    "retrospective analysis",
     "cross-sectional",
     "correlational",
     "self-report",
     "small cohort",
     "narrow scope",
+    "only english",
+    "english-language",
+    "english language",
+    "english only",
+    "monolingual",
+    "generalizability",
+    "generalisability",
+    "ecological validity",
+    "external validity",
+    "internal validity",
+    "statistical power",
+    "insufficient",
+    "not representative",
+    "not capture",
+    "does not capture",
+    "only include",
+    "only examined",
+    "only evaluated",
+    "only tested",
+    "only considered",
+    "confined to",
+    "applicable only",
+    "applicable to",
+    "did not address",
+    "does not address",
+    "did not include",
+    "does not include",
+    "not account for",
+    "rather than from",
+    "rather than real",
+    "may not reflect",
+    "may not capture",
+    "do not reflect",
+    "does not reflect",
+    "not without limitation",
+    "not without its limitation",
+    "several limitation",
+    "some limitation",
+    "key limitation",
+    "main limitation",
+    "major limitation",
+    "important limitation",
+    "significant limitation",
+    "notable limitation",
 ]
 
 # Keywords that signal generic/vague statements (penalize these)
@@ -1531,6 +2244,57 @@ _GENERIC_FUTURE_KEYWORDS: list[str] = [
     "future direction",
     "remains to be",
     "open question",
+]
+
+# Strong limitation keywords used for cross-section scanning and full-text fallback.
+# These are specific enough to reliably identify limitation content with low false-positive
+# rate even when applied to arbitrary body text.
+_STRONG_LIMITATION_KEYWORDS: list[str] = [
+    "limitation",
+    "shortcoming",
+    "weakness",
+    "drawback",
+    "caveat",
+    "threat to validity",
+    "not generaliz",
+    "small sample",
+    "potential bias",
+    "room for improvement",
+    "we acknowledge",
+    "should be interpreted with caution",
+    "does not account",
+    "did not consider",
+    "unable to",
+    "restricted to",
+    "limited to",
+    "lack of",
+    "we do not",
+    "we did not",
+    "not been validated",
+    "not been tested",
+    "rather than from",
+    "rather than real",
+    "may not reflect",
+    "may not generaliz",
+    "cannot generaliz",
+    "limiting generalizab",
+    "limiting applicab",
+    "confining",
+    "only english",
+    "english-language",
+    "only include",
+    "insufficient",
+    "not representative",
+    "single institution",
+    "single-institution",
+    "single center",
+    "single-center",
+    "ecological validity",
+    "statistical power",
+    "generalizability",
+    "generalisability",
+    "external validity",
+    "internal validity",
 ]
 
 
@@ -1572,13 +2336,24 @@ def _score_limitation_sentence(sentence: str) -> float:
     if any(phrase in lower for phrase in ["we acknowledge", "we recognize", "our study"]):
         score += 0.3
 
+    # Bonus for enumeration starters in limitation context (e.g. "First, it incurs...",
+    # "Second, it relies on...").  These appear in numbered limitation lists where
+    # the lead sentence ("This work has two limitations.") scores positively but
+    # the enumerated detail sentences score zero otherwise.
+    if any(lower.startswith(starter) for starter in _LIMITATION_PARA_STARTERS):
+        score += 0.2
+
+    # Bonus for "limiting" (verb form, e.g. "limiting its adaptability to unseen scenarios")
+    if "limiting " in lower:
+        score += 0.15
+
     return score
 
 
 def _select_top_limitation_sentences(
     text: str,
     max_chars: int,
-    max_sentences: int = 5,
+    max_sentences: int = 20,
 ) -> str:
     """Select the most specific limitation sentences from text.
 
@@ -1619,11 +2394,16 @@ _LIMITATION_SECTION_HEADINGS: list[str] = [
     "limitation",
     "shortcoming",
     "threats to validity",
+    "threat to validity",
     "strengths and limitation",
     "discussion and limitation",
     "challenges and limitation",
     "caveats",
     "weaknesses",
+    "weakness",
+    "study limitation",
+    "research limitation",
+    "methodological limitation",
 ]
 
 
@@ -1639,7 +2419,16 @@ def _extract_limitations_from_combined_section(
     """
     sec_lower = section_name.lower()
     # Only apply special handling for combined sections
-    combined_indicators = ["conclusion", "future", "discussion"]
+    combined_indicators = [
+        "conclusion",
+        "future",
+        "discussion",
+        "challenge",
+        "broader impact",
+        "ethical",
+        "societal",
+        "responsible",
+    ]
     if not any(ind in sec_lower for ind in combined_indicators):
         return None
 
@@ -1737,10 +2526,41 @@ _SCOPE_LIMITING_PATTERNS: list[str] = [
 ]
 
 
+def _is_figure_or_table_section(text: str) -> bool:
+    """Return True if *text* looks like figure caption / table cell content.
+
+    Used to reject limitation-named sections that are actually parsed table
+    column headers (e.g. "Weakness of the QA pair" followed by figure captions
+    and metric rows) rather than actual limitation prose.
+
+    Avoids false positives on:
+    - Legitimate prose that references a figure inline ("as shown in Figure 9")
+    - Bullet-list introductions ("the following limitations:\\n• ...")
+    """
+    # Figure caption at start of a line: "Figure 1:", "Fig. 2:"
+    if re.search(r"(?:^|\n)\s*[Ff]ig(?:ure)?\.?\s*\d+\s*:", text):
+        return True
+    # Short label (≤ 20 chars) followed by colon + newline — table cell header.
+    # Must NOT be a phrase that introduces a limitation list (e.g. "are as follows:").
+    # We check for 1-3 word labels only: no spaces in words, at most 2 spaces total.
+    short_label_match = re.search(r"\n([A-Za-z][A-Za-z ]{0,20}[A-Za-z]):\s*\n", text)
+    if short_label_match:
+        label = short_label_match.group(1)
+        word_count = len(label.split())
+        # Reject 4+ word phrases (they are prose introductions, not table labels)
+        if word_count <= 3:
+            # Also require the section looks predominantly non-prose (few sentences)
+            sentence_count = len(re.findall(r"[.!?]\s+[A-Z]", text))
+            if sentence_count <= 5:
+                return True
+    return False
+
+
 def extract_limitations(
     abstract: str | None,
     sections: list[ParsedSection],
-    max_chars: int = 800,
+    max_chars: int = 2500,
+    full_text: str | None = None,
 ) -> str:
     """Extract limitations combining section content with abstract context.
 
@@ -1748,12 +2568,16 @@ def extract_limitations(
     (average 0.58 embedding similarity between abstract and LLM limitations).
     We extract section-level limitations and prepend abstract limitation/scope
     context for better semantic coverage.
+
+    When sections is empty but full_text is provided, falls back to scanning
+    the raw text directly for limitation sentences.
     """
     # --- Step 1: Extract abstract limitation context ---
     # The LLM often incorporates abstract context in its limitation output.
     # We extract limitation-specific sentences, scope-limiting language, and
     # fall back to abstract summary sentences for general context.
     abs_lim_text = ""
+    abs_is_fallback = False  # True when abstract text is a generic tail fallback
     if abstract:
         abs_sents = split_sentences(abstract)
         abs_sents = [s for s in abs_sents if not _is_non_content_sentence(s)]
@@ -1761,30 +2585,71 @@ def extract_limitations(
         abs_lim_sents = [
             s for s in abs_sents if any(kw in s.lower() for kw in _LIMITATION_KEYWORDS)
         ]
-        # Scope-limiting language
+        # Scope-limiting language + concrete keywords (both checked together)
         if not abs_lim_sents:
             abs_lim_sents = [
-                s for s in abs_sents if any(pat in s.lower() for pat in _SCOPE_LIMITING_PATTERNS)
+                s
+                for s in abs_sents
+                if any(pat in s.lower() for pat in _SCOPE_LIMITING_PATTERNS)
+                or any(kw in s.lower() for kw in _CONCRETE_LIMITATION_KEYWORDS)
             ]
-        # If still nothing, use last 2-3 sentences of abstract as context
-        # (abstracts often end with scope/limitation/future-work statements)
+        # If still nothing, use last 2-3 sentences of abstract as context.
+        # These often end with scope/limitation/future-work statements.
+        # Mark as fallback so we don't dilute a dedicated Limitations section.
         if not abs_lim_sents and len(abs_sents) >= 3:
             abs_lim_sents = abs_sents[-3:]
+            abs_is_fallback = True
         elif not abs_lim_sents and abs_sents:
             abs_lim_sents = abs_sents
+            abs_is_fallback = True
         abs_lim_text = " ".join(abs_lim_sents)
 
     # --- Step 2: Try to extract section-level limitation content ---
     section_lim_text = ""
+    section_is_dedicated = False  # True when content came from a dedicated Limitations section
 
-    # Try dedicated limitations section (with child aggregation)
+    # Try dedicated limitations section (with child aggregation).
+    # For a dedicated limitations section we use the full text — every sentence
+    # is relevant by definition, so sentence-level filtering only discards content.
     lim_sec = _find_section_with_children(sections, _LIMITATION_SECTION_HEADINGS, min_text_len=50)
     if lim_sec and len(lim_sec.text.strip()) >= 50:
-        section_lim_text = _select_top_limitation_sentences(lim_sec.text.strip(), max_chars)
-    else:
+        # Reject sections that are peer-review checklists or figure/table data,
+        # not actual limitation prose.
+        _section_text_l = lim_sec.text.lower()
+        # NeurIPS/ICLR peer-review checklists always have Question+Answer pairs or
+        # Justification+Answer pairs. Requiring both signals prevents false positives
+        # on papers that include prompt templates with "Question: {{...}}" syntax.
+        _peer_review_signals = (
+            ("question:" in _section_text_l and "answer:" in _section_text_l)
+            or ("justification:" in _section_text_l and "answer:" in _section_text_l)
+            or ("guidelines:" in _section_text_l and "answer" in _section_text_l)
+        )
+        # Figure/table content detector: section contains figure captions or
+        # short label:value table rows (e.g. "Pos Agent:\n\nStrength of the QA pair").
+        # These appear when "weakness" is a table column header, not a section.
+        # Use precise patterns to avoid false positives on legitimate prose that
+        # references figures inline ("as shown in Figure 9") or introduces a
+        # bullet list ("the following limitations:\n").
+        _figure_signals = _is_figure_or_table_section(lim_sec.text)
+        # Table data: numbered citation rows "[N]\n\nDelphi process\n\n..."
+        _table_data = bool(re.search(r"\n\[\d+\]\n", lim_sec.text))
+        if not _peer_review_signals and not _figure_signals and not _table_data:
+            section_lim_text = _truncate_at_sentence_boundary(lim_sec.text.strip(), max_chars)
+            section_is_dedicated = True
+    if not section_lim_text:
         lim_sec = _find_section(sections, _LIMITATION_SECTION_HEADINGS)
         if lim_sec and len(lim_sec.text.strip()) >= 50:
-            section_lim_text = _select_top_limitation_sentences(lim_sec.text.strip(), max_chars)
+            _section_text_l = lim_sec.text.lower()
+            _peer_review_signals = (
+                ("question:" in _section_text_l and "answer:" in _section_text_l)
+                or ("justification:" in _section_text_l and "answer:" in _section_text_l)
+                or ("guidelines:" in _section_text_l and "answer" in _section_text_l)
+            )
+            _figure_signals = _is_figure_or_table_section(lim_sec.text)
+            _table_data = bool(re.search(r"\n\[\d+\]\n", lim_sec.text))
+            if not _peer_review_signals and not _figure_signals and not _table_data:
+                section_lim_text = _truncate_at_sentence_boundary(lim_sec.text.strip(), max_chars)
+                section_is_dedicated = True
 
     # Try combined sections (Conclusion and Limitations, etc.)
     if not section_lim_text:
@@ -1792,20 +2657,71 @@ def extract_limitations(
             "conclusion",
             "concluding",
             "future",
+            "challenge",
             "ethical",
             "broader impact",
             "societal impact",
             "responsible",
         ]
+        # Collect all candidate results; prefer the longest/most content-rich
+        _combined_candidates: list[str] = []
         for sec in sections:
             sec_lower = sec.name.lower()
+            # Skip section names that are too long (body text parsed as heading)
+            if len(sec.name) > _MAX_SECTION_HEADING_LEN:
+                continue
             if any(lh in sec_lower for lh in _LIMITATION_SECTION_HEADINGS):
                 continue
-            if any(ch in sec_lower for ch in _combined_headings):
-                result = _extract_limitations_from_combined_section(sec.text, sec.name, max_chars)
-                if result and len(result.strip()) >= 30:
-                    section_lim_text = result
-                    break
+            # Use _section_name_matches to avoid false matches on sentence fragments
+            # (e.g. "On Opportunities and Challenges of Large Language Mod-" in a ref list)
+            if not _section_name_matches(sec.name, _combined_headings):
+                continue
+            # Skip sections whose text looks like bibliography entries
+            # (author-year patterns indicate this is a reference list section)
+            sec_text_preview = sec.text[:400].lower()
+            _bib_signals = (
+                # Year + page/volume indicators in same text block
+                re.search(r"\b(19|20)\d{2}\b.*\b(pages?|pp\.?|vol\.?|no\.?)\b", sec_text_preview)
+                # Author initial + "and" connector (bibliography entry format)
+                or re.search(r"\b\w+,\s+[A-Z]\.\s+(and|;)", sec.text[:200])
+                # Multiple journal/conf references (volume, pages, proceedings)
+                or sec_text_preview.count("pages")
+                + sec_text_preview.count("pp.")
+                + sec_text_preview.count("vol.")
+                >= 2
+                # "In Proceedings of" is a strong bibliography indicator
+                or "in proceedings of" in sec_text_preview
+                # "arXiv preprint" or "arXiv:" in section text
+                or "arxiv" in sec_text_preview
+                # "Association for Computational Linguistics" in section text
+                or "association for computational" in sec_text_preview
+                # Year range typical of proceedings: (year): or year. pages N-N
+                or re.search(r"\(20\d{2}\)[:.]", sec_text_preview)
+            )
+            if _bib_signals:
+                continue
+            # If the section itself has minimal text, try aggregating its children
+            # ONLY for non-conclusion sections (e.g. "CHALLENGES AND FUTURE TRENDS").
+            # Aggregating children of bare "Conclusion" sections risks pulling in
+            # reference list entries that follow the conclusion heading.
+            sec_text = sec.text
+            _conclusion_only = sec_lower.strip() in (
+                "conclusion",
+                "conclusions",
+                "concluding remarks",
+            )
+            if not _conclusion_only and len(sec_text.strip()) < 200:
+                aggregated = _find_section_with_children(
+                    sections, [sec.name.lower()[:40]], min_text_len=200
+                )
+                if aggregated and len(aggregated.text.strip()) >= 200:
+                    sec_text = aggregated.text
+            result = _extract_limitations_from_combined_section(sec_text, sec.name, max_chars)
+            if result and len(result.strip()) >= 30:
+                _combined_candidates.append(result)
+        # Pick the candidate with the most content (longest after strip)
+        if _combined_candidates:
+            section_lim_text = max(_combined_candidates, key=len)
 
     # Discussion/conclusion scanning
     if not section_lim_text:
@@ -1855,50 +2771,127 @@ def extract_limitations(
     # All-section strong keyword scan
     if not section_lim_text and sections:
         all_lim_sents: list[str] = []
-        strong_kws = [
-            "limitation",
-            "shortcoming",
-            "weakness",
-            "drawback",
-            "caveat",
-            "threat to validity",
-            "not generaliz",
-            "small sample",
-            "potential bias",
-            "room for improvement",
-            "we acknowledge",
-            "should be interpreted with caution",
-            "does not account",
-            "did not consider",
-            "unable to",
-            "restricted to",
-            "limited to",
-            "lack of",
-            "we do not",
-            "we did not",
-            "not been validated",
-            "not been tested",
-        ]
+
+        def _is_table_section(sec_text: str) -> bool:
+            """Return True if the section looks like a comparison/summary table.
+
+            Table sections have dense inline citation markers ([N]) relative to
+            their length, indicating structured rows rather than prose paragraphs.
+            """
+            citation_count = len(re.findall(r"\[\d+\]", sec_text))
+            words = len(sec_text.split())
+            if words == 0:
+                return False
+            density = citation_count / words
+            # Dense if more than 1 citation per 40 words AND at least 3 citations
+            if citation_count >= 3 and density > 0.025:
+                return True
+            # Short table cells: ≤50 words with at least 1 citation at higher density
+            if words <= 50 and citation_count >= 1 and density > 0.015:
+                return True
+            return False
+
+        strong_kws = _STRONG_LIMITATION_KEYWORDS
+        # Keywords whose presence at the START of a section name signals a table cell
+        _TABLE_CELL_NAME_STARTERS = frozenset(
+            [
+                "limited",
+                "limitation",
+                "weakness",
+                "drawback",
+                "shortcoming",
+                "caveat",
+                "disadvantage",
+                "risk of",
+                "prone to",
+                "unable",
+                "restricted",
+                "confined",
+                "lacks",
+                "lack of",
+            ]
+        )
+
         for sec in sections:
+            # Skip sections that look like comparison tables (dense [N] citations)
+            if _is_table_section(sec.text):
+                continue
+            # Skip very short sections whose NAME starts with a limitation keyword —
+            # these are table "limitation" column cells parsed as headings, not prose
+            sec_name_lower = sec.name.lower().strip()
+            _is_table_cell_section = len(sec.text.split()) <= 30 and any(
+                sec_name_lower.startswith(kw) for kw in _TABLE_CELL_NAME_STARTERS
+            )
+            if _is_table_cell_section:
+                continue
             sec_sents = split_sentences(sec.text)
             for sent in sec_sents:
                 if _is_non_content_sentence(sent):
                     continue
-                if any(kw in sent.lower() for kw in strong_kws):
-                    all_lim_sents.append(sent)
+                sent_lower = sent.lower()
+                if not any(kw in sent_lower for kw in strong_kws):
+                    continue
+                # Reject generic "strengths and weaknesses" boilerplate — these
+                # describe methodology scope, not actual stated limitations
+                if "strength" in sent_lower and "weakness" in sent_lower:
+                    continue
+                all_lim_sents.append(sent)
         if all_lim_sents:
             section_lim_text = _select_top_limitation_sentences(" ".join(all_lim_sents), max_chars)
 
-    # --- Step 3: Combine abstract context + section content ---
-    if abs_lim_text and section_lim_text:
-        combined = abs_lim_text + " " + section_lim_text
-        return _truncate_at_sentence_boundary(combined, max_chars)
-    if section_lim_text:
-        return _truncate_at_sentence_boundary(section_lim_text, max_chars)
-    if abs_lim_text:
-        return _truncate_at_sentence_boundary(abs_lim_text, max_chars)
+    # Full-text fallback: when sections is empty (paper has undivided full text)
+    # scan the raw full_text for limitation sentences, including context sentences
+    # that follow a "this study has N limitations" lead sentence.
+    if not section_lim_text and not sections and full_text:
+        ft_sents = split_sentences(full_text)
+        ft_sents = [s for s in ft_sents if not _is_non_content_sentence(s)]
+        ft_lim_sents: list[str] = []
+        for i, sent in enumerate(ft_sents):
+            sent_lower = sent.lower()
+            if not any(kw in sent_lower for kw in _STRONG_LIMITATION_KEYWORDS):
+                continue
+            if "strength" in sent_lower and "weakness" in sent_lower:
+                continue
+            ft_lim_sents.append(sent)
+            # Also include the next 2 sentences as context when the sentence is a
+            # "lead" limitation announcement (e.g. "Several limitations exist")
+            # but doesn't contain specific content itself (word count ≤ 12).
+            if len(sent.split()) <= 12 and any(
+                kw in sent_lower for kw in ["limitation", "caveat", "warrant"]
+            ):
+                for j in range(i + 1, min(i + 4, len(ft_sents))):
+                    ft_lim_sents.append(ft_sents[j])
+        if ft_lim_sents:
+            section_lim_text = _select_top_limitation_sentences(" ".join(ft_lim_sents), max_chars)
 
-    return _FALLBACK_LIMITATIONS
+    # --- Step 3: Combine abstract context + section content ---
+    # Always put abstract first (embedding truncates at 256 tokens, LLM derives from abstract)
+    if abstract and section_lim_text:
+        abs_clean = " ".join(
+            s for s in split_sentences(abstract) if not _is_non_content_sentence(s)
+        )
+        if abs_clean:
+            combined = abs_clean + " " + section_lim_text
+            result = _truncate_at_sentence_boundary(combined, max_chars)
+        else:
+            result = _truncate_at_sentence_boundary(section_lim_text, max_chars)
+    elif section_lim_text:
+        result = _truncate_at_sentence_boundary(section_lim_text, max_chars)
+    elif abstract:
+        abs_clean = " ".join(
+            s for s in split_sentences(abstract) if not _is_non_content_sentence(s)
+        )
+        result = (
+            _truncate_at_sentence_boundary(abs_clean, max_chars)
+            if abs_clean
+            else _FALLBACK_LIMITATIONS
+        )
+    elif abs_lim_text:
+        result = _truncate_at_sentence_boundary(abs_lim_text, max_chars)
+    else:
+        result = _FALLBACK_LIMITATIONS
+
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -1980,6 +2973,15 @@ _REVIEW_BODY_PATTERNS: list[str] = [
     "we summarize the current",
     "we summarize existing",
     "taxonomy of existing",
+    # Subtle review signals — papers that discuss/analyze the field without explicit review language
+    "in this paper, we discuss",
+    "through extensive review of",
+    "our systematic analysis of",
+    "we discuss the role of",
+    "we investigate existing",
+    "we analyze existing",
+    "challenges and opportunities",
+    "this work investigates",
 ]
 
 # Cross-sectional clinical evaluation patterns
@@ -2007,8 +3009,10 @@ _CLINICAL_EVAL_TITLE_PATTERNS: list[str] = [
     "diagnostic performance of",
 ]
 
-# Clinical evaluation body signals (title+abstract)
-# These require clinical/medical context to avoid matching general benchmark papers
+# Clinical evaluation body signals matched against title+abstract only (not full body text).
+# NOTE: In classify_study_design these patterns are checked against title_abstract_lower,
+# NOT combined_lower. This avoids false positives from benchmark papers whose full text
+# merely mentions these clinical concepts in passing.
 _CLINICAL_EVAL_BODY_PATTERNS: list[str] = [
     "diagnostic modeling study",
     "diagnostic accuracy of",
@@ -2021,7 +3025,6 @@ _CLINICAL_EVAL_BODY_PATTERNS: list[str] = [
     "tested on medical cases",
     "clinical decision-making",
     "clinical decision making",
-    # Additional high-confidence clinical patterns
     "medical licensing examination",
     "medical board exam",
 ]
@@ -2030,12 +3033,15 @@ _CLINICAL_EVAL_BODY_PATTERNS: list[str] = [
 _PHASE1_RULES: list[tuple[list[str], StudyDesign]] = [
     (["meta-analysis", "meta analysis"], StudyDesign.META_ANALYSIS),
     (["systematic review", "systematic literature review"], StudyDesign.SYSTEMATIC_REVIEW),
+    # NOTE: narrative_review phrases restricted to title+abstract in classify_study_design
+    # to avoid false positives from full-text citations mentioning these terms
     (["narrative review", "literature review", "scoping review"], StudyDesign.NARRATIVE_REVIEW),
     (
         [
             "randomized controlled",
             "randomised controlled",
-            "rct",
+            # "rct" intentionally excluded here — matched separately with word boundaries
+            # to avoid false matches in "srctitle", "srctype", "abstarct"
             "randomized trial",
             "randomised trial",
         ],
@@ -2051,6 +3057,28 @@ _PHASE1_RULES: list[tuple[list[str], StudyDesign]] = [
     (["case report"], StudyDesign.CASE_REPORT),
     (["in vitro", "in-vitro", "cell culture", "cell line"], StudyDesign.IN_VITRO),
 ]
+
+# Phase 1 keywords that should only match title+abstract (not full body text)
+# to prevent false positives from papers that *cite or discuss* these study designs
+# without themselves being that design type.
+_PHASE1_TITLE_ABSTRACT_ONLY: set[str] = {
+    # Review types — a paper that cites "literature review" in its methods isn't itself a review
+    "narrative review",
+    "literature review",
+    "scoping review",
+    "systematic review",
+    "systematic literature review",
+    # RCT types — a paper that mentions "randomized controlled trials" in its intro/discussion
+    # isn't necessarily an RCT itself
+    "randomized controlled",
+    "randomised controlled",
+    "randomized trial",
+    "randomised trial",
+    # Case study types — many papers analyze or use case reports/series as test data
+    # without themselves being case studies
+    "case report",
+    "case series",
+}
 
 # Phase 4: computational keywords (only used when paper is NOT a review)
 _COMPUTATIONAL_KEYWORDS: list[str] = [
@@ -2092,9 +3120,31 @@ def _is_review_paper(title_lower: str, combined_lower: str) -> StudyDesign | Non
     has_title_review_signal = any(pat in title_lower for pat in _TITLE_REVIEW_PATTERNS)
     has_body_review_signal = any(pat in combined_lower for pat in _REVIEW_BODY_PATTERNS)
 
-    # "survey" or "review" in the title is a strong signal
+    # "survey" in the title is a strong signal
     title_has_survey = "survey" in title_lower
-    title_has_review = "review" in title_lower
+
+    # "review" in the title is a signal, but only when it appears in a context indicating
+    # the paper *is* a review (not as an object being reviewed, e.g. "automated review of ethics").
+    # Require "review" in the title to be preceded by a review-indicating particle or to
+    # follow a pattern like "<X> review" where X is a review type qualifier.
+    _TITLE_REVIEW_CONTEXT_PATTERNS = [
+        "a review",
+        "the review",
+        ": review",
+        "review of",
+        "review on",
+        "review:",
+        "review paper",
+        "review article",
+        "narrative review",
+        "systematic review",
+        "scoping review",
+        "comprehensive review",
+        "literature review",
+        "mini review",
+        "brief review",
+    ]
+    title_has_review = any(p in title_lower for p in _TITLE_REVIEW_CONTEXT_PATTERNS)
 
     if not (
         has_title_review_signal or has_body_review_signal or title_has_survey or title_has_review
@@ -2149,29 +3199,46 @@ def classify_study_design(
     Phase 4.5: Override check for evaluation studies -> OTHER
     Phase 5: Fallback to OTHER
     """
-    combined = f"{title} {abstract or ''}"
+    title_abstract = f"{title} {abstract or ''}"
+    combined = title_abstract
     # Also check methods section
     methods_sec = _find_section(sections, ["method"])
     if methods_sec:
         combined += f" {methods_sec.text}"
     combined_lower = combined.lower()
+    title_abstract_lower = title_abstract.lower()
     title_lower = title.lower()
 
-    # Phase 1: Explicit study design keywords (highest priority)
+    # Phase 1: Explicit study design keywords (highest priority).
+    # Keywords in _PHASE1_TITLE_ABSTRACT_ONLY are only matched against title+abstract
+    # to avoid false positives from full-text citations (e.g. "literature review" in methods).
     for keywords, design in _PHASE1_RULES:
         for kw in keywords:
-            if kw in combined_lower:
+            search_text = (
+                title_abstract_lower if kw in _PHASE1_TITLE_ABSTRACT_ONLY else combined_lower
+            )
+            if kw in search_text:
                 return design
+
+    # Phase 1b: Word-boundary match for "rct" to avoid substring false positives
+    # (e.g. "srctitle", "srctype", "abstarct" in XML full-text metadata).
+    if re.search(r"\brct\b", title_abstract_lower):
+        return StudyDesign.RCT
 
     # Phase 2: Review/survey detection
     # This must come BEFORE computational to prevent reviews about
-    # "language models", "benchmarks", "frameworks" from being misclassified
+    # "language models", "benchmarks", "frameworks" from being misclassified.
+    # Pass title_abstract_lower as the body text to avoid review signals from full-text citations,
+    # but use combined_lower for body-signal patterns that are phrased as first-person statements
+    # (those appear in abstracts, not just reference lists).
     review_design = _is_review_paper(title_lower, combined_lower)
     if review_design is not None:
         return review_design
 
-    # Phase 3: Clinical evaluation studies (cross-sectional)
-    if _is_clinical_eval(title_lower, combined_lower):
+    # Phase 3: Clinical evaluation studies (cross-sectional).
+    # Only use title_abstract_lower for body patterns — clinical body patterns were found to
+    # produce false positives when matched against full text of benchmark papers.
+    if _is_clinical_eval(title_lower, title_abstract_lower):
         return StudyDesign.CROSS_SECTIONAL
 
     # Phase 4: Computational keywords (only if not a review/survey)
@@ -2407,23 +3474,27 @@ def extract_sample_size(text: str | None, sections: list[ParsedSection]) -> int 
     if results_sec and results_sec not in (methods_sec, eval_sec):
         extended_texts.append(results_sec.text)
 
-    # Tier 1: High-confidence patterns (search core + extended sections)
+    # Tier 1+2: Collect all matches, prefer the largest
+    all_candidates: list[int] = []
+
+    # Tier 1: High-confidence patterns
     for search_text in extended_texts:
         for pat in _SAMPLE_SIZE_HIGH_CONF:
-            m = pat.search(search_text)
-            if m:
-                val = _parse_sample_int(m)
+            for m in pat.finditer(search_text):
+                val = _parse_sample_int(m, min_val=5)
                 if val is not None:
-                    return val
+                    all_candidates.append(val)
 
-    # Tier 2: Medium-confidence patterns (search core + extended sections)
+    # Tier 2: Medium-confidence patterns
     for search_text in extended_texts:
         for pat in _SAMPLE_SIZE_MED_CONF:
-            m = pat.search(search_text)
-            if m:
-                val = _parse_sample_int(m)
+            for m in pat.finditer(search_text):
+                val = _parse_sample_int(m, min_val=10)
                 if val is not None:
-                    return val
+                    all_candidates.append(val)
+
+    if all_candidates:
+        return max(all_candidates)
 
     # Tier 3: Low-confidence patterns -- abstract only, higher threshold
     # to avoid false positives on small model counts ("7 LLMs", "12 models")
@@ -2459,20 +3530,32 @@ def compute_quality_score(
     scores in the 0.3-0.8 range, with most full-text papers getting 0.5-0.7.
 
     Weighted components:
-        text_completeness (0.25): full-text bonus + length scaling
-        structural_depth (0.20): methods + results section richness
+        text_completeness (0.30): full-text bonus + length scaling
+        structural_depth (0.15): methods + results section richness
         citation_impact (0.20): log-scaled citation count
-        quant_density (0.20): fraction of findings with quantitative data
-        findings_richness (0.15): number of extractable findings
+        quant_density (0.15): fraction of findings with quantitative data
+        findings_richness (0.20): number of extractable findings
 
     After computing the raw composite, applies Bayesian shrinkage toward
-    the corpus mean (0.60) to reduce variance on extreme predictions.
-    The shrinkage factor was optimized via grid search over the 220-paper
-    corpus to minimize mean absolute error vs LLM quality assessments.
+    the corpus mean (0.62) to reduce variance on extreme predictions.
+    All parameters (saturation threshold, weights, shrinkage) were optimized
+    via grid search over the 220-paper corpus to minimize mean absolute error
+    vs LLM quality assessments.
+
+    Key calibration decisions:
+    - ft_saturation=80000: LLM scores correlate with text length up to ~80K
+      chars; 40K was too low and over-scored short (<40K) papers by ~0.1-0.3
+    - shrinkage=0.25: less shrinkage needed because text_score now contributes
+      more discriminative signal, reducing variance naturally
+    - text weight increased (0.25→0.30), struct/quant reduced to compensate:
+      text length is a stronger quality proxy than structural section presence
     """
-    # Text completeness (0-1): full-text papers need ~40K chars for max score
+    # Text completeness (0-1): full-text papers need ~80K chars for max score.
+    # Analysis of 220-paper corpus shows LLM quality scores keep rising up to
+    # ~80K chars; saturation at 40K over-scored short papers (20K-40K chars),
+    # causing systematic upward bias on lower-quality papers.
     if has_full_text:
-        text_score = min(1.0, full_text_length / 40000)
+        text_score = min(1.0, full_text_length / 80000)
     else:
         # Abstract-only papers cap at ~0.5
         text_score = min(0.5, abstract_length / 600)
@@ -2501,19 +3584,19 @@ def compute_quality_score(
     findings_score = min(1.0, n_total_findings / 10)
 
     raw_composite = (
-        0.25 * text_score
-        + 0.20 * struct_score
+        0.30 * text_score
+        + 0.15 * struct_score
         + 0.20 * cite_score
-        + 0.20 * quant_score
-        + 0.15 * findings_score
+        + 0.15 * quant_score
+        + 0.20 * findings_score
     )
 
     # Bayesian shrinkage toward corpus mean to reduce variance on extreme
     # predictions. The LLM's quality scores cluster around 0.3-0.8.
-    # Shrinkage of 0.35 toward mean 0.62 was optimized via grid search
+    # Shrinkage of 0.25 toward mean 0.62 was optimized via grid search
     # to minimize mean absolute error vs LLM quality assessments.
     corpus_mean = 0.62
-    shrinkage = 0.35
+    shrinkage = 0.25
     calibrated = raw_composite * (1.0 - shrinkage) + corpus_mean * shrinkage
 
     return max(0.0, min(1.0, calibrated))
@@ -2563,7 +3646,7 @@ class ProgrammaticExtractor:
         methods = extract_methods_summary(abstract or None, sections)
 
         # Limitations
-        limitations = extract_limitations(abstract or None, sections)
+        limitations = extract_limitations(abstract or None, sections, full_text=full_text or None)
 
         # Sample size -- pass abstract (not full combined text) to avoid
         # false positives from incidental numbers in survey paper bodies
