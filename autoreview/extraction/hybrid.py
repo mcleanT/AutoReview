@@ -132,7 +132,70 @@ class HybridExtractor:
                 "quality_score": draft.quality_score,
             }
         )
+
+        # Post-filter: verify all numbers in LLM claims are grounded in source text
+        source_text = (sp.paper.abstract or "") + " " + (sp.paper.full_text or "")
+        refined = self._verify_grounding(refined, source_text, sp.paper.id)
+
         return refined
+
+    @staticmethod
+    def _verify_grounding(
+        extraction: PaperExtraction,
+        source_text: str,
+        paper_id: str,
+    ) -> PaperExtraction:
+        """Verify LLM claims are grounded in source text.
+
+        Only flags TRUE fabrications — numbers that have no close match
+        (within 20% tolerance) anywhere in the source. Rounded or
+        approximate numbers ("~30%" when source says "30.2%") are fine.
+        """
+        source_nums: set[float] = set()
+        for m in re.finditer(r"\d+\.?\d*", source_text):
+            try:
+                source_nums.add(float(m.group()))
+            except ValueError:
+                continue
+
+        def _has_close_match(val: float) -> bool:
+            """Check if val is within 20% of any source number."""
+            if val < 5:
+                return True  # Trivial numbers always pass
+            for sn in source_nums:
+                if sn == 0:
+                    continue
+                if abs(val - sn) / max(abs(sn), 1e-9) <= 0.20:
+                    return True
+            return False
+
+        verified_findings = []
+        for f in extraction.key_findings:
+            claim_nums = set(re.findall(r"\d+\.?\d*", f.claim))
+            quant_nums = set(re.findall(r"\d+\.?\d*", f.quantitative_result or ""))
+
+            fabricated = []
+            for n_str in claim_nums | quant_nums:
+                try:
+                    val = float(n_str)
+                except ValueError:
+                    continue
+                if not _has_close_match(val):
+                    fabricated.append(n_str)
+
+            if fabricated:
+                logger.warning(
+                    "hybrid_extraction.fabricated_numbers",
+                    paper_id=paper_id,
+                    claim=f.claim[:80],
+                    fabricated=fabricated[:5],
+                )
+                # Keep the claim text but strip the fabricated quant result
+                f = f.model_copy(update={"quantitative_result": None})
+
+            verified_findings.append(f)
+
+        return extraction.model_copy(update={"key_findings": verified_findings})
 
     def _build_refinement_context(self, sp: ScreenedPaper, draft: PaperExtraction) -> str:
         """Build a condensed ~2K-token context from the paper and draft.
@@ -173,6 +236,18 @@ class HybridExtractor:
         limitations_text = _find_section_text(sections, ["limitation", "future work", "weakness"])
         if limitations_text:
             lines.append(f"\nLIMITATIONS EXCERPT:\n{limitations_text}")
+
+        # Extract verified numbers from the top programmatic findings
+        # These are the ONLY numbers Haiku should use
+        verified_quants: list[str] = []
+        for f in draft.key_findings[:15]:
+            if f.quantitative_result:
+                verified_quants.append(f.quantitative_result[:100])
+        if verified_quants:
+            lines.append(
+                "\nVERIFIED NUMBERS (only use these specific values):\n"
+                + "\n".join(f"  - {q}" for q in verified_quants[:10])
+            )
 
         context = "\n".join(lines)
         # Hard cap to stay within token budget

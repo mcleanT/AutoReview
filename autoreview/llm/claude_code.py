@@ -176,6 +176,8 @@ class ClaudeCodeProvider:
             "--output-format",
             "json",
             "--no-session-persistence",
+            "--disallowedTools",
+            "Read,Write,Edit,Bash,Glob,Grep,Agent,NotebookEdit,WebFetch,WebSearch",
         ]
 
         logger.debug(
