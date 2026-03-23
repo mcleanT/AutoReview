@@ -94,11 +94,7 @@ class ClaudeCodeProvider:
         """Generate free-form text via ``claude -p``."""
         model = _MODEL_ALIASES.get(model_override or "", model_override) or self._model
 
-        full_prompt = prompt
-        if system:
-            full_prompt = f"[System: {system}]\n\n{prompt}"
-
-        result = await self._call_cli(full_prompt, model)
+        result = await self._call_cli(prompt, model, system=system)
 
         content = result.get("result", "")
         usage = result.get("usage", {})
@@ -132,12 +128,10 @@ class ClaudeCodeProvider:
         )
 
         full_prompt = prompt + schema_instruction
-        if system:
-            full_prompt = f"[System: {system}]\n\n{full_prompt}"
 
         last_error: Exception | None = None
         for attempt in range(self._max_retries):
-            result = await self._call_cli(full_prompt, model)
+            result = await self._call_cli(full_prompt, model, system=system)
             content = result.get("result", "")
             usage = result.get("usage", {})
 
@@ -166,7 +160,7 @@ class ClaudeCodeProvider:
             f"Failed to parse structured output after {self._max_retries} attempts: {last_error}"
         )
 
-    async def _call_cli(self, prompt: str, model: str) -> dict[str, Any]:
+    async def _call_cli(self, prompt: str, model: str, system: str = "") -> dict[str, Any]:
         """Execute ``claude -p`` and return the parsed JSON result."""
         cmd = [
             "claude",
@@ -179,6 +173,8 @@ class ClaudeCodeProvider:
             "--disallowedTools",
             "Read,Write,Edit,Bash,Glob,Grep,Agent,NotebookEdit,WebFetch,WebSearch",
         ]
+        if system:
+            cmd.extend(["--system-prompt", system])
 
         logger.debug(
             "claude_code.call",
@@ -191,6 +187,7 @@ class ClaudeCodeProvider:
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            cwd="/tmp",  # Avoid loading project CLAUDE.md / hooks
         )
 
         stdout, stderr = await proc.communicate(input=prompt.encode())

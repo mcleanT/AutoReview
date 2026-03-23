@@ -21,7 +21,11 @@ CRITICAL GROUNDING RULES:
 
 Extraction rules:
 - key_findings: Produce 8-12 synthesized claims. Combine related sentences into single clear claims. Include specific numbers from the source material verbatim.
-- evidence_strength: strong (large-scale study, RCT, meta-analysis with clear quantitative results), moderate (well-designed study with quantitative results), weak (small sample, limited quantitative backing), preliminary (abstract-only, pilot, preprint, no concrete results).
+- evidence_strength (be strict — default to weaker, upgrade only with clear justification):
+  "strong": RCT, large-scale study (N>1000), meta-analysis, or result with p<0.01 and confidence intervals
+  "moderate": Well-designed study WITH specific quantitative results (exact numbers, statistical tests)
+  "weak": Qualitative findings, no statistical tests, small sample, observational without controls
+  "preliminary": Abstract-only, preprint, pilot study, opinion/commentary, no original data
 - quantitative_result: Copy exact numbers from the source. Include comparisons (X vs Y) when available. Never round or approximate.
 - methods_summary: 3-5 sentence structured summary covering: approach/system, datasets used, evaluation methodology, key parameters.
 - limitations: Numbered list of study-specific methodological limitations. Focus on what the AUTHORS acknowledge, not general field limitations.
