@@ -6,9 +6,11 @@ Extract key findings, methodology, limitations, and relationships to other work.
 
 Guidelines:
 - Each finding should be a specific, falsifiable claim
-- Evidence strength: "strong" (RCT, large-scale study, meta-analysis), "moderate" (well-designed \
-observational), "weak" (small sample, methodological limitations), "preliminary" (abstract-only, \
-preprint, pilot)
+- Evidence strength (be strict — default to weaker, upgrade only with clear justification):
+  "strong": RCT, large-scale study (N>1000), meta-analysis, or result with p<0.01 and confidence intervals
+  "moderate": Well-designed study WITH specific quantitative results (exact numbers, statistical tests)
+  "weak": Qualitative findings, no statistical tests, small sample, observational without controls
+  "preliminary": Abstract-only, preprint, pilot study, opinion/commentary, no original data
 - Quantitative results should include effect sizes, confidence intervals, or p-values when available
 - Limitations should focus on methodological weaknesses that affect interpretation
 - Domain-specific fields should only be populated if the information is explicitly stated

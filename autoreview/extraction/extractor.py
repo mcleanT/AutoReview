@@ -100,18 +100,28 @@ class PaperScreener:
 class PaperExtractor:
     """Extracts structured information from papers using LLM."""
 
+    # Default concurrency by provider type
+    _DEFAULT_CONCURRENT_CLAUDE_CODE = 20
+    _DEFAULT_CONCURRENT_API = 5
+
     def __init__(
         self,
         llm: Any,
         domain_fields: dict[str, bool] | None = None,
-        max_concurrent: int = 10,
+        max_concurrent: int | None = None,
         full_text_max_chars: int = 80_000,
         tiered_models: TieredModelConfig | None = None,
         section_truncation: SectionTruncationConfig | None = None,
     ) -> None:
         self.llm = llm
         self.domain_fields = domain_fields
-        self._semaphore = asyncio.Semaphore(max_concurrent)
+        if max_concurrent is not None:
+            concurrency = max_concurrent
+        elif type(llm).__name__ == "ClaudeCodeProvider":
+            concurrency = self._DEFAULT_CONCURRENT_CLAUDE_CODE
+        else:
+            concurrency = self._DEFAULT_CONCURRENT_API
+        self._semaphore = asyncio.Semaphore(concurrency)
         self.full_text_max_chars = full_text_max_chars
         self.tiered_models = tiered_models
         self.section_truncation = section_truncation
