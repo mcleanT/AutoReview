@@ -434,3 +434,20 @@ How to apply: When extracting results from benchmark papers, prioritize capturin
 **Fix**: Set `cwd="/tmp"` on the subprocess. Running claude -p from /tmp means no CLAUDE.md, no hooks, no project context. The subprocess only needs to generate JSON from the prompt — it doesn't need project file access. Combined with --system-prompt for our extraction instructions, this produces clean JSON output reliably.
 
 **Impact**: Evidence strength labels now match Sonnet's calibration (weak for qualitative papers, moderate for quantitative). Previously Haiku labeled everything as moderate regardless of study type.
+
+### 2026-03-23: Benchmark runner manifest flexibility
+- Added `--manifest` flag to benchmark_extractor.py allowing subset manifests (e.g., manifest_subset20.json) for faster iteration
+- Ollama models are GPU-bound so concurrency must be 1 (unlike claude -p which is I/O-bound at 20 concurrent)
+- Qwen 3.5 35B is a thinking model — OllamaLLMProvider disables thinking via `think: false` API flag for structured output
+
+### 2026-03-23: Qwen 3.5 35B on Apple Silicon is very slow for full-text extraction
+- 35B parameter model via Ollama on Apple Silicon (unified memory) takes 5-10+ minutes per paper for full-text inputs (50-86K chars)
+- For benchmark comparisons with local models, use 5-paper subsets or abstract-only to get results in reasonable time
+- Haiku via claude -p processes 20 papers concurrently in ~2.5 min; Qwen sequential on local GPU needs 1-2+ hours for same set
+
+### 2026-03-23: Qwen 3.5 35B extraction quality — good content, poor metadata judgment
+- On ICU chatbot paper (6K chars): Qwen similarity composite 0.781 vs Haiku 0.873
+- Qwen key_findings score (0.910) actually beat Haiku (0.874) — strong content extraction
+- Qwen fails on categorical/judgment fields: evidence_strength 0.50, study_design 0.50, quality_score 0.55 (Haiku gets 1.0 on all three)
+- Speed: 51s vs 24s for Haiku on same paper; full-text papers (80K+) would take 5-10+ min each on Apple Silicon
+- Conclusion: local Qwen viable for content extraction but needs prompt tuning for metadata calibration; Haiku remains better cost/quality tradeoff for production

@@ -1,0 +1,910 @@
+{
+  "timestamp": "2026-03-23T20:59:11.288181+00:00",
+  "scoring_mode": "embedding (all-MiniLM-L6-v2)",
+  "strategy": "direct-haiku",
+  "alpha": 0.5,
+  "n_papers": 20,
+  "n_full_text": 20,
+  "n_abstract_only": 0,
+  "n_errors": 0,
+  "elapsed_seconds": 147.99,
+  "overall_composite": 0.7639,
+  "factual_composite": 0.2701,
+  "combined_composite": 0.517,
+  "avg_field_scores": {
+    "key_findings": 0.6936,
+    "evidence_strength": 0.7905,
+    "quantitative_result": 0.2925,
+    "methods_summary": 0.8376,
+    "limitations": 0.7611,
+    "study_design": 1.0,
+    "quality_score": 0.9115,
+    "sample_size": 0.85,
+    "key_findings_precision": 0.9176,
+    "key_findings_recall": 0.8993
+  },
+  "avg_factual_field_scores": {
+    "key_findings_factual": 0.5356,
+    "quantitative_result_factual": 0.4862,
+    "methods_summary_factual": 0.6293,
+    "limitations_factual": 0.685,
+    "evidence_strength": 0.7905,
+    "study_design": 1.0,
+    "quality_score": 0.9115,
+    "sample_size": 0.85
+  },
+  "worst_10": [
+    {
+      "paper_id": "4b4762db71b84475ac94926ce7bd2954",
+      "title": "Swedish Medical LLM Benchmark: development and evaluation of a framework for ass",
+      "has_full_text": true,
+      "composite": 0.6354,
+      "factual_composite": 0.1843,
+      "field_scores": {
+        "key_findings": 0.6163,
+        "evidence_strength": 0.7857,
+        "quantitative_result": 0.2308,
+        "methods_summary": 0.7231,
+        "limitations": 0.8456,
+        "study_design": 1.0,
+        "quality_score": 0.9,
+        "sample_size": 0.0,
+        "key_findings_precision": 0.8,
+        "key_findings_recall": 0.8889
+      },
+      "factual_field_scores": {
+        "key_findings_factual": 0.4292,
+        "quantitative_result_factual": 0.3963,
+        "methods_summary_factual": 0.52,
+        "limitations_factual": 0.6667,
+        "evidence_strength": 0.7857,
+        "study_design": 1.0,
+        "quality_score": 0.9,
+        "sample_size": 0.0
+      }
+    },
+    {
+      "paper_id": "e910645bd1ec446487533d121591e64e",
+      "title": "DARG: Dynamic Evaluation of Large Language Models via Adaptive Reasoning Graph",
+      "has_full_text": true,
+      "composite": 0.6648,
+      "factual_composite": 0.1827,
+      "field_scores": {
+        "key_findings": 0.684,
+        "evidence_strength": 0.7143,
+        "quantitative_result": 0.1521,
+        "methods_summary": 0.8748,
+        "limitations": 0.6961,
+        "study_design": 1.0,
+        "quality_score": 0.94,
+        "sample_size": 0.0,
+        "key_findings_precision": 0.9,
+        "key_findings_recall": 0.7778
+      },
+      "factual_field_scores": {
+        "key_findings_factual": 0.513,
+        "quantitative_result_factual": 0.3132,
+        "methods_summary_factual": 0.4,
+        "limitations_factual": 0.5,
+        "evidence_strength": 0.7143,
+        "study_design": 1.0,
+        "quality_score": 0.94,
+        "sample_size": 0.0
+      }
+    },
+    {
+      "paper_id": "bbda78ad6c94452aa0261a69de9f225a",
+      "title": "Advancing Spatial Reasoning in Large Language Models: An In-Depth Evaluation and",
+      "has_full_text": true,
+      "composite": 0.6832,
+      "factual_composite": 0.1924,
+      "field_scores": {
+        "key_findings": 0.7132,
+        "evidence_strength": 0.9286,
+        "quantitative_result": 0.2065,
+        "methods_summary": 0.7156,
+        "limitations": 0.8778,
+        "study_design": 1.0,
+        "quality_score": 0.92,
+        "sample_size": 0.0,
+        "key_findings_precision": 1.0,
+        "key_findings_recall": 1.0
+      },
+      "factual_field_scores": {
+        "key_findings_factual": 0.6464,
+        "quantitative_result_factual": 0.5004,
+        "methods_summary_factual": 0.7333,
+        "limitations_factual": 1.0,
+        "evidence_strength": 0.9286,
+        "study_design": 1.0,
+        "quality_score": 0.92,
+        "sample_size": 0.0
+      }
+    },
+    {
+      "paper_id": "5221c2b4a14c431b951d77b2f6ca7b12",
+      "title": "PHYBench: Holistic Evaluation of Physical Perception and Reasoning in Large Lang",
+      "has_full_text": true,
+      "composite": 0.7352,
+      "factual_composite": 0.286,
+      "field_scores": {
+        "key_findings": 0.5969,
+        "evidence_strength": 0.75,
+        "quantitative_result": 0.2369,
+        "methods_summary": 0.8472,
+        "limitations": 0.7149,
+        "study_design": 1.0,
+        "quality_score": 0.97,
+        "sample_size": 1.0,
+        "key_findings_precision": 0.8333,
+        "key_findings_recall": 0.8182
+      },
+      "factual_field_scores": {
+        "key_findings_factual": 0.4535,
+        "quantitative_result_factual": 0.2674,
+        "methods_summary_factual": 0.4615,
+        "limitations_factual": 1.0,
+        "evidence_strength": 0.75,
+        "study_design": 1.0,
+        "quality_score": 0.97,
+        "sample_size": 1.0
+      }
+    },
+    {
+      "paper_id": "c3ce9533491d40239964727d52e0e08c",
+      "title": "E2Edev: Benchmarking Large Language Models in End-to-End Software Development Ta",
+      "has_full_text": true,
+      "composite": 0.7415,
+      "factual_composite": 0.2798,
+      "field_scores": {
+        "key_findings": 0.654,
+        "evidence_strength": 0.625,
+        "quantitative_result": 0.2194,
+        "methods_summary": 0.8438,
+        "limitations": 0.6264,
+        "study_design": 1.0,
+        "quality_score": 0.97,
+        "sample_size": 1.0,
+        "key_findings_precision": 1.0,
+        "key_findings_recall": 0.9
+      },
+      "factual_field_scores": {
+        "key_findings_factual": 0.3417,
+        "quantitative_result_factual": 0.3108,
+        "methods_summary_factual": 0.8065,
+        "limitations_factual": 1.0,
+        "evidence_strength": 0.625,
+        "study_design": 1.0,
+        "quality_score": 0.97,
+        "sample_size": 1.0
+      }
+    },
+    {
+      "paper_id": "7e1b3e016a2d40d9a64c9fba9fd52ac8",
+      "title": "GATmath and GATLc: Comprehensive benchmarks for evaluating Arabic large language",
+      "has_full_text": true,
+      "composite": 0.753,
+      "factual_composite": 0.2914,
+      "field_scores": {
+        "key_findings": 0.622,
+        "evidence_strength": 0.8571,
+        "quantitative_result": 0.2636,
+        "methods_summary": 0.9101,
+        "limitations": 0.6316,
+        "study_design": 1.0,
+        "quality_score": 0.97,
+        "sample_size": 1.0,
+        "key_findings_precision": 0.7778,
+        "key_findings_recall": 0.9167
+      },
+      "factual_field_scores": {
+        "key_findings_factual": 0.4441,
+        "quantitative_result_factual": 0.2889,
+        "methods_summary_factual": 0.2188,
+        "limitations_factual": 0.5,
+        "evidence_strength": 0.8571,
+        "study_design": 1.0,
+        "quality_score": 0.97,
+        "sample_size": 1.0
+      }
+    },
+    {
+      "paper_id": "617f8fb629a84b10a9e182aac085abbc",
+      "title": "Large Language Models Cannot Reliably Detect Vulnerabilities in JavaScript: The ",
+      "has_full_text": true,
+      "composite": 0.7584,
+      "factual_composite": 0.2928,
+      "field_scores": {
+        "key_findings": 0.6464,
+        "evidence_strength": 0.9167,
+        "quantitative_result": 0.1415,
+        "methods_summary": 0.8351,
+        "limitations": 0.7463,
+        "study_design": 1.0,
+        "quality_score": 0.94,
+        "sample_size": 1.0,
+        "key_findings_precision": 0.875,
+        "key_findings_recall": 0.8
+      },
+      "factual_field_scores": {
+        "key_findings_factual": 0.519,
+        "quantitative_result_factual": 0.5901,
+        "methods_summary_factual": 0.6735,
+        "limitations_factual": 0.0,
+        "evidence_strength": 0.9167,
+        "study_design": 1.0,
+        "quality_score": 0.94,
+        "sample_size": 1.0
+      }
+    },
+    {
+      "paper_id": "9bfe82a99ed9461faf633229274a33ba",
+      "title": "CodeJudge-Eval: Can Large Language Models be Good Judges in Code Understanding?",
+      "has_full_text": true,
+      "composite": 0.7647,
+      "factual_composite": 0.2985,
+      "field_scores": {
+        "key_findings": 0.6751,
+        "evidence_strength": 1.0,
+        "quantitative_result": 0.1285,
+        "methods_summary": 0.8173,
+        "limitations": 0.6708,
+        "study_design": 1.0,
+        "quality_score": 0.97,
+        "sample_size": 1.0,
+        "key_findings_precision": 1.0,
+        "key_findings_recall": 0.8
+      },
+      "factual_field_scores": {
+        "key_findings_factual": 0.3065,
+        "quantitative_result_factual": 0.4325,
+        "methods_summary_factual": 0.5405,
+        "limitations_factual": 1.0,
+        "evidence_strength": 1.0,
+        "study_design": 1.0,
+        "quality_score": 0.97,
+        "sample_size": 1.0
+      }
+    },
+    {
+      "paper_id": "745d70a4b6c34670a41fde835792ee65",
+      "title": "From Facts to Folklore: Evaluating Large Language Models on Bengali Cultural Kno",
+      "has_full_text": true,
+      "composite": 0.7684,
+      "factual_composite": 0.2934,
+      "field_scores": {
+        "key_findings": 0.6431,
+        "evidence_strength": 0.9286,
+        "quantitative_result": 0.127,
+        "methods_summary": 0.8572,
+        "limitations": 0.8283,
+        "study_design": 1.0,
+        "quality_score": 0.94,
+        "sample_size": 1.0,
+        "key_findings_precision": 1.0,
+        "key_findings_recall": 0.9
+      },
+      "factual_field_scores": {
+        "key_findings_factual": 0.4564,
+        "quantitative_result_factual": 0.4333,
+        "methods_summary_factual": 0.6429,
+        "limitations_factual": 1.0,
+        "evidence_strength": 0.9286,
+        "study_design": 1.0,
+        "quality_score": 0.94,
+        "sample_size": 1.0
+      }
+    },
+    {
+      "paper_id": "6dc170bdef6946d4a216d314fe3f6507",
+      "title": "Large Language Models for Code Generation: A Comprehensive Survey of Challenges,",
+      "has_full_text": true,
+      "composite": 0.7696,
+      "factual_composite": 0.2722,
+      "field_scores": {
+        "key_findings": 0.7179,
+        "evidence_strength": 0.775,
+        "quantitative_result": 0.2651,
+        "methods_summary": 0.8325,
+        "limitations": 0.7202,
+        "study_design": 1.0,
+        "quality_score": 0.67,
+        "sample_size": 1.0,
+        "key_findings_precision": 0.9545,
+        "key_findings_recall": 0.8
+      },
+      "factual_field_scores": {
+        "key_findings_factual": 0.4206,
+        "quantitative_result_factual": 0.515,
+        "methods_summary_factual": 0.9231,
+        "limitations_factual": 1.0,
+        "evidence_strength": 0.775,
+        "study_design": 1.0,
+        "quality_score": 0.67,
+        "sample_size": 1.0
+      }
+    }
+  ],
+  "per_paper": [
+    {
+      "paper_id": "4749d122bd6e436985d841c9c05f9f0b",
+      "title": "Large language models encode clinical knowledge",
+      "has_full_text": true,
+      "composite": 0.8057,
+      "factual_composite": 0.28,
+      "field_scores": {
+        "key_findings": 0.7484,
+        "evidence_strength": 0.6,
+        "quantitative_result": 0.2835,
+        "methods_summary": 0.8897,
+        "limitations": 0.7869,
+        "study_design": 1.0,
+        "quality_score": 1.0,
+        "sample_size": 1.0,
+        "key_findings_precision": 0.9231,
+        "key_findings_recall": 1.0
+      },
+      "factual_field_scores": {
+        "key_findings_factual": 0.3955,
+        "quantitative_result_factual": 0.3,
+        "methods_summary_factual": 0.5897,
+        "limitations_factual": 0.4,
+        "evidence_strength": 0.6,
+        "study_design": 1.0,
+        "quality_score": 1.0,
+        "sample_size": 1.0
+      }
+    },
+    {
+      "paper_id": "5221c2b4a14c431b951d77b2f6ca7b12",
+      "title": "PHYBench: Holistic Evaluation of Physical Perception and Reasoning in Large Lang",
+      "has_full_text": true,
+      "composite": 0.7352,
+      "factual_composite": 0.286,
+      "field_scores": {
+        "key_findings": 0.5969,
+        "evidence_strength": 0.75,
+        "quantitative_result": 0.2369,
+        "methods_summary": 0.8472,
+        "limitations": 0.7149,
+        "study_design": 1.0,
+        "quality_score": 0.97,
+        "sample_size": 1.0,
+        "key_findings_precision": 0.8333,
+        "key_findings_recall": 0.8182
+      },
+      "factual_field_scores": {
+        "key_findings_factual": 0.4535,
+        "quantitative_result_factual": 0.2674,
+        "methods_summary_factual": 0.4615,
+        "limitations_factual": 1.0,
+        "evidence_strength": 0.75,
+        "study_design": 1.0,
+        "quality_score": 0.97,
+        "sample_size": 1.0
+      }
+    },
+    {
+      "paper_id": "f5cf988c868b4069987d57c0f7f36d71",
+      "title": "Large Language Models Meet Symbolic Provers for Logical Reasoning Evaluation",
+      "has_full_text": true,
+      "composite": 0.7927,
+      "factual_composite": 0.2939,
+      "field_scores": {
+        "key_findings": 0.7019,
+        "evidence_strength": 0.9375,
+        "quantitative_result": 0.2487,
+        "methods_summary": 0.8913,
+        "limitations": 0.7191,
+        "study_design": 1.0,
+        "quality_score": 0.94,
+        "sample_size": 1.0,
+        "key_findings_precision": 0.8889,
+        "key_findings_recall": 0.9
+      },
+      "factual_field_scores": {
+        "key_findings_factual": 0.4714,
+        "quantitative_result_factual": 0.2921,
+        "methods_summary_factual": 0.75,
+        "limitations_factual": 0.3333,
+        "evidence_strength": 0.9375,
+        "study_design": 1.0,
+        "quality_score": 0.94,
+        "sample_size": 1.0
+      }
+    },
+    {
+      "paper_id": "6dc170bdef6946d4a216d314fe3f6507",
+      "title": "Large Language Models for Code Generation: A Comprehensive Survey of Challenges,",
+      "has_full_text": true,
+      "composite": 0.7696,
+      "factual_composite": 0.2722,
+      "field_scores": {
+        "key_findings": 0.7179,
+        "evidence_strength": 0.775,
+        "quantitative_result": 0.2651,
+        "methods_summary": 0.8325,
+        "limitations": 0.7202,
+        "study_design": 1.0,
+        "quality_score": 0.67,
+        "sample_size": 1.0,
+        "key_findings_precision": 0.9545,
+        "key_findings_recall": 0.8
+      },
+      "factual_field_scores": {
+        "key_findings_factual": 0.4206,
+        "quantitative_result_factual": 0.515,
+        "methods_summary_factual": 0.9231,
+        "limitations_factual": 1.0,
+        "evidence_strength": 0.775,
+        "study_design": 1.0,
+        "quality_score": 0.67,
+        "sample_size": 1.0
+      }
+    },
+    {
+      "paper_id": "c80ef01dae674e298acca1bd8ea00d6c",
+      "title": "Pragmatics in the Era of Large Language Models: A Survey on Datasets, Evaluation",
+      "has_full_text": true,
+      "composite": 0.8621,
+      "factual_composite": 0.2775,
+      "field_scores": {
+        "key_findings": 0.8048,
+        "evidence_strength": 0.65,
+        "quantitative_result": 1.0,
+        "methods_summary": 0.8823,
+        "limitations": 0.8031,
+        "study_design": 1.0,
+        "quality_score": 0.9,
+        "sample_size": 1.0,
+        "key_findings_precision": 1.0,
+        "key_findings_recall": 1.0
+      },
+      "factual_field_scores": {
+        "key_findings_factual": 0.7881,
+        "quantitative_result_factual": 1.0,
+        "methods_summary_factual": 0.5455,
+        "limitations_factual": 0.5,
+        "evidence_strength": 0.65,
+        "study_design": 1.0,
+        "quality_score": 0.9,
+        "sample_size": 1.0
+      }
+    },
+    {
+      "paper_id": "b84e6e9545fa4833831bb0bda4430060",
+      "title": "A Systematic Review on the Evaluation of Large Language Models in Theory of Mind",
+      "has_full_text": true,
+      "composite": 0.7741,
+      "factual_composite": 0.2859,
+      "field_scores": {
+        "key_findings": 0.694,
+        "evidence_strength": 0.8182,
+        "quantitative_result": 0.8586,
+        "methods_summary": 0.7293,
+        "limitations": 0.5828,
+        "study_design": 1.0,
+        "quality_score": 0.9,
+        "sample_size": 1.0,
+        "key_findings_precision": 1.0,
+        "key_findings_recall": 0.7857
+      },
+      "factual_field_scores": {
+        "key_findings_factual": 0.5774,
+        "quantitative_result_factual": 1.0,
+        "methods_summary_factual": 0.7917,
+        "limitations_factual": 1.0,
+        "evidence_strength": 0.8182,
+        "study_design": 1.0,
+        "quality_score": 0.9,
+        "sample_size": 1.0
+      }
+    },
+    {
+      "paper_id": "7e1b3e016a2d40d9a64c9fba9fd52ac8",
+      "title": "GATmath and GATLc: Comprehensive benchmarks for evaluating Arabic large language",
+      "has_full_text": true,
+      "composite": 0.753,
+      "factual_composite": 0.2914,
+      "field_scores": {
+        "key_findings": 0.622,
+        "evidence_strength": 0.8571,
+        "quantitative_result": 0.2636,
+        "methods_summary": 0.9101,
+        "limitations": 0.6316,
+        "study_design": 1.0,
+        "quality_score": 0.97,
+        "sample_size": 1.0,
+        "key_findings_precision": 0.7778,
+        "key_findings_recall": 0.9167
+      },
+      "factual_field_scores": {
+        "key_findings_factual": 0.4441,
+        "quantitative_result_factual": 0.2889,
+        "methods_summary_factual": 0.2188,
+        "limitations_factual": 0.5,
+        "evidence_strength": 0.8571,
+        "study_design": 1.0,
+        "quality_score": 0.97,
+        "sample_size": 1.0
+      }
+    },
+    {
+      "paper_id": "d35be1f6e954476f98839d3e6bdafe8c",
+      "title": "Establishing robust benchmarks for evaluating contextual reasoning in large lang",
+      "has_full_text": true,
+      "composite": 0.7724,
+      "factual_composite": 0.2661,
+      "field_scores": {
+        "key_findings": 0.7428,
+        "evidence_strength": 0.5714,
+        "quantitative_result": 0.286,
+        "methods_summary": 0.7274,
+        "limitations": 0.8583,
+        "study_design": 1.0,
+        "quality_score": 0.75,
+        "sample_size": 1.0,
+        "key_findings_precision": 1.0,
+        "key_findings_recall": 1.0
+      },
+      "factual_field_scores": {
+        "key_findings_factual": 0.5905,
+        "quantitative_result_factual": 0.6905,
+        "methods_summary_factual": 0.5,
+        "limitations_factual": 1.0,
+        "evidence_strength": 0.5714,
+        "study_design": 1.0,
+        "quality_score": 0.75,
+        "sample_size": 1.0
+      }
+    },
+    {
+      "paper_id": "bbda78ad6c94452aa0261a69de9f225a",
+      "title": "Advancing Spatial Reasoning in Large Language Models: An In-Depth Evaluation and",
+      "has_full_text": true,
+      "composite": 0.6832,
+      "factual_composite": 0.1924,
+      "field_scores": {
+        "key_findings": 0.7132,
+        "evidence_strength": 0.9286,
+        "quantitative_result": 0.2065,
+        "methods_summary": 0.7156,
+        "limitations": 0.8778,
+        "study_design": 1.0,
+        "quality_score": 0.92,
+        "sample_size": 0.0,
+        "key_findings_precision": 1.0,
+        "key_findings_recall": 1.0
+      },
+      "factual_field_scores": {
+        "key_findings_factual": 0.6464,
+        "quantitative_result_factual": 0.5004,
+        "methods_summary_factual": 0.7333,
+        "limitations_factual": 1.0,
+        "evidence_strength": 0.9286,
+        "study_design": 1.0,
+        "quality_score": 0.92,
+        "sample_size": 0.0
+      }
+    },
+    {
+      "paper_id": "4b4762db71b84475ac94926ce7bd2954",
+      "title": "Swedish Medical LLM Benchmark: development and evaluation of a framework for ass",
+      "has_full_text": true,
+      "composite": 0.6354,
+      "factual_composite": 0.1843,
+      "field_scores": {
+        "key_findings": 0.6163,
+        "evidence_strength": 0.7857,
+        "quantitative_result": 0.2308,
+        "methods_summary": 0.7231,
+        "limitations": 0.8456,
+        "study_design": 1.0,
+        "quality_score": 0.9,
+        "sample_size": 0.0,
+        "key_findings_precision": 0.8,
+        "key_findings_recall": 0.8889
+      },
+      "factual_field_scores": {
+        "key_findings_factual": 0.4292,
+        "quantitative_result_factual": 0.3963,
+        "methods_summary_factual": 0.52,
+        "limitations_factual": 0.6667,
+        "evidence_strength": 0.7857,
+        "study_design": 1.0,
+        "quality_score": 0.9,
+        "sample_size": 0.0
+      }
+    },
+    {
+      "paper_id": "617f8fb629a84b10a9e182aac085abbc",
+      "title": "Large Language Models Cannot Reliably Detect Vulnerabilities in JavaScript: The ",
+      "has_full_text": true,
+      "composite": 0.7584,
+      "factual_composite": 0.2928,
+      "field_scores": {
+        "key_findings": 0.6464,
+        "evidence_strength": 0.9167,
+        "quantitative_result": 0.1415,
+        "methods_summary": 0.8351,
+        "limitations": 0.7463,
+        "study_design": 1.0,
+        "quality_score": 0.94,
+        "sample_size": 1.0,
+        "key_findings_precision": 0.875,
+        "key_findings_recall": 0.8
+      },
+      "factual_field_scores": {
+        "key_findings_factual": 0.519,
+        "quantitative_result_factual": 0.5901,
+        "methods_summary_factual": 0.6735,
+        "limitations_factual": 0.0,
+        "evidence_strength": 0.9167,
+        "study_design": 1.0,
+        "quality_score": 0.94,
+        "sample_size": 1.0
+      }
+    },
+    {
+      "paper_id": "e910645bd1ec446487533d121591e64e",
+      "title": "DARG: Dynamic Evaluation of Large Language Models via Adaptive Reasoning Graph",
+      "has_full_text": true,
+      "composite": 0.6648,
+      "factual_composite": 0.1827,
+      "field_scores": {
+        "key_findings": 0.684,
+        "evidence_strength": 0.7143,
+        "quantitative_result": 0.1521,
+        "methods_summary": 0.8748,
+        "limitations": 0.6961,
+        "study_design": 1.0,
+        "quality_score": 0.94,
+        "sample_size": 0.0,
+        "key_findings_precision": 0.9,
+        "key_findings_recall": 0.7778
+      },
+      "factual_field_scores": {
+        "key_findings_factual": 0.513,
+        "quantitative_result_factual": 0.3132,
+        "methods_summary_factual": 0.4,
+        "limitations_factual": 0.5,
+        "evidence_strength": 0.7143,
+        "study_design": 1.0,
+        "quality_score": 0.94,
+        "sample_size": 0.0
+      }
+    },
+    {
+      "paper_id": "8ce5ca062a4c41afac2d8c83fed5e546",
+      "title": "RealFactBench: A Benchmark for Evaluating Large Language Models in Real-World Fa",
+      "has_full_text": true,
+      "composite": 0.8021,
+      "factual_composite": 0.2766,
+      "field_scores": {
+        "key_findings": 0.7215,
+        "evidence_strength": 0.5625,
+        "quantitative_result": 0.3329,
+        "methods_summary": 0.9094,
+        "limitations": 0.8383,
+        "study_design": 1.0,
+        "quality_score": 0.97,
+        "sample_size": 1.0,
+        "key_findings_precision": 0.8,
+        "key_findings_recall": 0.8889
+      },
+      "factual_field_scores": {
+        "key_findings_factual": 0.7556,
+        "quantitative_result_factual": 0.6089,
+        "methods_summary_factual": 0.7857,
+        "limitations_factual": 0.5,
+        "evidence_strength": 0.5625,
+        "study_design": 1.0,
+        "quality_score": 0.97,
+        "sample_size": 1.0
+      }
+    },
+    {
+      "paper_id": "c3ce9533491d40239964727d52e0e08c",
+      "title": "E2Edev: Benchmarking Large Language Models in End-to-End Software Development Ta",
+      "has_full_text": true,
+      "composite": 0.7415,
+      "factual_composite": 0.2798,
+      "field_scores": {
+        "key_findings": 0.654,
+        "evidence_strength": 0.625,
+        "quantitative_result": 0.2194,
+        "methods_summary": 0.8438,
+        "limitations": 0.6264,
+        "study_design": 1.0,
+        "quality_score": 0.97,
+        "sample_size": 1.0,
+        "key_findings_precision": 1.0,
+        "key_findings_recall": 0.9
+      },
+      "factual_field_scores": {
+        "key_findings_factual": 0.3417,
+        "quantitative_result_factual": 0.3108,
+        "methods_summary_factual": 0.8065,
+        "limitations_factual": 1.0,
+        "evidence_strength": 0.625,
+        "study_design": 1.0,
+        "quality_score": 0.97,
+        "sample_size": 1.0
+      }
+    },
+    {
+      "paper_id": "42fb2df6f14d43c68d69d2aab8146cfd",
+      "title": "Evaluating the Limits of Large Language Models in Multilingual Legal Reasoning",
+      "has_full_text": true,
+      "composite": 0.8196,
+      "factual_composite": 0.297,
+      "field_scores": {
+        "key_findings": 0.789,
+        "evidence_strength": 1.0,
+        "quantitative_result": 0.1546,
+        "methods_summary": 0.8109,
+        "limitations": 0.7765,
+        "study_design": 1.0,
+        "quality_score": 0.94,
+        "sample_size": 1.0,
+        "key_findings_precision": 1.0,
+        "key_findings_recall": 0.9
+      },
+      "factual_field_scores": {
+        "key_findings_factual": 0.6667,
+        "quantitative_result_factual": 0.1543,
+        "methods_summary_factual": 0.7805,
+        "limitations_factual": 0.8,
+        "evidence_strength": 1.0,
+        "study_design": 1.0,
+        "quality_score": 0.94,
+        "sample_size": 1.0
+      }
+    },
+    {
+      "paper_id": "745d70a4b6c34670a41fde835792ee65",
+      "title": "From Facts to Folklore: Evaluating Large Language Models on Bengali Cultural Kno",
+      "has_full_text": true,
+      "composite": 0.7684,
+      "factual_composite": 0.2934,
+      "field_scores": {
+        "key_findings": 0.6431,
+        "evidence_strength": 0.9286,
+        "quantitative_result": 0.127,
+        "methods_summary": 0.8572,
+        "limitations": 0.8283,
+        "study_design": 1.0,
+        "quality_score": 0.94,
+        "sample_size": 1.0,
+        "key_findings_precision": 1.0,
+        "key_findings_recall": 0.9
+      },
+      "factual_field_scores": {
+        "key_findings_factual": 0.4564,
+        "quantitative_result_factual": 0.4333,
+        "methods_summary_factual": 0.6429,
+        "limitations_factual": 1.0,
+        "evidence_strength": 0.9286,
+        "study_design": 1.0,
+        "quality_score": 0.94,
+        "sample_size": 1.0
+      }
+    },
+    {
+      "paper_id": "9bfe82a99ed9461faf633229274a33ba",
+      "title": "CodeJudge-Eval: Can Large Language Models be Good Judges in Code Understanding?",
+      "has_full_text": true,
+      "composite": 0.7647,
+      "factual_composite": 0.2985,
+      "field_scores": {
+        "key_findings": 0.6751,
+        "evidence_strength": 1.0,
+        "quantitative_result": 0.1285,
+        "methods_summary": 0.8173,
+        "limitations": 0.6708,
+        "study_design": 1.0,
+        "quality_score": 0.97,
+        "sample_size": 1.0,
+        "key_findings_precision": 1.0,
+        "key_findings_recall": 0.8
+      },
+      "factual_field_scores": {
+        "key_findings_factual": 0.3065,
+        "quantitative_result_factual": 0.4325,
+        "methods_summary_factual": 0.5405,
+        "limitations_factual": 1.0,
+        "evidence_strength": 1.0,
+        "study_design": 1.0,
+        "quality_score": 0.97,
+        "sample_size": 1.0
+      }
+    },
+    {
+      "paper_id": "bfe3acb6392e44099ca90dc31a534a60",
+      "title": "RECKON: Large-scale Reference-based Efficient Knowledge Evaluation for Large Lan",
+      "has_full_text": true,
+      "composite": 0.8033,
+      "factual_composite": 0.2887,
+      "field_scores": {
+        "key_findings": 0.7323,
+        "evidence_strength": 0.8333,
+        "quantitative_result": 0.2395,
+        "methods_summary": 0.8427,
+        "limitations": 0.8333,
+        "study_design": 1.0,
+        "quality_score": 0.94,
+        "sample_size": 1.0,
+        "key_findings_precision": 0.9,
+        "key_findings_recall": 0.9091
+      },
+      "factual_field_scores": {
+        "key_findings_factual": 0.6439,
+        "quantitative_result_factual": 0.5432,
+        "methods_summary_factual": 0.5238,
+        "limitations_factual": 0.5,
+        "evidence_strength": 0.8333,
+        "study_design": 1.0,
+        "quality_score": 0.94,
+        "sample_size": 1.0
+      }
+    },
+    {
+      "paper_id": "9414fafddd434230bfae05fc268b22a3",
+      "title": "An Empirical Evaluation of Large Language Models on Consumer Health Questions",
+      "has_full_text": true,
+      "composite": 0.7708,
+      "factual_composite": 0.2832,
+      "field_scores": {
+        "key_findings": 0.6592,
+        "evidence_strength": 0.8333,
+        "quantitative_result": 0.1816,
+        "methods_summary": 0.8866,
+        "limitations": 0.8193,
+        "study_design": 1.0,
+        "quality_score": 0.83,
+        "sample_size": 1.0,
+        "key_findings_precision": 0.7,
+        "key_findings_recall": 1.0
+      },
+      "factual_field_scores": {
+        "key_findings_factual": 0.7708,
+        "quantitative_result_factual": 0.6229,
+        "methods_summary_factual": 0.7391,
+        "limitations_factual": 0.5,
+        "evidence_strength": 0.8333,
+        "study_design": 1.0,
+        "quality_score": 0.83,
+        "sample_size": 1.0
+      }
+    },
+    {
+      "paper_id": "54a8155672c240aaa3792b7b6f9bc081",
+      "title": "Bridging the Bosphorus: Advancing Turkish Large Language Models through Strategi",
+      "has_full_text": true,
+      "composite": 0.8017,
+      "factual_composite": 0.2796,
+      "field_scores": {
+        "key_findings": 0.7095,
+        "evidence_strength": 0.7222,
+        "quantitative_result": 0.2941,
+        "methods_summary": 0.9256,
+        "limitations": 0.8473,
+        "study_design": 1.0,
+        "quality_score": 0.87,
+        "sample_size": 1.0,
+        "key_findings_precision": 1.0,
+        "key_findings_recall": 1.0
+      },
+      "factual_field_scores": {
+        "key_findings_factual": 0.5208,
+        "quantitative_result_factual": 0.465,
+        "methods_summary_factual": 0.6596,
+        "limitations_factual": 0.5,
+        "evidence_strength": 0.7222,
+        "study_design": 1.0,
+        "quality_score": 0.87,
+        "sample_size": 1.0
+      }
+    }
+  ]
+}

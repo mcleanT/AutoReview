@@ -1,0 +1,98 @@
+{
+  "timestamp": "2026-03-23T21:23:21.403748+00:00",
+  "scoring_mode": "embedding (all-MiniLM-L6-v2)",
+  "strategy": "direct-qwen",
+  "alpha": 0.5,
+  "n_papers": 1,
+  "n_full_text": 1,
+  "n_abstract_only": 0,
+  "n_errors": 0,
+  "elapsed_seconds": 50.68,
+  "overall_composite": 0.7807,
+  "factual_composite": 0.2025,
+  "combined_composite": 0.4916,
+  "avg_field_scores": {
+    "key_findings": 0.9095,
+    "evidence_strength": 0.5,
+    "quantitative_result": 1.0,
+    "methods_summary": 0.7512,
+    "limitations": 0.5175,
+    "study_design": 0.5,
+    "quality_score": 0.55,
+    "sample_size": 1.0,
+    "key_findings_precision": 1.0,
+    "key_findings_recall": 1.0
+  },
+  "avg_factual_field_scores": {
+    "key_findings_factual": 0.6875,
+    "quantitative_result_factual": 1.0,
+    "methods_summary_factual": 0.25,
+    "limitations_factual": 0.0,
+    "evidence_strength": 0.5,
+    "study_design": 0.5,
+    "quality_score": 0.55,
+    "sample_size": 1.0
+  },
+  "worst_10": [
+    {
+      "paper_id": "7b41dabab24b4eea9a40cba52f35bf7c",
+      "title": "Chatbots in the ICU: Unveiling the Accuracy and Limitations of AI in Critical Ca",
+      "has_full_text": true,
+      "composite": 0.7807,
+      "factual_composite": 0.2025,
+      "field_scores": {
+        "key_findings": 0.9095,
+        "evidence_strength": 0.5,
+        "quantitative_result": 1.0,
+        "methods_summary": 0.7512,
+        "limitations": 0.5175,
+        "study_design": 0.5,
+        "quality_score": 0.55,
+        "sample_size": 1.0,
+        "key_findings_precision": 1.0,
+        "key_findings_recall": 1.0
+      },
+      "factual_field_scores": {
+        "key_findings_factual": 0.6875,
+        "quantitative_result_factual": 1.0,
+        "methods_summary_factual": 0.25,
+        "limitations_factual": 0.0,
+        "evidence_strength": 0.5,
+        "study_design": 0.5,
+        "quality_score": 0.55,
+        "sample_size": 1.0
+      }
+    }
+  ],
+  "per_paper": [
+    {
+      "paper_id": "7b41dabab24b4eea9a40cba52f35bf7c",
+      "title": "Chatbots in the ICU: Unveiling the Accuracy and Limitations of AI in Critical Ca",
+      "has_full_text": true,
+      "composite": 0.7807,
+      "factual_composite": 0.2025,
+      "field_scores": {
+        "key_findings": 0.9095,
+        "evidence_strength": 0.5,
+        "quantitative_result": 1.0,
+        "methods_summary": 0.7512,
+        "limitations": 0.5175,
+        "study_design": 0.5,
+        "quality_score": 0.55,
+        "sample_size": 1.0,
+        "key_findings_precision": 1.0,
+        "key_findings_recall": 1.0
+      },
+      "factual_field_scores": {
+        "key_findings_factual": 0.6875,
+        "quantitative_result_factual": 1.0,
+        "methods_summary_factual": 0.25,
+        "limitations_factual": 0.0,
+        "evidence_strength": 0.5,
+        "study_design": 0.5,
+        "quality_score": 0.55,
+        "sample_size": 1.0
+      }
+    }
+  ]
+}

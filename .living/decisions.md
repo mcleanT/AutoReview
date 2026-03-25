@@ -421,3 +421,9 @@ The clustering stage produced 11 themes; these were consolidated into 5 body sec
 **Decision**: Updated extraction prompts to: (1) exhaustive mode — extract ALL findings, one per result, no consolidation, (2) strict evidence strength — default to weaker, require quantitative results for moderate, require RCT/meta-analysis/N>1000 for strong, (3) detailed comparisons — always include both sides with exact numbers.
 
 **Results**: Haiku V4 with exhaustive prompt produces 2-3x more findings than Sonnet (21.5 avg vs 9.3) while capturing 630f Sonnet's specific numbers and 960n best papers. Evidence strength now matches Sonnet's calibration on qualitative vs quantitative papers. Branch: feat/parallel-extraction.
+
+### 2026-03-23: Local model benchmarking — Qwen 3.5 35B via Ollama
+- **Decision**: Added `direct-qwen` strategy to benchmark runner to compare local Qwen 3.5 35B extraction against Haiku and Sonnet
+- **Context**: User wants to evaluate whether a local open-weight model can match cloud API quality for paper extraction
+- **Implementation**: OllamaLLMProvider already existed; added strategy to benchmark_extractor.py with num_ctx=32768, max_tokens_structured=8192, sequential (GPU-bound) concurrency
+- **Benchmark design**: 20-paper full-text subset (manifest_subset20.json) for faster iteration; Sonnet extractions serve as ground truth (no rerun needed)

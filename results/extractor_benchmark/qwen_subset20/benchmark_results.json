@@ -1,0 +1,239 @@
+{
+  "timestamp": "2026-03-23T20:56:43.249004+00:00",
+  "scoring_mode": "embedding (all-MiniLM-L6-v2)",
+  "strategy": "direct-qwen",
+  "alpha": 0.5,
+  "n_papers": 20,
+  "n_full_text": 0,
+  "n_abstract_only": 0,
+  "n_errors": 20,
+  "elapsed_seconds": 0.0,
+  "overall_composite": 0.0,
+  "factual_composite": 0.0,
+  "combined_composite": 0.0,
+  "avg_field_scores": {
+    "key_findings": 0.0,
+    "evidence_strength": 0.0,
+    "quantitative_result": 0.0,
+    "methods_summary": 0.0,
+    "limitations": 0.0,
+    "study_design": 0.0,
+    "quality_score": 0.0,
+    "sample_size": 0.0,
+    "key_findings_precision": 0.0,
+    "key_findings_recall": 0.0
+  },
+  "avg_factual_field_scores": {
+    "key_findings_factual": 0.0,
+    "quantitative_result_factual": 0.0,
+    "methods_summary_factual": 0.0,
+    "limitations_factual": 0.0,
+    "evidence_strength": 0.0,
+    "study_design": 0.0,
+    "quality_score": 0.0,
+    "sample_size": 0.0
+  },
+  "worst_10": [],
+  "per_paper": [
+    {
+      "paper_id": "4749d122bd6e436985d841c9c05f9f0b",
+      "title": "Large language models encode clinical knowledge",
+      "has_full_text": true,
+      "composite": 0.0,
+      "factual_composite": 0.0,
+      "field_scores": {},
+      "factual_field_scores": {},
+      "error": "AttributeError: 'PaperExtractor' object has no attribute 'extract'"
+    },
+    {
+      "paper_id": "5221c2b4a14c431b951d77b2f6ca7b12",
+      "title": "PHYBench: Holistic Evaluation of Physical Perception and Reasoning in Large Lang",
+      "has_full_text": true,
+      "composite": 0.0,
+      "factual_composite": 0.0,
+      "field_scores": {},
+      "factual_field_scores": {},
+      "error": "AttributeError: 'PaperExtractor' object has no attribute 'extract'"
+    },
+    {
+      "paper_id": "f5cf988c868b4069987d57c0f7f36d71",
+      "title": "Large Language Models Meet Symbolic Provers for Logical Reasoning Evaluation",
+      "has_full_text": true,
+      "composite": 0.0,
+      "factual_composite": 0.0,
+      "field_scores": {},
+      "factual_field_scores": {},
+      "error": "AttributeError: 'PaperExtractor' object has no attribute 'extract'"
+    },
+    {
+      "paper_id": "6dc170bdef6946d4a216d314fe3f6507",
+      "title": "Large Language Models for Code Generation: A Comprehensive Survey of Challenges,",
+      "has_full_text": true,
+      "composite": 0.0,
+      "factual_composite": 0.0,
+      "field_scores": {},
+      "factual_field_scores": {},
+      "error": "AttributeError: 'PaperExtractor' object has no attribute 'extract'"
+    },
+    {
+      "paper_id": "c80ef01dae674e298acca1bd8ea00d6c",
+      "title": "Pragmatics in the Era of Large Language Models: A Survey on Datasets, Evaluation",
+      "has_full_text": true,
+      "composite": 0.0,
+      "factual_composite": 0.0,
+      "field_scores": {},
+      "factual_field_scores": {},
+      "error": "AttributeError: 'PaperExtractor' object has no attribute 'extract'"
+    },
+    {
+      "paper_id": "b84e6e9545fa4833831bb0bda4430060",
+      "title": "A Systematic Review on the Evaluation of Large Language Models in Theory of Mind",
+      "has_full_text": true,
+      "composite": 0.0,
+      "factual_composite": 0.0,
+      "field_scores": {},
+      "factual_field_scores": {},
+      "error": "AttributeError: 'PaperExtractor' object has no attribute 'extract'"
+    },
+    {
+      "paper_id": "7e1b3e016a2d40d9a64c9fba9fd52ac8",
+      "title": "GATmath and GATLc: Comprehensive benchmarks for evaluating Arabic large language",
+      "has_full_text": true,
+      "composite": 0.0,
+      "factual_composite": 0.0,
+      "field_scores": {},
+      "factual_field_scores": {},
+      "error": "AttributeError: 'PaperExtractor' object has no attribute 'extract'"
+    },
+    {
+      "paper_id": "d35be1f6e954476f98839d3e6bdafe8c",
+      "title": "Establishing robust benchmarks for evaluating contextual reasoning in large lang",
+      "has_full_text": true,
+      "composite": 0.0,
+      "factual_composite": 0.0,
+      "field_scores": {},
+      "factual_field_scores": {},
+      "error": "AttributeError: 'PaperExtractor' object has no attribute 'extract'"
+    },
+    {
+      "paper_id": "bbda78ad6c94452aa0261a69de9f225a",
+      "title": "Advancing Spatial Reasoning in Large Language Models: An In-Depth Evaluation and",
+      "has_full_text": true,
+      "composite": 0.0,
+      "factual_composite": 0.0,
+      "field_scores": {},
+      "factual_field_scores": {},
+      "error": "AttributeError: 'PaperExtractor' object has no attribute 'extract'"
+    },
+    {
+      "paper_id": "4b4762db71b84475ac94926ce7bd2954",
+      "title": "Swedish Medical LLM Benchmark: development and evaluation of a framework for ass",
+      "has_full_text": true,
+      "composite": 0.0,
+      "factual_composite": 0.0,
+      "field_scores": {},
+      "factual_field_scores": {},
+      "error": "AttributeError: 'PaperExtractor' object has no attribute 'extract'"
+    },
+    {
+      "paper_id": "617f8fb629a84b10a9e182aac085abbc",
+      "title": "Large Language Models Cannot Reliably Detect Vulnerabilities in JavaScript: The ",
+      "has_full_text": true,
+      "composite": 0.0,
+      "factual_composite": 0.0,
+      "field_scores": {},
+      "factual_field_scores": {},
+      "error": "AttributeError: 'PaperExtractor' object has no attribute 'extract'"
+    },
+    {
+      "paper_id": "e910645bd1ec446487533d121591e64e",
+      "title": "DARG: Dynamic Evaluation of Large Language Models via Adaptive Reasoning Graph",
+      "has_full_text": true,
+      "composite": 0.0,
+      "factual_composite": 0.0,
+      "field_scores": {},
+      "factual_field_scores": {},
+      "error": "AttributeError: 'PaperExtractor' object has no attribute 'extract'"
+    },
+    {
+      "paper_id": "8ce5ca062a4c41afac2d8c83fed5e546",
+      "title": "RealFactBench: A Benchmark for Evaluating Large Language Models in Real-World Fa",
+      "has_full_text": true,
+      "composite": 0.0,
+      "factual_composite": 0.0,
+      "field_scores": {},
+      "factual_field_scores": {},
+      "error": "AttributeError: 'PaperExtractor' object has no attribute 'extract'"
+    },
+    {
+      "paper_id": "c3ce9533491d40239964727d52e0e08c",
+      "title": "E2Edev: Benchmarking Large Language Models in End-to-End Software Development Ta",
+      "has_full_text": true,
+      "composite": 0.0,
+      "factual_composite": 0.0,
+      "field_scores": {},
+      "factual_field_scores": {},
+      "error": "AttributeError: 'PaperExtractor' object has no attribute 'extract'"
+    },
+    {
+      "paper_id": "42fb2df6f14d43c68d69d2aab8146cfd",
+      "title": "Evaluating the Limits of Large Language Models in Multilingual Legal Reasoning",
+      "has_full_text": true,
+      "composite": 0.0,
+      "factual_composite": 0.0,
+      "field_scores": {},
+      "factual_field_scores": {},
+      "error": "AttributeError: 'PaperExtractor' object has no attribute 'extract'"
+    },
+    {
+      "paper_id": "745d70a4b6c34670a41fde835792ee65",
+      "title": "From Facts to Folklore: Evaluating Large Language Models on Bengali Cultural Kno",
+      "has_full_text": true,
+      "composite": 0.0,
+      "factual_composite": 0.0,
+      "field_scores": {},
+      "factual_field_scores": {},
+      "error": "AttributeError: 'PaperExtractor' object has no attribute 'extract'"
+    },
+    {
+      "paper_id": "9bfe82a99ed9461faf633229274a33ba",
+      "title": "CodeJudge-Eval: Can Large Language Models be Good Judges in Code Understanding?",
+      "has_full_text": true,
+      "composite": 0.0,
+      "factual_composite": 0.0,
+      "field_scores": {},
+      "factual_field_scores": {},
+      "error": "AttributeError: 'PaperExtractor' object has no attribute 'extract'"
+    },
+    {
+      "paper_id": "bfe3acb6392e44099ca90dc31a534a60",
+      "title": "RECKON: Large-scale Reference-based Efficient Knowledge Evaluation for Large Lan",
+      "has_full_text": true,
+      "composite": 0.0,
+      "factual_composite": 0.0,
+      "field_scores": {},
+      "factual_field_scores": {},
+      "error": "AttributeError: 'PaperExtractor' object has no attribute 'extract'"
+    },
+    {
+      "paper_id": "9414fafddd434230bfae05fc268b22a3",
+      "title": "An Empirical Evaluation of Large Language Models on Consumer Health Questions",
+      "has_full_text": true,
+      "composite": 0.0,
+      "factual_composite": 0.0,
+      "field_scores": {},
+      "factual_field_scores": {},
+      "error": "AttributeError: 'PaperExtractor' object has no attribute 'extract'"
+    },
+    {
+      "paper_id": "54a8155672c240aaa3792b7b6f9bc081",
+      "title": "Bridging the Bosphorus: Advancing Turkish Large Language Models through Strategi",
+      "has_full_text": true,
+      "composite": 0.0,
+      "factual_composite": 0.0,
+      "field_scores": {},
+      "factual_field_scores": {},
+      "error": "AttributeError: 'PaperExtractor' object has no attribute 'extract'"
+    }
+  ]
+}

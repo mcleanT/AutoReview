@@ -86,9 +86,9 @@ FACTUAL_FIELDS = [
 ]
 
 
-def load_corpus(corpus_dir: Path) -> list[dict]:
+def load_corpus(corpus_dir: Path, manifest_name: str = "manifest.json") -> list[dict]:
     """Load all paper entries from the corpus directory via manifest.json."""
-    manifest_path = corpus_dir / "manifest.json"
+    manifest_path = corpus_dir / manifest_name
     if not manifest_path.exists():
         logger.error("manifest.json not found", path=str(manifest_path))
         sys.exit(1)
@@ -150,6 +150,7 @@ async def run_benchmark(
     use_embeddings: bool = True,
     strategy: str = "programmatic",
     alpha: float = 0.5,
+    manifest_name: str = "manifest.json",
 ) -> dict:
     """Run the full benchmark and return results dict.
 
@@ -162,7 +163,7 @@ async def run_benchmark(
         alpha: Blend weight for dual composite: 1.0=similarity only,
             0.0=factual only.
     """
-    corpus = load_corpus(corpus_dir)
+    corpus = load_corpus(corpus_dir, manifest_name=manifest_name)
     if not corpus:
         logger.error("no_papers_loaded")
         sys.exit(1)
@@ -197,6 +198,13 @@ async def run_benchmark(
         llm = ClaudeCodeProvider(model="haiku")
         extractor = PaperExtractor(llm)
         is_async = True
+    elif strategy == "direct-qwen":
+        from autoreview.extraction.extractor import PaperExtractor
+        from autoreview.llm.ollama import OllamaLLMProvider
+
+        llm = OllamaLLMProvider(model="qwen3.5:35b", max_tokens_structured=8192, num_ctx=32768)
+        extractor = PaperExtractor(llm)
+        is_async = True
     else:
         logger.error("unknown_strategy", strategy=strategy)
         sys.exit(1)
@@ -227,7 +235,7 @@ async def run_benchmark(
 
             # --- Run extraction ---
             if is_async:
-                if strategy == "direct-haiku":
+                if strategy.startswith("direct-"):
                     extraction_result = await extractor.extract_one(candidate, relevance_score=4)
                 else:
                     extraction_result = await extractor.extract(screened)
@@ -278,7 +286,13 @@ async def run_benchmark(
 
     # --- Run papers concurrently for async strategies, sequentially otherwise ---
     # claude -p is I/O-bound (waiting for API), so 20 concurrent is fine
-    max_concurrent = 20 if is_async else 1
+    # Ollama is GPU-bound — only 1 concurrent inference
+    if strategy.startswith("direct-qwen"):
+        max_concurrent = 1
+    elif is_async:
+        max_concurrent = 20
+    else:
+        max_concurrent = 1
     sem = asyncio.Semaphore(max_concurrent)
 
     async def _process_with_sem(entry: dict) -> dict:
@@ -477,7 +491,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--strategy",
-        choices=["programmatic", "hybrid-haiku", "hybrid-sonnet", "direct-haiku"],
+        choices=["programmatic", "hybrid-haiku", "hybrid-sonnet", "direct-haiku", "direct-qwen"],
         default="programmatic",
         help="Extraction strategy to benchmark (default: programmatic)",
     )
@@ -486,6 +500,12 @@ def main() -> None:
         type=float,
         default=0.5,
         help="Blend weight for dual composite: 1.0=similarity only, 0.0=factual only (default: 0.5)",
+    )
+    parser.add_argument(
+        "--manifest",
+        type=str,
+        default="manifest.json",
+        help="Manifest file name within corpus-dir (default: manifest.json)",
     )
     args = parser.parse_args()
 
@@ -496,6 +516,7 @@ def main() -> None:
             use_embeddings=not args.no_embeddings,
             strategy=args.strategy,
             alpha=args.alpha,
+            manifest_name=args.manifest,
         )
     )
     print_report(results)
