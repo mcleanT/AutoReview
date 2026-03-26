@@ -1,41 +1,50 @@
-# Last Session State — AutoReview
+# Last Session — AutoReview
 
 **Date**: 2026-03-25
-**Focus**: Knowledge Graph Prototype — full implementation planning
+**Branch**: main
+**Commits this session**: 12
 
-## What Was Accomplished
+## What Was Done
 
-1. **Codebase exploration**: Surveyed AutoReview patterns — AutoReviewModel base class, Pydantic v2 conventions (StrEnum, computed_field, field_validator), test patterns (conftest fixtures, pytest-asyncio), structlog logging, existing dependencies.
+Full Knowledge Graph prototype implemented end-to-end. The `autoreview/knowledge_graph/` module was built from scratch across 10 subagent tasks with all 83 tests passing.
 
-2. **Dependency audit**:
-   - `networkx` is NOT installed (must be added to pyproject.toml and pip-installed)
-   - `rapidfuzz` is in pyproject.toml but NOT installed in conda env
+### Module Files Created
+- `autoreview/knowledge_graph/models.py` — Pydantic models: Entity, Assertion, Evidence, KnowledgeGraph
+- `autoreview/knowledge_graph/ingest.py` — Load extracted JSON into KG models; handles `"key": null` edge case
+- `autoreview/knowledge_graph/dedup.py` — Entity deduplication and normalization
+- `autoreview/knowledge_graph/graph.py` — NetworkX graph construction from entities + assertions
+- `autoreview/knowledge_graph/confidence.py` — Evidence-weighted confidence scoring
+- `autoreview/knowledge_graph/analysis.py` — Louvain community detection, contradiction detection, hub identification
+- `autoreview/knowledge_graph/viz.py` — Graph visualization utilities
+- `autoreview/knowledge_graph/__init__.py` — Public API
 
-3. **Schema discovery**: KG extraction JSONs (in gastruloid_run/extractions) use mycelium's ExtractionResult schema — top-level keys: `paper_provenance`, `evidence_units`, `assertion_drafts`, `citation_contexts`, `extraction_metadata`. NOT AutoReview's PaperExtraction model.
+## Real Corpus Results (303 papers, gastruloid domain)
 
-4. **Implementation plan written**: `docs/superpowers/plans/2026-03-26-knowledge-graph-prototype.md` — 10 tasks, 9 sequential batches, with Tasks 7 (analysis) + 8 (visualization) running in parallel.
+| Metric | Value |
+|--------|-------|
+| Raw entities | 5,894 |
+| Deduplicated nodes | 2,462 (58% reduction) |
+| Raw assertions | 2,947 |
+| Merged edges | 2,899 (1.6% collapsed) |
+| Evidence units | 3,331 |
+| Louvain communities | 492 |
+| Contradictions (controversy > 0.5) | 522 |
+| Top hubs | human RA-gastruloids, WNT/beta-catenin signaling, BMP-treated hESCs |
 
-5. **Plan reviewed by code-reviewer agent** — 4 blockers found and resolved:
-   - BLOCKER-1: Missing "other" entity type token-blocking strategy → added test + implementation guidance
-   - BLOCKER-2: Missing predicate_normalization_log → added PredicateNormalizer class with .log
-   - BLOCKER-3: Missing assertion_merge_log → added MergeResult dataclass with .merge_log
-   - BLOCKER-4: Missing self-loop test → added to test_graph.py and test_dedup.py
+## Key Bug Fixed
+- `ingest.py`: `"object_entity": null` in JSON bypasses `d.get("key", default)` -- fixed with `or {}` pattern
 
-## Current State
+## Key Observations
+- Entity dedup (58%) is the dominant compression step; assertion merging (1.6%) is minimal
+- Extraction model produces highly specific assertions -- good for grounding, but graph is sparser at assertion level than expected
+- Subagent-driven development with 10 tasks completed cleanly with zero BLOCKED statuses
 
-- Plan is finalized and reviewed — ready to begin implementation
-- No code has been written yet; all 10 tasks are pending
-- Next session should start with Task 1: KG ingest module
+## What Is In Progress / Next Steps
+- KG module is complete but not yet wired into the main pipeline DAG
+- Next: integrate KG construction as a pipeline node after the extraction stage
+- Consider improving entity resolution (fuzzy matching, embedding similarity) to boost dedup further
 
-## Next Steps
-
-1. Add `networkx` (and verify `rapidfuzz`) to pyproject.toml and install
-2. Implement Task 1: KG ingest module (parse ExtractionResult → KGAssertion list)
-3. Follow task sequence per plan: 1→2→3→4→5→6→(7‖8)→9→10
-
-## Key File Locations
-
-- Implementation plan: `docs/superpowers/plans/2026-03-26-knowledge-graph-prototype.md`
-- Extraction JSONs (ground truth): `Paper Extractor/KnowledgeGraph Extraction/gastruloid_run/extractions/`
-- AutoReview models: `autoreview/models/`
-- AutoReview tests: `tests/`
+## State of Key Files
+- `autoreview/knowledge_graph/` -- complete, all tests passing
+- `autoreview/extraction/programmatic.py` -- unchanged this session (baseline + checkpoint files present from prior work)
+- `kg_run.log` -- output from real corpus KG run (303 papers)

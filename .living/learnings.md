@@ -634,3 +634,44 @@ Prompt caps + token budget + Haiku truncation all stack: Haiku's 16K output limi
 **Learning 4 — bioRxiv-scale KG cost estimate.**
 At realistic extraction rates (~80 claims/paper), 310K bioRxiv papers yield ~25M claims, not ~3M as previously estimated. Cost with Haiku batch+caching: ~$4,300. The previous 3M figure assumed the capped 9.5 claims/paper rate.
 
+
+## 2026-03-25 — Knowledge Graph Prototype Implementation
+
+**Context**: Full KG module implemented across 10 subagent tasks, 12 commits, 83 tests passing.
+
+### L1: Explicit null values bypass Python dict `.get()` defaults
+- `"key": null` in JSON parses to `{key: None}` in Python — `d.get("key", default)` returns `None`, not `default`
+- Fix: use `d.get("key") or default` (or `d.get("key", default) or default` to be safe)
+- Triggered by: `"object_entity": null` in extracted assertions where extraction model explicitly nulled optional fields
+- **Impact**: ingest.py silently produced malformed entity records until fixed
+
+### L2: Entity dedup is the dominant compression step in KG construction
+- Real corpus results (303 papers, gastruloid domain):
+  - Raw entities: 5,894 → deduplicated nodes: 2,462 (58
+## 2026-03-25 — Knowledge Graph Prototype Implementation
+
+**Context**: Full KG module implemented across 10 subagent tasks, 12 commits, 83 tests passing.
+
+### L1: Explicit null values bypass Python dict `.get()` defaults
+- `"key": null` in JSON parses to `{key: None}` in Python — `d.get("key", default)` returns `None`, not `default`
+- Fix: use `d.get("key") or default` (or `d.get("key", default) or default` to be safe)
+- Triggered by: `"object_entity": null` in extracted assertions where extraction model explicitly nulled optional fields
+- **Impact**: ingest.py silently produced malformed entity records until fixed
+
+### L2: Entity dedup is the dominant compression step in KG construction
+- Real corpus results (303 papers, gastruloid domain):
+  - Raw entities: 5,894 -> deduplicated nodes: 2,462 (58% reduction)
+  - Raw assertions: 2,947 -> merged edges: 2,899 (only 1.6% collapsed)
+- Implication: extraction model produces highly specific assertions (unique entity pairs), so assertion merging adds little. Entity normalization (name variants, aliases) is where graph compression happens.
+- **Design note**: future optimization should focus on entity resolution quality, not assertion merging logic
+
+### L3: Subagent-driven development scales cleanly to 10-task implementation plans
+- 10 sequential tasks dispatched to sonnet subagents; Tasks 7+8 (analysis+viz) ran in parallel
+- Zero BLOCKED or NEEDS_CONTEXT failures across the entire session
+- Key discipline: each subagent received an explicit file list + clear task scope, preventing context blowout
+- **Reusable pattern**: batch independent tasks in a single message, wait for results, then dispatch dependent tasks
+
+### L4: KG scale indicators for gastruloid corpus
+- 303 papers -> 492 Louvain communities, 522 contradictions (controversy > 0.5), 3,331 evidence units
+- Top hubs by degree: human RA-gastruloids, WNT/beta-catenin signaling, BMP-treated hESCs
+- These numbers calibrate expectations for other domains at similar corpus sizes
