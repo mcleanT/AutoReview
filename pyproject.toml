@@ -82,5 +82,13 @@ python_version = "3.11"
 strict = true
 plugins = ["pydantic.mypy"]
 
+[[tool.mypy.overrides]]
+module = ["networkx", "networkx.*", "scipy", "scipy.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "autoreview.knowledge_graph.*"
+disallow_any_generics = false
+
 [tool.hatch.build.targets.wheel]
 packages = ["autoreview"]

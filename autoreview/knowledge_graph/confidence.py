@@ -135,7 +135,7 @@ def score_all_edges(
     def _get_author(provenance: dict[str, Any], role: str) -> str:
         for author in provenance.get("authors", []):
             if author.get("role") == role:
-                return author.get("name", "")
+                return str(author.get("name", ""))
         return ""
 
     updated = 0

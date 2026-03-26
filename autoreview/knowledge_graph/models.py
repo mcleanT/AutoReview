@@ -52,17 +52,17 @@ class BetaPosterior(AutoReviewModel):
     alpha: float = 1.0
     beta_param: float = 1.0
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def mean(self) -> float:
         return self.alpha / (self.alpha + self.beta_param)
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def ci_95(self) -> tuple[float, float]:
         from scipy.stats import beta as beta_dist
 
-        return beta_dist.interval(0.95, self.alpha, self.beta_param)
+        return tuple(beta_dist.interval(0.95, self.alpha, self.beta_param))
 
 
 class KGEntity(AutoReviewModel):
