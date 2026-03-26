@@ -407,7 +407,7 @@ def _embedding_key_findings_score(
 
     # Encode all claims
     all_texts = pred_claims + gold_claims
-    embeddings = model.encode(all_texts, convert_to_numpy=True)  # type: ignore[union-attr]
+    embeddings = model.encode(all_texts, convert_to_numpy=True)  # type: ignore[attr-defined]
     pred_emb = embeddings[: len(pred_claims)]
     gold_emb = embeddings[len(pred_claims) :]
 
@@ -465,7 +465,7 @@ def _embedding_text_similarity(text_a: str, text_b: str, model: object) -> float
     if not text_a.strip() or not text_b.strip():
         return 0.0
 
-    embeddings = model.encode([text_a, text_b], convert_to_numpy=True)  # type: ignore[union-attr]
+    embeddings = model.encode([text_a, text_b], convert_to_numpy=True)  # type: ignore[attr-defined]
     emb_a = embeddings[0]
     emb_b = embeddings[1]
 
