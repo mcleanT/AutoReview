@@ -111,7 +111,10 @@ def sample_evidence_unit() -> dict:
 def sample_citation_context() -> dict:
     return {
         "citation_id": "c_001",
-        "citing_sentence": "Previous work demonstrated that Wnt signaling is essential for mesoderm specification (Smith et al., 2020).",
+        "citing_sentence": (
+            "Previous work demonstrated that Wnt signaling is essential for"
+            " mesoderm specification (Smith et al., 2020)."
+        ),
         "cited_source_doi": "10.1016/j.cell.2020.0001",
         "cited_source_pmid": "87654321",
         "cited_claim_paraphrase": "Wnt is essential for mesoderm",

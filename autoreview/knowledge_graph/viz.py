@@ -29,21 +29,21 @@ _DPI = 300
 _SERIALIZABLE = (str, int, float, bool)
 
 
-def export_graphml(G: nx.MultiDiGraph, path: Path | str) -> None:
+def export_graphml(graph: nx.MultiDiGraph, path: Path | str) -> None:
     """Export the graph to GraphML format, stripping non-serializable attributes.
 
     Args:
-        G: The knowledge graph.
+        graph: The knowledge graph.
         path: Destination file path (will be created or overwritten).
     """
     path = Path(path)
     clean = nx.MultiDiGraph()
 
-    for node, data in G.nodes(data=True):
+    for node, data in graph.nodes(data=True):
         clean_data = {k: v for k, v in data.items() if isinstance(v, _SERIALIZABLE)}
         clean.add_node(node, **clean_data)
 
-    for u, v, key, data in G.edges(keys=True, data=True):
+    for u, v, key, data in graph.edges(keys=True, data=True):
         clean_data = {k: v for k, v in data.items() if isinstance(v, _SERIALIZABLE)}
         clean.add_edge(u, v, key=key, **clean_data)
 
@@ -51,7 +51,7 @@ def export_graphml(G: nx.MultiDiGraph, path: Path | str) -> None:
 
 
 def plot_subgraph(
-    G: nx.MultiDiGraph,
+    graph: nx.MultiDiGraph,
     output_path: Path | str,
     node_ids: Collection[str] | None = None,
     seed: int = 42,
@@ -62,17 +62,14 @@ def plot_subgraph(
     Edge width is proportional to evidence_count.
 
     Args:
-        G: The knowledge graph.
+        graph: The knowledge graph.
         output_path: Destination file path for the PNG/PDF figure.
         node_ids: Optional subset of node IDs to render; uses full graph if None.
         seed: Random seed for spring layout reproducibility.
     """
     output_path = Path(output_path)
 
-    if node_ids is not None:
-        view = G.subgraph(list(node_ids))
-    else:
-        view = G
+    view = graph.subgraph(list(node_ids)) if node_ids is not None else graph
 
     fig, ax = plt.subplots(figsize=(10, 8), constrained_layout=True)
 
@@ -103,14 +100,14 @@ def plot_subgraph(
 
 
 def plot_confidence_distribution(
-    G: nx.MultiDiGraph,
+    graph: nx.MultiDiGraph,
     output_path: Path | str,
     bins: int = 20,
 ) -> None:
     """Plot a histogram of edge confidence scores.
 
     Args:
-        G: The knowledge graph.
+        graph: The knowledge graph.
         output_path: Destination file path for the figure.
         bins: Number of histogram bins.
     """
@@ -118,7 +115,7 @@ def plot_confidence_distribution(
 
     confidences = [
         float(data["confidence_mean"])
-        for _, _, data in G.edges(data=True)
+        for _, _, data in graph.edges(data=True)
         if "confidence_mean" in data
     ]
 
@@ -137,7 +134,7 @@ def plot_confidence_distribution(
 
 
 def plot_controversy_map(
-    G: nx.MultiDiGraph,
+    graph: nx.MultiDiGraph,
     output_path: Path | str,
     threshold: float = 0.5,
     seed: int = 42,
@@ -148,7 +145,7 @@ def plot_controversy_map(
     Edge width is proportional to controversy_score.
 
     Args:
-        G: The knowledge graph.
+        graph: The knowledge graph.
         output_path: Destination file path for the figure.
         threshold: Controversy score cutoff for red highlighting.
         seed: Random seed for spring layout reproducibility.
@@ -157,25 +154,25 @@ def plot_controversy_map(
 
     fig, ax = plt.subplots(figsize=(10, 8), constrained_layout=True)
 
-    pos = nx.spring_layout(G, seed=seed)
+    pos = nx.spring_layout(graph, seed=seed)
 
     node_colors = [
         _ENTITY_COLORS.get(data.get("entity_type", "other"), _ENTITY_COLORS["other"])
-        for _, data in G.nodes(data=True)
+        for _, data in graph.nodes(data=True)
     ]
 
-    labels = {n: data.get("canonical_name", n) for n, data in G.nodes(data=True)}
+    labels = {n: data.get("canonical_name", n) for n, data in graph.nodes(data=True)}
 
     edge_colors = []
     edge_widths = []
-    for _, _, data in G.edges(data=True):
+    for _, _, data in graph.edges(data=True):
         score = float(data.get("controversy_score", 0.0))
         edge_colors.append("#D55E00" if score > threshold else "#999999")
         edge_widths.append(max(1.0, score * 4))
 
-    nx.draw_networkx_nodes(G, pos, node_color=node_colors, node_size=500, ax=ax)
+    nx.draw_networkx_nodes(graph, pos, node_color=node_colors, node_size=500, ax=ax)
     nx.draw_networkx_edges(
-        G,
+        graph,
         pos,
         edge_color=edge_colors,
         width=edge_widths,
@@ -184,7 +181,7 @@ def plot_controversy_map(
         arrowstyle="-|>",
         arrowsize=15,
     )
-    nx.draw_networkx_labels(G, pos, labels=labels, font_family=_FONT_FAMILY, font_size=9, ax=ax)
+    nx.draw_networkx_labels(graph, pos, labels=labels, font_family=_FONT_FAMILY, font_size=9, ax=ax)
 
     ax.set_title(
         f"Controversy Map (threshold={threshold})",

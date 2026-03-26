@@ -110,7 +110,7 @@ def compute_derived_metrics(
 
 
 def score_all_edges(
-    G: nx.MultiDiGraph,
+    graph: nx.MultiDiGraph,
     provenance_by_paper: dict[str, dict[str, Any]],
 ) -> nx.MultiDiGraph:
     """Score every edge in the graph and update its confidence attributes.
@@ -122,13 +122,13 @@ def score_all_edges(
     independent_source_count, evidence_count.
 
     Args:
-        G: NetworkX MultiDiGraph produced by build_nx_graph.
+        graph: NetworkX MultiDiGraph produced by build_nx_graph.
         provenance_by_paper: Mapping of paper_hash → paper provenance dict.
             Each dict should have an "authors" list where each author entry has
             a "role" field ("first" / "last" / etc.) and a "name" field.
 
     Returns:
-        The same graph G with updated edge attributes (mutated in-place and
+        The same graph with updated edge attributes (mutated in-place and
         returned for convenience).
     """
 
@@ -139,7 +139,7 @@ def score_all_edges(
         return ""
 
     updated = 0
-    for u, v, key, attrs in G.edges(data=True, keys=True):
+    for u, v, key, attrs in graph.edges(data=True, keys=True):
         kg_edge = attrs.get("_kg_edge")
         if kg_edge is None:
             continue
@@ -174,12 +174,12 @@ def score_all_edges(
         )
 
         # Update edge attributes on the live graph
-        G[u][v][key]["confidence_mean"] = posterior.mean
-        G[u][v][key]["controversy_score"] = metrics["controversy_score"]
-        G[u][v][key]["evidence_diversity"] = metrics["evidence_diversity"]
-        G[u][v][key]["independent_source_count"] = metrics["independent_source_count"]
-        G[u][v][key]["evidence_count"] = metrics["evidence_count"]
+        graph[u][v][key]["confidence_mean"] = posterior.mean
+        graph[u][v][key]["controversy_score"] = metrics["controversy_score"]
+        graph[u][v][key]["evidence_diversity"] = metrics["evidence_diversity"]
+        graph[u][v][key]["independent_source_count"] = metrics["independent_source_count"]
+        graph[u][v][key]["evidence_count"] = metrics["evidence_count"]
         updated += 1
 
     log.info("kg.edges_scored", n_edges=updated)
-    return G
+    return graph

@@ -138,7 +138,6 @@ class TestIndependenceWeighting:
 class TestDerivedMetrics:
     def test_controversy_score(self):
         from autoreview.knowledge_graph.confidence import compute_derived_metrics
-
         from autoreview.knowledge_graph.models import BetaPosterior
 
         bp = BetaPosterior(alpha=3.0, beta_param=2.5)
@@ -151,7 +150,6 @@ class TestDerivedMetrics:
 
     def test_controversy_zero_for_unanimous(self):
         from autoreview.knowledge_graph.confidence import compute_derived_metrics
-
         from autoreview.knowledge_graph.models import BetaPosterior
 
         bp = BetaPosterior(alpha=5.0, beta_param=1.0)

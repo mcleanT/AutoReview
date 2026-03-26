@@ -191,19 +191,19 @@ def build_graph(extraction_dir: Path) -> nx.MultiDiGraph:
     # ------------------------------------------------------------------
     # Step 7: Build NetworkX graph
     # ------------------------------------------------------------------
-    G = build_nx_graph(registry.entities, kg_edges)
+    graph = build_nx_graph(registry.entities, kg_edges)
 
     # ------------------------------------------------------------------
     # Step 8: Score confidence
     # ------------------------------------------------------------------
-    G = score_all_edges(G, corpus.provenance_by_paper)
+    graph = score_all_edges(graph, corpus.provenance_by_paper)
 
     log.info(
         "kg.pipeline.complete",
-        n_nodes=G.number_of_nodes(),
-        n_edges=G.number_of_edges(),
+        n_nodes=graph.number_of_nodes(),
+        n_edges=graph.number_of_edges(),
     )
-    return G
+    return graph
 
 
 def save_graph(graph: nx.MultiDiGraph, path: Path) -> None:

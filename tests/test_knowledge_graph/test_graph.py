@@ -10,7 +10,6 @@ import pytest
 class TestBuildGraph:
     def test_entities_become_nodes(self):
         from autoreview.knowledge_graph.graph import build_nx_graph
-
         from autoreview.knowledge_graph.models import BetaPosterior, KGEdge, KGEntity
 
         entities = {
@@ -49,15 +48,14 @@ class TestBuildGraph:
                 publication_date=None,
             ),
         ]
-        G = build_nx_graph(entities, edges)
-        assert G.number_of_nodes() == 2
-        assert G.number_of_edges() == 1
-        assert G.nodes["ent1"]["canonical_name"] == "Wnt"
-        assert G.nodes["ent1"]["entity_type"] == "pathway"
+        graph = build_nx_graph(entities, edges)
+        assert graph.number_of_nodes() == 2
+        assert graph.number_of_edges() == 1
+        assert graph.nodes["ent1"]["canonical_name"] == "Wnt"
+        assert graph.nodes["ent1"]["entity_type"] == "pathway"
 
     def test_edge_attributes_stored(self):
         from autoreview.knowledge_graph.graph import build_nx_graph
-
         from autoreview.knowledge_graph.models import BetaPosterior, KGEdge, KGEntity
 
         entities = {
@@ -96,15 +94,14 @@ class TestBuildGraph:
                 publication_date="2023-01-01",
             ),
         ]
-        G = build_nx_graph(entities, edges)
-        edge_data = G.edges["ent1", "ent2", "e1"]
+        graph = build_nx_graph(entities, edges)
+        edge_data = graph.edges["ent1", "ent2", "e1"]
         assert edge_data["predicate"] == "induces"
         assert edge_data["confidence_mean"] == pytest.approx(0.75)
 
     def test_self_loop_allowed(self):
         """Self-loops (autoregulation) are biologically valid."""
         from autoreview.knowledge_graph.graph import build_nx_graph
-
         from autoreview.knowledge_graph.models import BetaPosterior, KGEdge, KGEntity
 
         entities = {
@@ -133,16 +130,15 @@ class TestBuildGraph:
                 publication_date=None,
             ),
         ]
-        G = build_nx_graph(entities, edges)
-        assert G.number_of_nodes() == 1
-        assert G.number_of_edges() == 1
-        assert G.has_edge("ent1", "ent1")
+        graph = build_nx_graph(entities, edges)
+        assert graph.number_of_nodes() == 1
+        assert graph.number_of_edges() == 1
+        assert graph.has_edge("ent1", "ent1")
 
 
 class TestSerializationRoundTrip:
     def test_pickle_round_trip(self, tmp_path: Path):
         from autoreview.knowledge_graph.graph import build_nx_graph, load_graph, save_graph
-
         from autoreview.knowledge_graph.models import KGEntity
 
         entities = {
@@ -157,8 +153,8 @@ class TestSerializationRoundTrip:
                 source_paper_ids=["p1"],
             ),
         }
-        G = build_nx_graph(entities, [])
-        save_graph(G, tmp_path / "test_graph")
-        G2 = load_graph(tmp_path / "test_graph.pkl")
-        assert G2.number_of_nodes() == 1
-        assert G2.nodes["ent1"]["canonical_name"] == "A"
+        graph = build_nx_graph(entities, [])
+        save_graph(graph, tmp_path / "test_graph")
+        graph2 = load_graph(tmp_path / "test_graph.pkl")
+        assert graph2.number_of_nodes() == 1
+        assert graph2.nodes["ent1"]["canonical_name"] == "A"

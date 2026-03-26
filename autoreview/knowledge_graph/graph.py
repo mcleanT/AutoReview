@@ -31,11 +31,11 @@ def build_nx_graph(
         A MultiDiGraph where nodes are entities and edges are typed assertions.
         Edge keys are edge_id strings to allow parallel edges with stable lookup.
     """
-    G: nx.MultiDiGraph = nx.MultiDiGraph()
+    graph: nx.MultiDiGraph = nx.MultiDiGraph()
 
     # Add nodes
     for entity_id, entity in entities.items():
-        G.add_node(
+        graph.add_node(
             entity_id,
             canonical_name=entity.canonical_name,
             entity_type=str(entity.entity_type),
@@ -49,7 +49,7 @@ def build_nx_graph(
 
     # Add edges
     for edge in edges:
-        G.add_edge(
+        graph.add_edge(
             edge.subject_id,
             edge.object_id,
             key=edge.edge_id,
@@ -67,33 +67,35 @@ def build_nx_graph(
 
     log.info(
         "kg.graph_built",
-        n_nodes=G.number_of_nodes(),
-        n_edges=G.number_of_edges(),
+        n_nodes=graph.number_of_nodes(),
+        n_edges=graph.number_of_edges(),
     )
-    return G
+    return graph
 
 
-def _make_graphml_copy(G: nx.MultiDiGraph) -> nx.MultiDiGraph:
-    """Return a copy of G with only GraphML-serializable attributes."""
-    H: nx.MultiDiGraph = nx.MultiDiGraph()
+def _make_graphml_copy(graph: nx.MultiDiGraph) -> nx.MultiDiGraph:
+    """Return a copy of graph with only GraphML-serializable attributes."""
+    copy: nx.MultiDiGraph = nx.MultiDiGraph()
 
-    for node, attrs in G.nodes(data=True):
-        H.add_node(node, **{k: v for k, v in attrs.items() if isinstance(v, _GRAPHML_SAFE_TYPES)})
+    for node, attrs in graph.nodes(data=True):
+        copy.add_node(
+            node, **{k: v for k, v in attrs.items() if isinstance(v, _GRAPHML_SAFE_TYPES)}
+        )
 
-    for u, v, key, attrs in G.edges(data=True, keys=True):
+    for u, v, key, attrs in graph.edges(data=True, keys=True):
         safe_attrs: dict[str, Any] = {
             k: v for k, v in attrs.items() if isinstance(v, _GRAPHML_SAFE_TYPES)
         }
-        H.add_edge(u, v, key=key, **safe_attrs)
+        copy.add_edge(u, v, key=key, **safe_attrs)
 
-    return H
+    return copy
 
 
-def save_graph(G: nx.MultiDiGraph, path: Path) -> None:
+def save_graph(graph: nx.MultiDiGraph, path: Path) -> None:
     """Serialize the graph to pickle and GraphML.
 
     Args:
-        G: The MultiDiGraph to serialize.
+        graph: The MultiDiGraph to serialize.
         path: Base path without extension. Creates ``{path}.pkl`` and ``{path}.graphml``.
     """
     path = Path(path)
@@ -102,18 +104,18 @@ def save_graph(G: nx.MultiDiGraph, path: Path) -> None:
 
     # Pickle preserves all attrs including _kg_edge
     with open(pkl_path, "wb") as fh:
-        pickle.dump(G, fh, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(graph, fh, protocol=pickle.HIGHEST_PROTOCOL)
 
     # GraphML needs a clean copy without non-serializable attrs
-    H = _make_graphml_copy(G)
-    nx.write_graphml(H, graphml_path)
+    clean = _make_graphml_copy(graph)
+    nx.write_graphml(clean, graphml_path)
 
     log.info(
         "kg.graph_saved",
         pkl=str(pkl_path),
         graphml=str(graphml_path),
-        n_nodes=G.number_of_nodes(),
-        n_edges=G.number_of_edges(),
+        n_nodes=graph.number_of_nodes(),
+        n_edges=graph.number_of_edges(),
     )
 
 
@@ -128,12 +130,12 @@ def load_graph(path: Path) -> nx.MultiDiGraph:
     """
     path = Path(path)
     with open(path, "rb") as fh:
-        G: nx.MultiDiGraph = pickle.load(fh)  # noqa: S301
+        graph: nx.MultiDiGraph = pickle.load(fh)  # noqa: S301
 
     log.info(
         "kg.graph_loaded",
         path=str(path),
-        n_nodes=G.number_of_nodes(),
-        n_edges=G.number_of_edges(),
+        n_nodes=graph.number_of_nodes(),
+        n_edges=graph.number_of_edges(),
     )
-    return G
+    return graph
