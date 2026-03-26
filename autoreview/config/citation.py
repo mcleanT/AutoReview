@@ -85,8 +85,8 @@ class CitationConfig(BaseModel):
         strategy = strategy_map.get(depth, "balanced")
         density = density_map.get(depth, "standard")
         return cls(
-            selection_strategy=strategy,  # type: ignore[arg-type]  # dict.get returns str, Literal expected
-            citation_density=density,  # type: ignore[arg-type]
+            selection_strategy=strategy,
+            citation_density=density,
         )
 
     @model_validator(mode="after")

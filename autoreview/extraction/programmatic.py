@@ -2725,12 +2725,12 @@ def extract_limitations(
 
     # Discussion/conclusion scanning
     if not section_lim_text:
-        for sec_name in ["discussion", "conclusion", "future"]:
-            sec = _find_section(sections, [sec_name])
-            if not sec:
+        for disc_sec_name in ["discussion", "conclusion", "future"]:
+            disc_sec = _find_section(sections, [disc_sec_name])
+            if not disc_sec:
                 continue
             # Paragraphs starting with limitation keywords
-            paragraphs = re.split(r"\n\n+", sec.text.strip())
+            paragraphs = re.split(r"\n\n+", disc_sec.text.strip())
             lim_paras = []
             for para in paragraphs:
                 para_stripped = para.strip()
@@ -2744,7 +2744,7 @@ def extract_limitations(
                 break
 
             # Individual sentences with limitation keywords
-            sentences = split_sentences(sec.text)
+            sentences = split_sentences(disc_sec.text)
             sentences = [s for s in sentences if not _is_non_content_sentence(s)]
             lim_sents = [
                 s for s in sentences if any(kw in s.lower() for kw in _LIMITATION_KEYWORDS)
@@ -3500,7 +3500,7 @@ def extract_sample_size(text: str | None, sections: list[ParsedSection]) -> int 
     # to avoid false positives on small model counts ("7 LLMs", "12 models")
     if abstract_text:
         for pat in _SAMPLE_SIZE_LOW_CONF:
-            m = pat.search(abstract_text)
+            m = pat.search(abstract_text)  # type: ignore[assignment]
             if m:
                 val = _parse_sample_int(m, min_val=14)
                 if val is not None:

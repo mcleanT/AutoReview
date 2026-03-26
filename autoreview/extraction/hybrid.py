@@ -282,7 +282,7 @@ class HybridExtractor:
                     max_tokens=2048,
                     temperature=0.0,
                 )
-                refined: PaperExtraction = response.parsed  # type: ignore[assignment]
+                refined: PaperExtraction = response.parsed
                 logger.info(
                     "hybrid_extraction.refined",
                     paper_id=draft.paper_id,

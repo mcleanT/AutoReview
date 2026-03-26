@@ -54,9 +54,10 @@ def generate_pipeline_schematic(output_dir: Path) -> Path:
     out_path = fig_dir / "fig1_rag_pipeline.png"
 
     if HAS_SCHEMATIC_ENGINE and SchematicEngine:
+        assert WONG is not None and TINTS is not None
         engine = SchematicEngine(width=14, height=5, dpi=300, bg="white")
         # Pipeline boxes
-        stages = [
+        stages_se = [
             ("Query", 0.03),
             ("Retrieval\n(Dense/Sparse/Hybrid)", 0.18),
             ("Re-ranking", 0.38),
@@ -65,7 +66,7 @@ def generate_pipeline_schematic(output_dir: Path) -> Path:
             ("Output +\nCitations", 0.83),
         ]
         refs = []
-        for label, x in stages:
+        for label, x in stages_se:
             ref = engine.box(
                 x,
                 0.45,
@@ -147,8 +148,8 @@ def generate_temporal_chart(year_counts: dict[int, int], output_dir: Path) -> Pa
         idx_2023 = years.index(2023)
         ax.annotate(
             "ChatGPT-era\ninflection",
-            xy=(str(2023), year_counts[2023]),
-            xytext=(str(years[max(0, idx_2023 - 1)]), max(counts) * 0.6),
+            xy=(str(2023), year_counts[2023]),  # type: ignore[arg-type]
+            xytext=(str(years[max(0, idx_2023 - 1)]), max(counts) * 0.6),  # type: ignore[arg-type]
             arrowprops=dict(arrowstyle="->", color=CB_PALETTE[1], lw=1.5),
             fontsize=9,
             color=CB_PALETTE[1],
@@ -175,6 +176,7 @@ def generate_taxonomy_tree(output_dir: Path) -> Path:
     out_path = fig_dir / "fig3_taxonomy.png"
 
     if HAS_SCHEMATIC_ENGINE and SchematicEngine:
+        assert WONG is not None and TINTS is not None
         engine = SchematicEngine(width=16, height=9, dpi=300, bg="white")
         root = engine.box(
             0.40,
@@ -255,8 +257,8 @@ def generate_taxonomy_tree(output_dir: Path) -> Path:
             fontweight="bold",
             fontfamily="Arial",
         )
-        branches = ["Naive RAG", "Advanced RAG", "Modular RAG", "Agentic RAG"]
-        for i, label in enumerate(branches):
+        branch_labels = ["Naive RAG", "Advanced RAG", "Modular RAG", "Agentic RAG"]
+        for i, label in enumerate(branch_labels):
             x = 0.12 + i * 0.22
             ax.text(
                 x,
@@ -292,7 +294,7 @@ def generate_evidence_chart(themes: list[dict[str, Any]], output_dir: Path) -> P
     }
 
     names = [t["name"][:30] for t in themes]
-    data = {s: [] for s in strength_order}
+    data: dict[str, list[int]] = {s: [] for s in strength_order}
     for t in themes:
         dist = t.get("evidence_strength_distribution", {})
         for s in strength_order:

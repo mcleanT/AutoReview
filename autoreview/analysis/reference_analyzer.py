@@ -76,7 +76,7 @@ class ReferenceAnalyzer:
         Falls back to defaults if PDF cannot be parsed.
         """
         try:
-            import fitz
+            import fitz  # type: ignore[import-untyped]
 
             doc = fitz.open(str(pdf_path))
             text = "".join(page.get_text() for page in doc)
