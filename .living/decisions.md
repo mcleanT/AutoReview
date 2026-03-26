@@ -427,3 +427,219 @@ The clustering stage produced 11 themes; these were consolidated into 5 body sec
 - **Context**: User wants to evaluate whether a local open-weight model can match cloud API quality for paper extraction
 - **Implementation**: OllamaLLMProvider already existed; added strategy to benchmark_extractor.py with num_ctx=32768, max_tokens_structured=8192, sequential (GPU-bound) concurrency
 - **Benchmark design**: 20-paper full-text subset (manifest_subset20.json) for faster iteration; Sonnet extractions serve as ground truth (no rerun needed)
+
+### 2026-03-25: Sequential processing for overnight KG extraction runs
+**Context:** Building kg_runner.py for extracting structured KG data from 100 gastruloid papers overnight via claude -p.
+**Decision:** Set concurrency=1 (sequential processing) for overnight runs.
+**Rationale:** Minimizes token flux per hour, avoids rate-limit pressure, and makes progress predictable — at ~2 min/paper the 100-paper run completes in ~3.5 hours unattended.
+
+### 2026-03-25: Relevance keyword filter after citation-count sort in SearchAggregator
+**Context:** SearchAggregator sorts by citation count; for niche topics this surfaces high-citation tangentially related papers (cancer stem cells, MOFA, etc.) above the target field.
+**Decision:** Apply regex relevance filter requiring "gastruloid" or related terms in title/abstract after aggregation, before extraction.
+**Rationale:** Citation-count ranking is domain-agnostic; a relevance filter restores precision for niche queries without sacrificing recall.
+
+### 2026-03-25: ClaudeCodeProvider (claude -p) over direct API for KG extraction
+**Context:** kg_runner.py needed an LLM backend for calling the mycelium extraction prompt at scale.
+**Decision:** Use `claude -p` (ClaudeCodeProvider) instead of direct Anthropic API calls.
+**Rationale:** No API key management needed, uses existing Claude Code auth, consistent with the pattern established by the programmatic extractor benchmark runner.
+
+### 2026-03-25: System-prompt / user-prompt split for prompt caching in KG extraction
+**Context:** The mycelium extraction prompt is ~34K chars — constant across all 100 paper calls.
+**Decision:** Pass the extraction prompt as the system prompt and paper text as the user prompt.
+**Rationale:** Anthropic prompt caching operates on the system prompt; keeping it constant across calls enables cache hits and reduces effective token cost for large batches.
+
+### 2026-03-25: Disk-cached extraction results per paper hash in kg_runner.py
+**Context:** Overnight runs risk interruption; re-extracting already-processed papers wastes tokens and time.
+**Decision:** Cache extraction results to disk keyed by a hash of the paper content.
+**Rationale:** Enables transparent resume on crash/interrupt without re-processing completed papers.
+
+---
+
+## 2026-03-25 — Switch KG extraction from `claude -p` to direct Anthropic API
+
+**Context:** Batch KG extraction via `claude -p` subprocess was producing 26K–95K tokens per paper with no ceiling, returning generic rc=1 errors on rate limits, and unable to use prompt caching for the 34K system prompt.
+
+**Decision:** Replace `claude -p` calls in kg_runner.py with direct ClaudeLLMProvider (Anthropic Python SDK) calls.
+
+**Rationale:**
+- `claude -p` has no `--max-tokens` flag — output is unbounded regardless of MAX_OUTPUT_TOKENS config
+- `claude -p` does not expose `cache_control: {"type": "ephemeral"}` — every call re-processes the full system prompt
+- `claude -p` returns generic rc=1 "unknown error" for rate limits — retry logic cannot distinguish error types
+- ClaudeLLMProvider already exists in the codebase and supports all three missing capabilities
+
+**Trade-off:** Slightly more code than a subprocess call, but eliminates all three root-cause issues in one change.
+
+### Comprehensive Corpus Retrieval Strategy (2026-03-25)
+- **Decision**: Use all 6 search sources with 56 queries and no paper cap for corpus retrieval
+- **Context**: Original kg_runner.py used 3 sources, 14 queries, capped at 100 papers
+- **Result**: 371 papers (3.7x expansion), 311 with full text (83.8% coverage)
+- **Script**: `Paper Extractor/KnowledgeGraph Extraction/retrieve_corpus.py`
+- **Rationale**: KG extraction benefits from comprehensive field coverage; more papers = richer knowledge graph
+
+---
+## 2026-03-25 — Corpus Archival: Abstract-Only Papers
+
+**Decision**: Archived 60 abstract-only / no-full-text papers from the gastruloid KG corpus, leaving 311 full-text papers as the primary corpus in papers.json.
+
+**Rationale**: KG extraction from abstracts alone produces shallow, low-confidence triples. Full-text papers provide the methods, results, and discussion sections needed for meaningful entity/relation extraction. Archival (not deletion) preserves optionality.
+
+---
+## 2026-03-25 — Batch Extraction via Anthropic Message Batches API
+
+**Decision**: Used the Anthropic Message Batches API for KG extraction rather than sequential per-paper calls.
+
+**Rationale**: 50% cost discount (~$4.30 vs ~$8.60 estimated) with no change to extraction quality. The same prompt, truncation config, and enum coercion logic from kg_runner.py were reused in batch_extract.py. Resumability added via --poll flag so batch results can be retrieved after the server-side job completes without resubmission.
+
+**Batch ID**: msgbatch_01TB1rvAVqEwtxwdo9dH4Dt4 (311 papers, submitted 2026-03-25)
+
+## Accept 93% extraction rate for gastruloid prototype KG (2026-03-25)
+
+**Context:** Batch run produced 289/311 papers extracted successfully; 22 papers were unrecoverable after JSON repair (mid-string truncation with no valid partial structure).
+
+**Decision:** Accept 289/311 (93%) as sufficient for the prototype knowledge graph rather than re-submitting the 22 failed papers.
+
+**Rationale:**
+- Re-submission would cost additional API credits and time for marginal gain on a prototype
+- 289 papers with 2,707 assertions and 3,124 evidence units is sufficient to validate the KG construction pipeline
+- The 22 failures are likely the longest/most complex papers -- re-submission with higher max_tokens can be deferred to the production run
+
+**Alternatives rejected:**
+- Re-submit all 22: deferred to production run
+- Re-submit with split extraction strategy: deferred; would require schema refactor
+
+---
+
+## 2026-03-25 — Knowledge Graph Module: Code Location
+
+**Decision**: Knowledge graph code lives at `autoreview/knowledge_graph/` inside the AutoReview module tree.
+
+**Rationale**: Keeps the graph tightly coupled to pipeline data models and avoids a separate top-level package. Consistent with the existing `autoreview/` namespace used by all other pipeline components.
+
+**Alternatives considered**: Top-level `knowledge_graph/` package (rejected — would fragment the namespace), separate repo (rejected — premature).
+
+---
+
+## 2026-03-25 — Knowledge Graph Persistence: NetworkX Prototype with Graduation Path
+
+**Decision**: Use NetworkX in-memory graphs for the prototype. Formalize a graduation path to SQLite (medium scale) or Neo4j (production scale) when the prototype validates the schema.
+
+**Rationale**: NetworkX requires zero infrastructure, ships with the Python ecosystem, and is sufficient for exploring graph algorithms on hundreds-to-low-thousands of nodes. Graduation triggers: node count >10K, need for persistent cross-session queries, or multi-user access.
+
+**Alternatives considered**: Start directly with SQLite (rejected — premature optimization before schema is stable), Neo4j from day one (rejected — ops overhead unjustified at prototype stage).
+
+---
+
+## 2026-03-25 — Knowledge Graph: Primary Use Case Scope
+
+**Decision**: Build a general-purpose knowledge graph supporting ALL three primary use cases: exploration/discovery, contradiction detection, and gap analysis.
+
+**Rationale**: User confirmed all three use cases are equally important. A general graph with layered analyses (rather than a single-purpose structure) avoids prematurely optimizing the schema for one use case at the expense of others.
+
+**Pending**: Entity deduplication strategy — options under consideration are strict ontology match, hybrid fuzzy matching, or LLM-assisted deduplication. Decision deferred.
+
+
+## 2026-03-25 — Entity Deduplication Strategy
+
+**Decision**: Entity deduplication in the knowledge graph will use a **hybrid approach**: ontology ID matching (exact match on canonical IDs such as MeSH, UniProt, GO terms) as the primary key, with fuzzy string matching as a fallback for entities lacking ontology coverage.
+
+**Rationale**: Pure string matching produces false positives (e.g., "IL-6" vs "Interleukin-6") and false negatives (abbreviation variants). Ontology IDs provide ground-truth identity when available. Fuzzy matching catches cases where the same concept appears under different surface forms without an assigned ID.
+
+**Status**: Finalized. Not yet implemented.
+
+---
+
+## 2026-03-25 — KG Hybrid Architecture (B+C)
+
+**Decision**: Adopt B+C hybrid approach for knowledge graph: layered pipeline (B) combined with Pydantic data contract models (C).
+
+**Module structure**: 8 modules under `autoreview/knowledge_graph/` — entity extraction, edge extraction, deduplication, belief propagation, graph construction, querying, serialization, and integration.
+
+**Pydantic models approved**:
+- `KGEntity` — deterministic `entity_id` via SHA256 hash of (type, canonical_name), alias accumulation during dedup
+- `KGEdge` — typed relationships with evidence linking
+- `BetaPosterior` — Beta(1,1) uninformative prior for belief propagation, evidence strength weighting
+- `KGEvidenceLink` — provenance linking edges to source documents
+
+**Rationale**: Deterministic entity hashing enables stable deduplication across pipeline runs. Beta(1,1) uninformative prior avoids biasing claims before evidence is accumulated. Pydantic models enforce the data contract at module boundaries.
+
+**Status**: Section 2 (Pydantic models) presented; awaiting user approval to proceed to Section 3.
+
+## Use subagent extraction for remaining papers after batch API truncation (2026-03-26)
+
+**Decision**: For the 22 papers that failed batch API extraction (truncated + JSON repair could not recover), used Claude Code sonnet subagents for re-extraction rather than re-submitting to batch API.
+
+**Rationale**:
+- Re-submitting to batch API risks the same truncation failure (same model, same token limit)
+- Subagents use sonnet (better schema compliance than haiku) and have no output token ceiling in the same way
+- Subagents self-validate with Pydantic and self-correct errors inline — batch API cannot do this
+- 5–6 parallel subagents complete a batch of ~25 papers in ~5–6 minutes, acceptable latency
+- Avoids API key reuse patterns that could trigger rate-limit issues on batch re-submission
+
+**Outcome**: 22/22 remaining papers extracted successfully; 311/311 total, 100
+## Use subagent extraction for remaining papers after batch API truncation (2026-03-26)
+
+**Decision**: For the 22 papers that failed batch API extraction (truncated + JSON repair could not recover), used Claude Code sonnet subagents for re-extraction rather than re-submitting to batch API.
+
+**Rationale**:
+- Re-submitting to batch API risks the same truncation failure (same model, same token limit)
+- Subagents use sonnet (better schema compliance than haiku) and have no output token ceiling in the same way
+- Subagents self-validate with Pydantic and self-correct errors inline — batch API cannot do this
+- 5-6 parallel subagents complete a batch of ~25 papers in ~5-6 minutes, acceptable latency
+- Avoids API key reuse patterns that could trigger rate-limit issues on batch re-submission
+
+**Outcome**: 22/22 remaining papers extracted successfully; 311/311 total, 100% validated.
+
+## 2026-03-25 — Knowledge Graph Spec: Assertion Dedup, Predicate Normalization, Evidence Independence
+
+### Decision: Add assertion-level deduplication to KG spec
+- **Context**: Three-tier claim architecture proposal (from prior conversation) highlighted that raw edges without dedup make cross-paper discovery unreliable
+- **Decision**: Same `(subject_id, canonical_predicate, object_id)` triple collapses into a single `KGEdge` with accumulated evidence links
+- **Rationale**: ~2,900 raw assertions → estimated ~1,500-2,000 merged edges; dedup is what makes the graph useful for finding convergent evidence across papers
+- **Location**: `docs/superpowers/specs/2026-03-25-knowledge-graph-prototype-design.md`
+
+### Decision: Add predicate normalization (synonym families)
+- **Context**: Different papers express the same relationship differently (induces/activates/triggers), causing spurious duplicate edges
+- **Decision**: Maintain synonym family lookup table with exact match + fuzzy fallback (rapidfuzz, cutoff 85); all synonyms map to canonical form before dedup
+- **Rationale**: Normalization is prerequisite for meaningful triple merging; fuzzy fallback handles novel phrasings not yet in lookup table
+
+### Decision: Add evidence independence weighting to confidence scoring
+- **Context**: Multiple papers from the same lab are correlated evidence, not independent replication
+- **Decision**: Diminishing returns decay: 0.5x weight per additional evidence unit from the same author group
+- **Rationale**: Independence is the correct statistical criterion for evidence accumulation; same-lab replications should not linearly inflate confidence
+
+### Decision: Make three-tier architecture explicit in KG spec
+- **Tiers**: T1 = assertions (KGEdge — mechanism-level claims, what scientists argue about), T2 = evidence (KGEvidenceLink — experimental demonstrations, what determines support), T3 = provenance (paper_id + author metadata, what determines independence)
+- **Context**: Structure was implicit in existing spec; made explicit after user proposal clarified the conceptual separation
+- **Impact**: Guides all downstream KG query and confidence scoring logic
+
+## 2026-03-25 — Knowledge Graph Prototype: Schema and Architecture Decisions
+
+### KG Extractions Use Mycelium ExtractionResult Schema (Not AutoReview PaperExtraction)
+- **Decision**: The KG ingest module must parse mycelium ExtractionResult format directly
+- **Rationale**: Extraction JSONs in gastruloid_run/extractions use mycelium schema with top-level keys: `paper_provenance`, `evidence_units`, `assertion_drafts`, `citation_contexts`, `extraction_metadata` — NOT AutoReview PaperExtraction model
+- **Impact**: Task 1 (ingest module) must map ExtractionResult fields, not PaperExtraction fields
+
+### networkx Added as New Dependency
+- **Decision**: Add `networkx` to pyproject.toml optional deps or core deps for KG prototype
+- **Rationale**: networkx is NOT currently installed in conda env; rapidfuzz is in pyproject.toml but also not installed — both need `pip install` after adding
+- **Impact**: Add to pyproject.toml `[project.optional-dependencies]` or `[project.dependencies]` before running any KG tasks
+
+### PredicateNormalizer Is a Class (Not a Function)
+- **Decision**: Implement `PredicateNormalizer` as a stateful class with a `.log` attribute
+- **Rationale**: Code reviewer flagged BLOCKER-2: normalization log is needed for auditability; a plain function cannot accumulate the log across multiple calls
+- **Impact**: Task 3 (predicate normalization) implements `PredicateNormalizer` with `.normalize(pred)` method and `.log: list[NormalizationEntry]`
+
+### MergeResult Dataclass Wraps Merged Assertions + Merge Log
+- **Decision**: Dedup/merge step returns a `MergeResult` dataclass, not a bare list
+- **Rationale**: Code reviewer flagged BLOCKER-3: assertion_merge_log was missing; wrapping in a dataclass makes the log a first-class output, enabling downstream auditability
+- **Impact**: Task 4 (dedup) returns `MergeResult(assertions: list[KGAssertion], merge_log: list[MergeEntry])`
+
+### Implementation Plan: 10 Tasks, 9 Sequential Batches (Tasks 7+8 Parallel)
+- **Decision**: Tasks run sequentially with one parallel batch (Tasks 7 analysis + 8 visualization)
+- **Rationale**: Strong schema dependencies chain tasks 1→2→3→4→5→6→(7‖8)→9→10; code reviewer corrected Task 4 to depend on Task 3, not run in parallel
+- **Plan file**: `docs/superpowers/plans/2026-03-26-knowledge-graph-prototype.md`
+
+### Self-Loop Tests Added to Graph and Dedup Modules
+- **Decision**: Both test_graph.py and test_dedup.py include explicit self-loop rejection tests
+- **Rationale**: Code reviewer flagged BLOCKER-4: self-loops (subject == object) are a degenerate case that must be caught and rejected at graph ingestion
+- **Impact**: Ingest and dedup modules must validate subject \!= object on all assertions

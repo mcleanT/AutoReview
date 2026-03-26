@@ -451,3 +451,186 @@ How to apply: When extracting results from benchmark papers, prioritize capturin
 - Qwen fails on categorical/judgment fields: evidence_strength 0.50, study_design 0.50, quality_score 0.55 (Haiku gets 1.0 on all three)
 - Speed: 51s vs 24s for Haiku on same paper; full-text papers (80K+) would take 5-10+ min each on Apple Silicon
 - Conclusion: local Qwen viable for content extraction but needs prompt tuning for metadata calibration; Haiku remains better cost/quality tradeoff for production
+
+### 2026-03-25: SearchAggregator citation-count sorting is dangerous for niche topics
+**Context:** Building kg_runner.py search step for 100 gastruloid papers; broad query terms like "in vitro gastrulation model AND stem cell" fed into SearchAggregator with citation-count sort.
+**Learning:** Top-cited results for mixed queries are often high-citation general-biology papers (cancer stem cells, MOFA, etc.) with only tangential relevance to the target niche. Citation count is a global signal and drowns out field-specific relevance for small fields.
+**Impact:** Always apply a post-aggregation relevance filter (keyword/regex on title+abstract) before handing results to any extraction stage. This should be the default pattern for any niche-topic pipeline.
+
+### 2026-03-25: Full-text coverage for gastruloid organoid field (100-paper corpus)
+**Context:** kg_runner.py retrieval step against 100 target papers.
+**Learning:** 69/100 papers got full text (69%), 27 abstract-only, 4 no text. Source breakdown: Elsevier API 21, PMC 19, S2 API 15, S2 PDF 9, Europe PMC 5. Coverage is typical for a modern biology niche — Elsevier paywall is the primary gap.
+**Impact:** Expect ~30% abstract-only degradation for any mammalian-biology niche corpus. PMC + Elsevier API together cover the majority; S2 PDF is a useful third-tier fallback.
+
+### 2026-03-25: extraction_schema.py lives in Autonomous Science, not AutoReview
+**Context:** kg_runner.py needed to import the mycelium extraction schema for structured output validation.
+**Learning:** `extraction_schema.py` lives in `Autonomous Science/src/mycelium/`, not in AutoReview. Cross-project import requires `sys.path` insertion pointing to that directory.
+**Impact:** Any AutoReview script that imports mycelium schemas must add the Autonomous Science src path at runtime. This is a fragile coupling — consider symlinking or packaging mycelium as an installable library.
+
+---
+
+## 2026-03-25 — KG extraction pipeline debugging (claude -p limitations)
+
+1. **`claude -p` has no `--max-tokens` flag.** MAX_OUTPUT_TOKENS in config was dead code. Haiku generated 26K–95K tokens/paper with no ceiling, making batch runs unpredictable and expensive.
+
+2. **`claude -p` does not support Anthropic prompt caching.** The `cache_control: {"type": "ephemeral"}` header is not exposed through the CLI. The 34K system prompt (~8K tokens) is re-processed on every call — no cache savings possible.
+
+3. **`claude -p` returns generic rc=1 "unknown error" for rate limits.** No structured error info is available to retry logic. Rate limit errors are indistinguishable from any other failure.
+
+4. **Haiku does not reliably follow complex Pydantic schemas (30+ fields, 12 enum types).** Coercion maps for enum mismatches are whack-a-mole — fixing one mismatch reveals the next. Sonnet is more reliable for structured extraction at this schema complexity.
+
+5. **Dry runs that skip Phase 3 (extraction) give false confidence.** Always run a single end-to-end smoke test (1 paper, full pipeline) before committing to a batch run. Skipping stages hides the most expensive failure modes.
+
+6. **Mycelium extraction_schema.py files were accidentally deleted from Autonomous Science working tree** as unstaged deletions. Restored via `git restore`. Check `git status` before running batch jobs that touch shared worktrees.
+
+7. **Debugging overhead exceeded batch cost at the wrong abstraction level.** Opus main context + Sonnet subagents spent more tokens debugging `claude -p` than the batch would cost via direct API. When a tool abstraction fights you on 3+ dimensions, switch abstractions instead of patching.
+
+### CORE API 301 Redirects (2026-03-25)
+- CORE search returned 0 results for all queries due to HTTP 301 redirects
+- All other 5 sources worked fine (PubMed, S2, OpenAlex, CrossRef, Europe PMC)
+- May need to update CORE API base URL or handle redirects in core_api.py
+- **Impact**: Minor — CORE rarely has unique content not in other sources
+
+---
+## 2026-03-25 — Anthropic Batches API for KG Extraction
+
+- Anthropic Batches API accepts up to 10K requests per batch; 311 papers submitted without issue
+- The batch API progress reporting is coarse: it stays at "0 succeeded, N processing" until the entire batch finishes — there is no per-item progress stream
+- Prompt caching with `cache_control: ephemeral` works inside batch requests; the system prompt is cached across calls within the batch, giving the same caching benefit as sequential calls
+- Batch API gives 50% cost discount vs sequential API calls (estimated ~$4.30 vs ~$8.60 for 311 papers at Haiku pricing)
+- Made batch_extract.py resumable: --poll flag re-fetches batch status by ID without resubmitting
+
+## KG Extraction: Token Limit Truncation and Enum Coercion (2026-03-25)
+
+**Source:** Gastruloid batch extraction run (msgbatch_01TB1rvAVqEwtxwdo9dH4Dt4, 311 papers)
+
+### Haiku 4.5 ExtractionResult outputs frequently exceed 16384 token output limit
+- 258/311 papers (83
+## KG Extraction: Token Limit Truncation and Enum Coercion (2026-03-25)
+
+**Source:** Gastruloid batch extraction run (msgbatch_01TB1rvAVqEwtxwdo9dH4Dt4, 311 papers)
+
+### Haiku 4.5 ExtractionResult outputs frequently exceed 16384 token output limit
+- 258/311 papers (83%) hit the 16384 max_tokens ceiling, producing truncated JSON
+- Only 53/311 parsed cleanly on first pass
+- **Fix for future runs:** Set max_tokens >= 32768, or split extraction into multiple passes (e.g., assertions first, evidence second)
+
+### Truncated JSON is recoverable ~87% of the time via bracket-closing repair
+- Strategy: find last valid closing bracket, close remaining open structures in reverse (arrays before objects)
+- Recovered 236/258 truncated outputs; 22 unrecoverable (typically mid-string truncation)
+- **Key insight:** Always attempt repair before re-submitting -- saves API cost and time
+
+### Aggressive enum coercion is essential for Haiku outputs
+- Haiku invents enum values not in the schema (e.g., "observational" instead of "observational_uncontrolled", custom causal_type values)
+- Coercion maps needed for every StrEnum field; without them, Pydantic validation rejects otherwise-valid extractions
+- **Pattern:** Build coercion maps as prefix/substring match -> canonical value, applied before validation
+
+### Batch API economics
+- 311 papers at 50% batch discount ~$4.30 total
+- Batch API is strongly preferred for large extractions (cost + no rate-limit pressure)
+
+## 2026-03-25 — Corpus size larger than batch_run_log.json reported
+
+The `batch_run_log.json` reported only 53 successful extractions, but the actual extraction corpus contains **303 valid JSONs** — nearly 6x larger. This discrepancy likely stems from multiple batch runs accumulating in the output directory while the log only tracks the most recent run. Always count valid JSONs on disk (`find . -name "*.json" | xargs -I{} python -c "..."`) rather than trusting the run log for corpus size.
+
+**Corpus stats (2026-03-25 audit):**
+- 303 valid JSONs, 2,857 assertions, 3,022 evidence units
+- 650 citation contexts, 3,382 unique entities
+- Entity type breakdown: biological_process (2,187), cell_type (837), protein (598), gene (121), pathway (88)
+- Many entities already have ontology IDs (GO, CL, NCBI Taxonomy) — leverage these for deduplication before any embedding-based approach
+
+**Source:** KG brainstorming session, 2026-03-25
+
+## Subagent-Based KG Extraction (2026-03-26)
+
+- Claude Code subagents are effective extraction engines for structured JSON schema outputs — each subagent reads paper text + extraction prompt, generates ExtractionResult JSON, validates with Pydantic, and self-corrects schema errors in a single session
+- Dispatching 5–6 extraction subagents in parallel is practical and completes in ~5–6 minutes per batch; batches of this size avoid context saturation while maintaining throughput
+- Most common schema errors subagents encountered and self-fixed: (1) provenance must be a nested object (not flat fields), (2) condition_type values must map to valid ConditionTypeEnum members
+- Subagent extraction produces higher-quality output than Haiku batch API: no truncation, inline Pydantic validation loop, self-correction on schema mismatch
+- JSON repair pipeline (bracket-closing + aggressive enum coercion) recovered 236/258 truncated batch outputs — useful as a first-pass rescue before falling back to re-extraction
+- Batch API 16384-token output limit is a practical ceiling for complex schema outputs; papers yielding dense knowledge graphs (many entities/assertions) will reliably truncate
+
+---
+### Learning: Edge Count in Knowledge Graphs (2026-03-25)
+
+**Observation**: In the current KG prototype design, edge count ≈ assertion count (~3000 edges for ~3000 claims).
+
+**Why**: Each explicit assertion maps to exactly 1 edge (subject → predicate → object). Dedup can merge duplicate edges but does not increase count. The current design captures only *explicit* assertions extracted from text — no inferred/transitive edges, no co-occurrence edges, no citation graph edges.
+
+**Implication**: A graph with only explicit assertion edges has low average degree. Richer connectivity (enabling graph traversal, clustering, analogy detection) requires additional edge types:
+- Co-occurrence edges (entities appearing in same claim/section)
+- Citation-derived edges (paper cites paper → their claims are related)
+- Inferred/transitive edges (A causes B, B causes C → A indirectly causes C)
+
+**Decision pending**: Whether to add co-occurrence edges to the KG spec before implementation, or defer to Phase 2. User has not yet decided.
+
+**Source**: KG prototype design discussion, session 2026-03-25
+
+## 2026-03-25 — KG Extraction Analysis (Gastruloid Run)
+
+### Predicate Vocabulary Fragmentation
+- **Finding**: 1,143 unique predicates across ~2,950 assertions — ~1 unique predicate per 2.6 assertions
+- **Implication**: LLM generates free-form predicate strings rather than selecting from a controlled vocabulary; this makes graph traversal and querying impractical without normalization
+- **Action needed**: Normalize to ~50 canonical predicates (e.g., "activates", "inhibits", "expressed_in", "localizes_to") before KG construction
+- **Suggested approach**: Embed predicates and cluster, then manually label cluster centroids; or prompt a secondary LLM pass with a fixed predicate ontology
+
+### Citation Context Truncation (Batch API)
+- **Finding**: Citation contexts are sparse — median 0 per paper despite being part of the ExtractionResult schema
+- **Root cause**: Citation context fields appear last in the ExtractionResult JSON. When batch API output hits the token limit, trailing fields are truncated first
+- **Fix**: Either (a) reorder JSON schema to put citation_contexts before evidence fields, or (b) extract citation contexts in a separate dedicated pass, or (c) increase token budget for the extraction call
+
+### Entity Type Schema Coverage
+- **Finding**: "other" entity_type category is 24.50f all entities — the second-largest group
+- **Root cause**: The schema enum was not designed for gastruloid/organoid domain specifics; it lacks dedicated types for: morphological structures, culture conditions, developmental stages, extracellular matrix components
+- **Recommendation**: Extend entity_type enum with domain-specific types before re-extraction or post-hoc reclassification of the "other" bucket
+
+### Assertion Type Distribution
+- 43
+## 2026-03-25 — KG Extraction Analysis (Gastruloid Run)
+
+### Predicate Vocabulary Fragmentation
+- **Finding**: 1,143 unique predicates across ~2,950 assertions — ~1 unique predicate per 2.6 assertions
+- **Implication**: LLM generates free-form predicate strings rather than selecting from a controlled vocabulary; this makes graph traversal and querying impractical without normalization
+- **Action needed**: Normalize to ~50 canonical predicates (e.g., "activates", "inhibits", "expressed_in", "localizes_to") before KG construction
+- **Suggested approach**: Embed predicates and cluster, then manually label cluster centroids; or prompt a secondary LLM pass with a fixed predicate ontology
+
+### Citation Context Truncation (Batch API)
+- **Finding**: Citation contexts are sparse — median 0 per paper despite being part of the ExtractionResult schema
+- **Root cause**: Citation context fields appear last in the ExtractionResult JSON. When batch API output hits the token limit, trailing fields are truncated first
+- **Fix**: Either (a) reorder JSON schema to put citation_contexts before evidence fields, or (b) extract citation contexts in a separate dedicated pass, or (c) increase token budget for the extraction call
+
+### Entity Type Schema Coverage
+- **Finding**: "other" entity_type category is 24.5% of all entities — second-largest group
+- **Root cause**: The schema enum was not designed for gastruloid/organoid domain specifics; it lacks dedicated types for: morphological structures, culture conditions, developmental stages, extracellular matrix components
+- **Recommendation**: Extend entity_type enum with domain-specific types before re-extraction or post-hoc reclassification of the "other" bucket
+
+### Assertion Type Distribution
+- 43% mechanistic_causal, 35% existence — expected skew for experimental biology literature
+- 82% direct experimental evidence — high-quality signal, not mostly review/secondary citations
+
+### Species Coverage
+- Mouse (46%) and human (38%) dominate; reflects the gastruloid/stem cell literature well
+- Remaining ~16% split across other model organisms and unspecified
+
+### Scale Achieved
+- 311 papers fully extracted: 2,947 assertions, 3,331 evidence units, 716 citation contexts
+- Output: extraction_analysis.json + extraction_summary.pdf/png at gastruloid_run/
+
+## 2026-03-26 — KG Extraction Yield Analysis
+
+**Context**: Analyzed mycelium extraction pipeline scaling for gastruloid KG run.
+
+**Learning 1 — Hard caps in mycelium_extraction_prompt.md severely limit yield.**
+The prompt enforces max 15 evidence units, 12 assertion drafts, 10 citation contexts, and a 12K token output limit. Actual extraction averages ~9.5 claims/paper. Realistic yield from biology papers is 60–120 claims/paper, meaning we extract roughly 80f actual content.
+
+**Learning 2 — Triple constraint compounds the yield problem.**
+Prompt caps + token budget + Haiku truncation all stack: Haiku's 16K output limit truncated 830f papers even below the already-low caps. The bottleneck is structural, not just model capacity.
+
+**Learning 3 — Three viable approaches to fix extraction yield.**
+- (A) Remove caps and use a model with a larger output window
+- (B) Multi-pass section-wise extraction with Haiku (keeps cost low, breaks the truncation problem)
+- (C) Lighter schema (~50 tokens/claim vs current ~300 tokens/claim) to fit more claims per context window
+
+**Learning 4 — bioRxiv-scale KG cost estimate.**
+At realistic extraction rates (~80 claims/paper), 310K bioRxiv papers yield ~25M claims, not ~3M as previously estimated. Cost with Haiku batch+caching: ~$4,300. The previous 3M figure assumed the capped 9.5 claims/paper rate.
+

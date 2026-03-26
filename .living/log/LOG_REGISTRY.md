@@ -376,3 +376,12 @@
 | 2026-03-23 | 2026-03-23-049 | autoreview | feat/parallel-extraction | 0m | 10 | claude_code.py,extraction.py,hybrid_extraction.py | | complete | | [log](2026-03-23-049-autoreview.md) |
 | 2026-03-23 | 2026-03-23-050 | autoreview | main | 11m | 3 | benchmark_extractor.py | | complete | | [log](2026-03-23-050-autoreview.md) |
 | 2026-03-24 | 2026-03-24-001 | autoreview | main | 802m | 5 |  | | complete | | [log](2026-03-24-001-autoreview.md) |
+| 2026-03-24 | 2026-03-24-002 | autoreview | main | 6m | 0 |  | | complete | | [log](2026-03-24-002-autoreview.md) |
+| 2026-03-25 | 2026-03-25-001 | autoreview | main | 0m | 4 |  | | complete | | [log](2026-03-25-001-autoreview.md) |
+| 2026-03-25 | 2026-03-25-002 | autoreview | main | 0m | 4 |  | | complete | | [log](2026-03-25-002-autoreview.md) |
+| 2026-03-25 | 2026-03-25-003 | autoreview | main | 0m | 4 |  | | complete | | [log](2026-03-25-003-autoreview.md) |
+| 2026-03-25 | 2026-03-25-004 | autoreview | main | 14m | 4 | retrieve_corpus.py | | complete | | [log](2026-03-25-004-autoreview.md) |
+| 2026-03-25 | 2026-03-25-005 | autoreview | main | 0m | 4 |  | | complete | | [log](2026-03-25-005-autoreview.md) |
+| 2026-03-25 | 2026-03-25-006 | autoreview | main | 2m | 4 | 348f0ba3e2a15a1a.json,403e3ec78f10774a.json,41084d7f92d17557.json (+8 more) | | complete | | [log](2026-03-25-006-autoreview.md) |
+| 2026-03-25 | 2026-03-25-007 | autoreview | main | 0m | 4 | gen_kg_figure.py | | complete | | [log](2026-03-25-007-autoreview.md) |
+| 2026-03-26 | 2026-03-25-008 | autoreview | main | 1m | 4 | 2026-03-25-knowledge-graph-prototype-design.md | | complete | | [log](2026-03-25-008-autoreview.md) |
