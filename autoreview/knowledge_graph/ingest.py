@@ -63,8 +63,8 @@ def _parse_assertion(draft: dict, paper_hash: str, publication_date: str | None)
     if direction == "null":
         direction = None
 
-    subject = draft.get("subject_entity", {})
-    obj = draft.get("object_entity", {})
+    subject = draft.get("subject_entity") or {}
+    obj = draft.get("object_entity") or {}
 
     return {
         "draft_id": draft.get("draft_id", ""),
