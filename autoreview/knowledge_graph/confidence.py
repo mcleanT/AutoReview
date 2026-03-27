@@ -25,14 +25,43 @@ EVIDENCE_WEIGHTS: dict[str, float] = {
 # group is down-weighted by 0.5 per additional paper.
 _INDEPENDENCE_DISCOUNT = 0.5
 
+# Maps certainty level to (alpha, beta) prior parameters.
+# "high" = narrow prior (author is confident) → Beta(1.0, 1.0) — standard uniform
+# "medium" = wider prior (hedged language) → narrower effective range
+# "low" = very wide prior (speculative) → even wider
+CERTAINTY_PRIORS: dict[str | None, tuple[float, float]] = {
+    "high": (1.0, 1.0),
+    "medium": (0.8, 0.8),
+    "low": (0.6, 0.6),
+    None: (1.0, 1.0),  # default for v4 data without certainty
+}
 
-def score_edge(evidence: list[dict[str, Any]]) -> BetaPosterior:
+# Epistemic weight modifier by section source.
+# primary_empirical claims carry full weight — author's own data.
+# interpretive = Discussion synthesis — less grounded.
+# attributed_prior = cited prior work — secondhand.
+# methodological = method claim — low weight for truth assertions.
+SECTION_SOURCE_WEIGHTS: dict[str | None, float] = {
+    "primary_empirical": 1.0,
+    "interpretive": 0.7,
+    "attributed_prior": 0.5,
+    "methodological": 0.3,
+    None: 1.0,  # default for v4 data
+}
+
+
+def score_edge(
+    evidence: list[dict[str, Any]],
+    certainty: str | None = None,
+    section_source: str | None = None,
+) -> BetaPosterior:
     """Compute a Beta-Binomial posterior for a single KG edge.
 
-    Starts from a Beta(1, 1) uniform prior.  For each evidence unit:
+    Starts from a certainty-dependent Beta prior (defaults to Beta(1, 1) for v4
+    data without certainty).  For each evidence unit:
     - The independence discount is 0.5^n where n is the number of prior evidence
       units already seen from the same (first_author, last_author) author group.
-    - effective_weight = EVIDENCE_WEIGHTS[strength] * independence_discount
+    - effective_weight = EVIDENCE_WEIGHTS[strength] * independence_discount * source_weight
     - "supports"    → alpha     += effective_weight
     - "contradicts" → beta_param += effective_weight
 
@@ -43,12 +72,20 @@ def score_edge(evidence: list[dict[str, Any]]) -> BetaPosterior:
             paper_id           (str): unique paper identifier
             first_author       (str): first author surname
             last_author        (str): last / senior author surname
+        certainty: v5 certainty level ("high", "medium", "low", or None for v4 data).
+            Controls the Beta prior parameters via CERTAINTY_PRIORS.
+        section_source: v5 section source ("primary_empirical", "interpretive",
+            "attributed_prior", "methodological", or None for v4 data).
+            Controls the epistemic weight modifier via SECTION_SOURCE_WEIGHTS.
 
     Returns:
         BetaPosterior with updated alpha and beta_param.
     """
-    alpha: float = 1.0
-    beta_param: float = 1.0
+    prior_alpha, prior_beta = CERTAINTY_PRIORS.get(certainty, (1.0, 1.0))
+    alpha: float = prior_alpha
+    beta_param: float = prior_beta
+
+    source_weight = SECTION_SOURCE_WEIGHTS.get(section_source, 1.0)
 
     # Track how many evidence units have been seen per author group (0-indexed count
     # before current unit → discount = 0.5^count_so_far).
@@ -66,7 +103,7 @@ def score_edge(evidence: list[dict[str, Any]]) -> BetaPosterior:
         group_counts[author_group] += 1
 
         base_weight = EVIDENCE_WEIGHTS.get(strength, 0.0)
-        effective_weight = base_weight * independence_discount
+        effective_weight = base_weight * independence_discount * source_weight
 
         if direction == "supports":
             alpha += effective_weight
@@ -164,7 +201,16 @@ def score_all_edges(
             paper_ids.append(ev_link.paper_id)
             group_counts[(first, last)] += 1  # just to count unique groups
 
-        posterior = score_edge(evidence_list)
+        # v5 fields (None for v4 data)
+        certainty = getattr(kg_edge, "certainty", None)
+        section_source = getattr(kg_edge, "section_source", None)
+        # Convert StrEnum to str for dict lookup
+        certainty_str = str(certainty) if certainty is not None else None
+        section_source_str = str(section_source) if section_source is not None else None
+
+        posterior = score_edge(
+            evidence_list, certainty=certainty_str, section_source=section_source_str
+        )
         author_groups = len(group_counts)
         metrics = compute_derived_metrics(
             posterior,

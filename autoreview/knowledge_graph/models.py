@@ -9,6 +9,7 @@ Three-tier architecture:
 from __future__ import annotations
 
 from enum import StrEnum
+from typing import Any
 
 from pydantic import computed_field
 
@@ -25,6 +26,11 @@ class EntityType(StrEnum):
     organism = "organism"
     disease = "disease"
     method = "method"
+    rna = "rna"
+    small_molecule = "small_molecule"
+    phenotype = "phenotype"
+    cellular_compartment = "cellular_compartment"
+    tissue = "tissue"
     other = "other"
 
 
@@ -38,12 +44,31 @@ class AssertionType(StrEnum):
     conditional = "conditional"
 
 
+class SectionSource(StrEnum):
+    """Where the claim originates — determines epistemic weight."""
+
+    primary_empirical = "primary_empirical"
+    interpretive = "interpretive"
+    attributed_prior = "attributed_prior"
+    methodological = "methodological"
+
+
+class Certainty(StrEnum):
+    """Linguistic certainty level — maps to Beta prior width."""
+
+    high = "high"
+    medium = "medium"
+    low = "low"
+
+
 class EvidenceStrength(StrEnum):
     direct_experimental = "direct_experimental"
+    indirect_experimental = "indirect_experimental"
     observational_controlled = "observational_controlled"
     observational_uncontrolled = "observational_uncontrolled"
     computational_prediction = "computational_prediction"
     expert_opinion = "expert_opinion"
+    review_citation = "review_citation"
 
 
 class BetaPosterior(AutoReviewModel):
@@ -90,6 +115,17 @@ class KGEvidenceLink(AutoReviewModel):
     sample_size: str | None
     key_figure: str | None
     publication_date: str | None
+    citing_sentence: str | None = None
+    source_doi: str | None = None
+    section: str | None = None
+
+
+class QuantitativeContext(AutoReviewModel):
+    """Structured dose/time/concentration context for a claim."""
+
+    concentration: str | None = None
+    timepoint: str | None = None
+    dose: str | None = None
 
 
 class KGEdge(AutoReviewModel):
@@ -105,6 +141,17 @@ class KGEdge(AutoReviewModel):
     evidence_links: list[KGEvidenceLink]
     source_assertions: list[str]
     publication_date: str | None
+    # v5 context fields
+    certainty: Certainty | None = None
+    section_source: SectionSource | None = None
+    model_system: str | None = None
+    organism: str | None = None
+    in_vitro: bool | None = None
+    conditions: dict[str, Any] | None = None
+    hedging: str | None = None
+    negatable_form: str | None = None
+    natural_language: str | None = None
+    quantitative_context: QuantitativeContext | None = None
 
 
 class KGCitation(AutoReviewModel):

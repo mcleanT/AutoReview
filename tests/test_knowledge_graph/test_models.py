@@ -20,6 +20,11 @@ class TestEntityType:
             "disease",
             "method",
             "other",
+            "rna",
+            "small_molecule",
+            "phenotype",
+            "cellular_compartment",
+            "tissue",
         }
         assert set(EntityType) == expected
 
@@ -30,10 +35,12 @@ class TestEvidenceStrength:
 
         expected = {
             "direct_experimental",
+            "indirect_experimental",
             "observational_controlled",
             "observational_uncontrolled",
             "computational_prediction",
             "expert_opinion",
+            "review_citation",
         }
         assert set(EvidenceStrength) == expected
 

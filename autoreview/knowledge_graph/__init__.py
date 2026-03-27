@@ -10,6 +10,7 @@ import structlog
 
 from autoreview.knowledge_graph.confidence import score_all_edges
 from autoreview.knowledge_graph.dedup import (
+    EntityRegistry,
     deduplicate_entities,
     merge_assertions,
     normalize_predicate,
@@ -27,13 +28,88 @@ from autoreview.knowledge_graph.ingest import ingest_directory
 from autoreview.knowledge_graph.models import (
     AssertionType,
     BetaPosterior,
+    Certainty,
     KGEdge,
     KGEvidenceLink,
+    QuantitativeContext,
+    SectionSource,
+)
+from autoreview.knowledge_graph.nli import (
+    NLIConfig,
+    classify_cross_claims,
+    diagnose_evidence_directions,
 )
 
 log = structlog.get_logger(__name__)
 
-__all__ = ["build_graph", "load_graph", "save_graph"]
+__all__ = [
+    "build_graph",
+    "load_graph",
+    "save_graph",
+    "classify_cross_claims",
+    "diagnose_evidence_directions",
+    "NLIConfig",
+    "SectionSource",
+    "Certainty",
+    "QuantitativeContext",
+]
+
+
+def _build_citation_edges(
+    corpus_citations: list[dict],
+    registry: EntityRegistry,
+    graph: nx.MultiDiGraph,
+) -> int:
+    """Build cross-paper contradiction/support edges from citation contexts.
+
+    Citation contexts where relationship='contradicts' become explicit contradiction
+    signals on the graph, supplementing the NLI-based detection.
+
+    Args:
+        corpus_citations: List of citation dicts from ingestion.
+        registry: Entity registry for ID lookups.
+        graph: The graph to annotate (mutated in-place).
+
+    Returns:
+        Number of citation-derived edges added as graph metadata.
+    """
+    added = 0
+    for cit in corpus_citations:
+        relationship = cit.get("relationship", "")
+        if relationship not in ("contradicts", "supports", "refines", "extends"):
+            continue
+
+        # Store citation context on linked assertion edges
+        linked_ids = cit.get("linked_assertion_draft_ids") or []
+        cited_doi = cit.get("cited_source_doi")
+        citing_paper = cit.get("citing_paper_id", "")
+
+        for edge_key_str in graph.edges(keys=True):
+            u, v, k = edge_key_str
+            edge_data = graph[u][v][k]
+            kg_edge = edge_data.get("_kg_edge")
+            if kg_edge is None:
+                continue
+
+            # Check if this edge's source assertions include any linked draft IDs
+            source_assertions = kg_edge.source_assertions or []
+            if any(sa in linked_ids for sa in source_assertions):
+                # Add citation metadata to the edge
+                citation_refs = edge_data.get("_citation_refs", [])
+                citation_refs.append(
+                    {
+                        "relationship": relationship,
+                        "cited_doi": cited_doi,
+                        "citing_paper": citing_paper,
+                        "citing_sentence": cit.get("citing_sentence", ""),
+                        "paraphrase": cit.get("cited_claim_paraphrase"),
+                    }
+                )
+                edge_data["_citation_refs"] = citation_refs
+                added += 1
+
+    log.info("kg.pipeline.citation_edges", citation_annotations=added)
+    return added
 
 
 def build_graph(extraction_dir: Path) -> nx.MultiDiGraph:
@@ -128,6 +204,38 @@ def build_graph(extraction_dir: Path) -> nx.MultiDiGraph:
     )
 
     # ------------------------------------------------------------------
+    # Step 5b: Propagate v5 context fields to merged assertions
+    # ------------------------------------------------------------------
+    # Build index: draft_id → assertion for v5 field lookup
+    assertion_by_draft_id: dict[str, dict] = {}
+    for assertion in normalized_assertions:
+        draft_id = assertion.get("draft_id", "")
+        if draft_id:
+            assertion_by_draft_id[draft_id] = assertion
+
+    for merged in merge_result.assertions:
+        source_drafts = merged.get("source_assertions") or []
+        # Use first source assertion's v5 fields (they should be consistent)
+        for draft_id in source_drafts:
+            source = assertion_by_draft_id.get(draft_id)
+            if source:
+                for field in (
+                    "certainty",
+                    "section_source",
+                    "model_system",
+                    "organism",
+                    "in_vitro",
+                    "conditions",
+                    "hedging",
+                    "negatable_form",
+                    "natural_language",
+                    "quantitative_context",
+                ):
+                    if field not in merged or merged.get(field) is None:
+                        merged[field] = source.get(field)
+                break  # use first available source
+
+    # ------------------------------------------------------------------
     # Step 6: Build KGEdge instances
     # ------------------------------------------------------------------
     # Index evidence units by evidence_id for fast lookup
@@ -171,6 +279,25 @@ def build_graph(extraction_dir: Path) -> nx.MultiDiGraph:
         except ValueError:
             assertion_type = AssertionType.mechanistic_causal
 
+        # Resolve v5 enums safely
+        raw_certainty = merged.get("certainty")
+        try:
+            certainty = Certainty(raw_certainty) if raw_certainty else None
+        except ValueError:
+            certainty = None
+
+        raw_section_source = merged.get("section_source")
+        try:
+            section_source = SectionSource(raw_section_source) if raw_section_source else None
+        except ValueError:
+            section_source = None
+
+        # Resolve quantitative_context
+        raw_qc = merged.get("quantitative_context")
+        quantitative_context = None
+        if isinstance(raw_qc, dict):
+            quantitative_context = QuantitativeContext(**raw_qc)
+
         kg_edges.append(
             KGEdge(
                 edge_id=edge_id,
@@ -183,6 +310,17 @@ def build_graph(extraction_dir: Path) -> nx.MultiDiGraph:
                 evidence_links=evidence_links,
                 source_assertions=merged.get("source_assertions") or [],
                 publication_date=merged.get("publication_date"),
+                # v5 context fields
+                certainty=certainty,
+                section_source=section_source,
+                model_system=merged.get("model_system"),
+                organism=merged.get("organism"),
+                in_vitro=merged.get("in_vitro"),
+                conditions=merged.get("conditions"),
+                hedging=merged.get("hedging"),
+                negatable_form=merged.get("negatable_form"),
+                natural_language=merged.get("natural_language"),
+                quantitative_context=quantitative_context,
             )
         )
 
@@ -197,6 +335,11 @@ def build_graph(extraction_dir: Path) -> nx.MultiDiGraph:
     # Step 8: Score confidence
     # ------------------------------------------------------------------
     graph = score_all_edges(graph, corpus.provenance_by_paper)
+
+    # ------------------------------------------------------------------
+    # Step 9: Annotate edges with citation context
+    # ------------------------------------------------------------------
+    _build_citation_edges(corpus.all_citations, registry, graph)
 
     log.info(
         "kg.pipeline.complete",
