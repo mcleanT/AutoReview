@@ -1,5 +1,47 @@
 # Changelog
 
+## v0.3.0 — Knowledge Graph & Extraction Overhaul
+
+### Knowledge Graph Pipeline
+- Full KG construction pipeline: entity deduplication, predicate normalization, assertion merging, Beta-Binomial confidence scoring, community detection, contradiction detection, and gap analysis
+- NetworkX graph construction with GraphML export and visualization (network plots, confidence histograms)
+- `autoreview/knowledge_graph/` package: models, ingest, dedup, graph, scoring, analysis, viz, and public API
+
+### KG Extraction v4
+- Pydantic schema (`kg_schema.py`) with 34-predicate closed vocabulary and deterministic coercion layer (15-entry map catches LLM predicate drift)
+- `evidence_links` with per-claim direction (`supports`/`refutes`/`mixed`/`not_applicable`) replacing flat `evidence_ids`
+- `result_summary` on evidence units captures conclusions, not methods
+- Post-processing: absence claims automatically mapped to `refutes` direction
+- Anthropic Message Batches API batch runner (`batch_extract_kg.py`) for corpus-scale extraction with Haiku
+- `kg-extract` Claude Code skill for both single-paper local extraction and full corpus batch API runs
+
+### Hybrid Extraction
+- Programmatic zero-token paper extractor: deterministic extraction with no LLM calls
+- `HybridExtractor` combining programmatic baseline with LLM refinement
+- Dual-layer scoring with alpha-blended composite scores and per-field factual accuracy (number/entity extraction)
+- Grounding verification to prevent hallucinated numbers in LLM refinement pass
+- Direct-Haiku as default extraction strategy
+
+### Benchmarking
+- Dual-layer scoring exposed via `--strategy` and `--alpha` flags on `autoreview benchmark`
+- Qwen 3.5 35B local model benchmarking support
+- Manifest-based benchmark paper selection
+
+### Pipeline Quality
+- Publication-quality visual generation: `SchematicEngine` figures and markdown tables (retrieval, domains, evaluation, takeaways)
+- Visual integration: automatic figure/table insertion in assembly with visual audit pass
+- ARISE quality directives injected into outline and narrative planning prompts
+- Citation snowballing wired into the screening stage
+- Contradiction resolver wired into clustering
+- Token budget monitoring with graceful degradation when limits are approached
+- Pre-flight validation checks before pipeline launch
+- Depth-dependent quality thresholds in critique rubrics
+- Pipeline consolidation: visual node count reduced from 20 to 17
+
+### Infrastructure
+- CI lint and mypy fixes across the codebase
+- Ruff format cleanup on all new modules
+
 ## v0.2.0 — Review Depth Control
 
 ### New Feature: Depth Levels

@@ -11,6 +11,7 @@ Fully autonomous pipeline for generating publication-ready scientific review pap
 - **Three-level self-critique** — outline, per-section, and holistic review with configurable rubrics
 - **Domain-agnostic** — ships with biomedical, CS/AI, and chemistry presets; add new domains via YAML
 - **Review depth control** — three depth levels (low/medium/deep) with evidence-weighted word allocation for concise summaries to exhaustive reviews
+- **Knowledge graph extraction** — structured claim extraction with 34-predicate vocabulary, evidence linking, and graph construction
 - **Crash recovery** — pipeline state saved after every stage; resume from any snapshot
 
 ## Architecture
@@ -19,8 +20,8 @@ Fully autonomous pipeline for generating publication-ready scientific review pap
 [Query Expansion] → [Multi-Source Search] → [Screen & Deduplicate]
                                                      ↓
                           [Parallel Extraction (per paper)]
-                                                     ↓
-                    [Thematic Clustering + Contradiction Detection]
+                                 ↓                   ↓
+              [Knowledge Graph Construction]   [Thematic Clustering + Contradiction Detection]
                                                      ↓
                               [Outline Generation] → [Outline Critique] ←→ [Revise]
                                                      ↓
@@ -36,6 +37,26 @@ Fully autonomous pipeline for generating publication-ready scientific review pap
 ```
 
 Each stage is an async DAG node with typed Pydantic inputs/outputs. Pipeline state is serialized to JSON after every node for crash recovery.
+
+## Knowledge Graph
+
+AutoReview can build a structured knowledge graph from extracted paper claims. The pipeline runs: extraction → ingestion → entity deduplication → graph construction → confidence scoring → community detection → contradiction detection → gap analysis → visualization.
+
+Each claim is represented as a typed predicate triple (subject → predicate → object) drawn from a closed 34-predicate vocabulary. Evidence units carry per-claim direction (`supports`/`refutes`/`mixed`) and are scored with Beta-Binomial confidence to surface high-confidence vs. contested assertions. The graph is exported as GraphML and rendered as network plots and confidence histograms.
+
+**Single-paper extraction** (local, no API cost):
+```bash
+# Via the kg-extract Claude Code skill
+/kg-extract path/to/paper.pdf
+```
+
+**Corpus-scale batch extraction** (Anthropic Message Batches API, Haiku):
+```bash
+cd "Paper Extractor/KnowledgeGraph Extraction"
+ANTHROPIC_API_KEY=sk-... python batch_extract_kg.py
+```
+
+The `autoreview/knowledge_graph/` package exposes a public API for integrating KG results into downstream analysis.
 
 ## Quick Start
 
@@ -186,6 +207,7 @@ The `.mcp.json` file is pre-configured for use with Claude Code. Available tools
 | Format conversion | `pypandoc` |
 | Testing | `pytest` + `pytest-asyncio` |
 | Logging | `structlog` |
+| Knowledge Graph | NetworkX + custom scoring |
 
 ## Contributing
 

@@ -23,6 +23,13 @@ Only extract if the paper introduces or validates a novel method. Skip routine m
 - `attributed_prior`: Explicit citations of prior work's findings ("Smith et al. demonstrated that X [12]"). Set `source_doi` to the cited work's DOI if resolvable, else `null`.
 - **HIGH VALUE**: Discussion sentences that explicitly contradict prior work ("In contrast to Smith et al., we found...") must always be extracted as TWO claims: one `attributed_prior` for the prior finding, one `primary_empirical` or `interpretive` for this paper's finding.
 
+**CRITICAL for graph quality**: When the Discussion explicitly states disagreement with prior work (e.g., "In contrast to...", "Unlike the findings of...", "However, X et al. showed..."), you MUST extract:
+1. An `attributed_prior` claim for the prior finding (with source_doi if available)
+2. The current paper's finding as `primary_empirical` or `interpretive`
+3. A citation_context entry with `relationship: "contradicts"` linking them
+
+These explicit author-stated contradictions are the highest-quality signals for the contradiction network.
+
 **Introduction → `attributed_prior`**
 Only extract when a SPECIFIC finding is attributed to a SPECIFIC citation. Skip generic statements ("It is well established that...") — these are not informative graph edges.
 
@@ -105,6 +112,38 @@ Use ONLY these predicates. Do NOT invent new predicates.
 
 **Do NOT put section_source values in claim_type.** For example, an `attributed_prior` claim about "Tbx6 KO causes ectopic neural tubes in vivo" has `section_source: "attributed_prior"` but `claim_type: "mechanistic_causal"`.
 
+### Claim-level experimental context fields (REQUIRED)
+
+Every claim MUST include `model_system` and `organism` as top-level fields:
+
+```json
+"model_system": "mouse ESC gastruloids",
+"organism": "Mus musculus",
+```
+
+**Derivation rules:**
+- For `primary_empirical` claims: derive from the primary evidence unit supporting the claim
+- For `attributed_prior` claims: use the model system from the cited work (as stated by the authors)
+- Set `null` ONLY for purely computational or review claims with no experimental system
+
+### `quantitative_context` field on claims
+
+For claims where truth depends on specific concentrations, doses, or timepoints, extract structured context:
+
+```json
+"quantitative_context": {
+  "concentration": "10ng/ml BMP4",
+  "timepoint": "48h",
+  "dose": null
+}
+```
+
+**Rule:** For `mechanistic_causal` and `comparative` claims, extract `quantitative_context` if the claim's truth depends on specific concentrations, doses, or timepoints. Set `null` if the claim is general/unqualified.
+
+### `section_source` epistemic weight
+
+`section_source` determines epistemic weight in the graph: `primary_empirical` claims receive full weight, `interpretive` claims 70%, `attributed_prior` claims 50%. Extract `section_source` accurately — it affects downstream graph scoring.
+
 ### Other rules
 - **Direction**: `"positive"` = predicate holds; `"negative"` = predicate does not hold
 - **Ontology IDs**: best effort — UniProt for proteins, GO for processes/compartments, CL for cell types, UBERON for tissues, NCBITaxon for species. Set `null` if unsure.
@@ -114,12 +153,27 @@ Use ONLY these predicates. Do NOT invent new predicates.
 
 ## EVIDENCE RULES
 
-- One evidence unit per distinct experiment or figure panel
+- One evidence unit per distinct experiment or figure panel (for experimental evidence) or per distinct cited finding (for citation evidence stubs)
 - **Every evidence unit MUST have a `key_figure`**: Scan the paper for "Fig.", "Figure", "Table", "fig. S", "Movie S" references. Assign the specific panel (e.g., "Figure 2A", "Fig. S3B"). Set `null` ONLY if the claim genuinely has no associated figure.
 - **`result_summary` is REQUIRED**: State what the experiment CONCLUDED, not what was done. It must be a complete sentence that a reader could evaluate as true or false. Example: "BMP4 knockout caused 3.2-fold reduction in T/Brachyury, confirming BMP4 is required for mesoderm specification" — NOT "BMP4 knockout gastruloids assessed by immunofluorescence."
 - Capture negative and null results
 - Copy statistical values verbatim; set `null` if not stated
 - Brief descriptions — no full protocol detail needed
+
+### Citation evidence stubs for `attributed_prior` claims
+
+Every `attributed_prior` claim MUST have at least one evidence unit — a **citation evidence stub**. This gives the knowledge graph provenance for cited findings, enabling hypothesis generation for contradictions.
+
+Citation evidence stubs differ from experimental evidence:
+- `evidence_strength`: always `"review_citation"`
+- `result_summary`: the cited finding as stated by the authors (paraphrase of the cited result, NOT the citing sentence)
+- `citing_sentence`: the exact sentence from this paper that cites the finding
+- `source_doi`: DOI of the cited work (from reference list), or `null` if unresolvable
+- `model_system` / `organism`: the experimental system of the CITED work, as described by the authors
+- `key_figure`: `null` (no figure for citations)
+- `approach`: `"citation_reference"`
+
+**Why this matters**: Without evidence stubs, attributed_prior claims are dangling edges with no provenance. The graph cannot generate resolution hypotheses for contradictions involving cited findings if it doesn't know the model system, organism, or what the cited authors actually found.
 
 ---
 
@@ -136,6 +190,23 @@ Each claim links to evidence via `evidence_links` with a direction qualifier:
 
 ---
 
+## CITATION CONTEXT RULES
+
+Extract citation contexts from the Introduction and Discussion. Each citation context links a specific cited finding to assertions in this paper.
+
+- **`relationship`** types:
+  - `supports` — cited work's finding is consistent with this paper's claim
+  - `contradicts` — cited work's finding conflicts with this paper's claim
+  - `extends` — this paper builds on the cited finding
+  - `refines` — this paper narrows or qualifies the cited finding
+  - `contextualizes` — cited work provides background context
+
+- **`source_doi`**: DOI of the cited paper if resolvable from the reference list. Set null if not resolvable.
+- **`linked_claim_ids`**: List of claim_ids in THIS paper that the citation relates to.
+- **HIGH PRIORITY**: Discussion sentences with explicit disagreement MUST generate a citation_context with `relationship: "contradicts"`.
+
+---
+
 ## QUALITY CHECKLIST
 
 Before outputting, verify:
@@ -147,6 +218,12 @@ Before outputting, verify:
 6. Every `predicate` is from the closed vocabulary table above — no invented predicates
 7. Every `claim_type` is one of: mechanistic_causal, correlational, comparative, existence, absence, conditional, methodological — NOT a section_source value
 8. Every `evidence_links` entry has a `direction` that accurately reflects whether the evidence supports or refutes the claim — not all "supports"
+9. Every claim has `model_system` and `organism` populated (null only for purely computational/review claims with no experimental system)
+10. Discussion contradictions with prior work include citation_context entries with `relationship: "contradicts"` linking the paired claims
+11. Quantitative claims (dose-dependent, time-dependent, concentration-dependent) include `quantitative_context` with relevant fields populated
+12. Citation contexts extracted for all explicitly cited prior findings in Introduction and Discussion
+13. Every `relationship: contradicts` citation context has a corresponding `attributed_prior` claim
+14. Every `attributed_prior` claim links to at least one citation evidence stub with `evidence_strength: "review_citation"`
 
 ---
 
@@ -182,6 +259,13 @@ Output ONLY a single JSON object — no preamble, no markdown fences. No limit o
       "certainty": "high",
       "section_source": "primary_empirical",
       "source_doi": null,
+      "model_system": "mouse ESC gastruloids",
+      "organism": "Mus musculus",
+      "quantitative_context": {
+        "concentration": "3µM CHIR99021",
+        "timepoint": "48-72h",
+        "dose": null
+      },
       "evidence_links": [
         {"evidence_id": "e_001", "direction": "supports"},
         {"evidence_id": "e_002", "direction": "supports"}
@@ -208,6 +292,9 @@ Output ONLY a single JSON object — no preamble, no markdown fences. No limit o
       "certainty": "high",
       "section_source": "primary_empirical",
       "source_doi": null,
+      "model_system": "mouse ESC gastruloids",
+      "organism": "Mus musculus",
+      "quantitative_context": null,
       "evidence_links": [
         {"evidence_id": "e_001", "direction": "refutes"}
       ]
@@ -233,7 +320,12 @@ Output ONLY a single JSON object — no preamble, no markdown fences. No limit o
       "certainty": "high",
       "section_source": "attributed_prior",
       "source_doi": "10.1038/nature12345",
-      "evidence_links": []
+      "model_system": "mouse embryo",
+      "organism": "Mus musculus",
+      "quantitative_context": null,
+      "evidence_links": [
+        {"evidence_id": "e_cite_001", "direction": "supports"}
+      ]
     }
   ],
   "evidence": [
@@ -252,6 +344,36 @@ Output ONLY a single JSON object — no preamble, no markdown fences. No limit o
       "key_figure": "Figure 2A",
       "approach": "cell_biology",
       "assay_types": ["immunofluorescence", "confocal_microscopy"]
+    },
+    {
+      "evidence_id": "e_cite_001",
+      "description": "Citation reference from Smith et al. (2020)",
+      "result_summary": "Wnt signaling is essential for mesoderm specification during mouse gastrulation in vivo",
+      "model_system": "mouse embryo",
+      "organism": "Mus musculus",
+      "perturbation": null,
+      "readout": null,
+      "result_direction": "positive",
+      "effect_size": null,
+      "p_value": null,
+      "sample_size": null,
+      "key_figure": null,
+      "approach": "citation_reference",
+      "assay_types": [],
+      "evidence_strength": "review_citation",
+      "citing_sentence": "Previous work demonstrated that Wnt signaling is essential for mesoderm specification in vivo (Smith et al., 2020)",
+      "source_doi": "10.1016/j.cell.2020.0001"
+    }
+  ],
+  "citation_contexts": [
+    {
+      "citation_id": "cit_001",
+      "citing_sentence": "Previous work demonstrated that Wnt signaling is essential for mesoderm specification in vivo (Smith et al., 2020)",
+      "cited_source_doi": "10.1016/j.cell.2020.0001",
+      "cited_claim_paraphrase": "Wnt signaling is essential for mesoderm specification in vivo",
+      "relationship": "supports",
+      "linked_claim_ids": ["c_001"],
+      "section": "introduction"
     }
   ],
   "extraction_model": "claude-haiku-4-5-20251001",
