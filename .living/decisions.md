@@ -643,3 +643,85 @@ The clustering stage produced 11 themes; these were consolidated into 5 body sec
 - **Decision**: Both test_graph.py and test_dedup.py include explicit self-loop rejection tests
 - **Rationale**: Code reviewer flagged BLOCKER-4: self-loops (subject == object) are a degenerate case that must be caught and rejected at graph ingestion
 - **Impact**: Ingest and dedup modules must validate subject \!= object on all assertions
+
+---
+
+## 2026-03-26 — Dual-Prompt Extraction Architecture (KG vs AutoReview)
+
+**Context:** Built a new KG-specific extraction pipeline alongside the existing AutoReview extraction pipeline.
+
+**Decision:** Maintain two separate extraction prompts with distinct design goals:
+- **AutoReview prompt**: Capped (12 assertions, 15 evidence, 12K tokens), rich schema with provenance/epistemic_function/citation_contexts/nested ontology objects. Optimised for reliability and structured output compatible with the review pipeline.
+- **KG prompt**: Uncapped, lean schema (~100 tokens/claim vs ~300), section-aware tagging (primary_empirical / interpretive / attributed_prior / methodological), Abstract skipped as redundant. Optimised for maximum recall.
+
+**Schema differences (KG vs AutoReview):**
+- Dropped: `provenance`, `epistemic_function`, `citation_contexts`, nested ontology condition objects
+- Kept: `conditions` (flat strings), `evidence_strength`, `certainty`, `predicate` — all edge-relevant fields
+- Contradiction handling: Discussion contradictions with prior work flagged HIGH VALUE and extracted as paired claims (one `attributed_prior` + one `primary_empirical`/`interpretive`)
+
+**Rationale:** The original caps caused 83
+---
+
+## 2026-03-26 — Dual-Prompt Extraction Architecture (KG vs AutoReview)
+
+**Context:** Built a new KG-specific extraction pipeline alongside the existing AutoReview extraction pipeline.
+
+**Decision:** Maintain two separate extraction prompts with distinct design goals:
+- **AutoReview prompt**: Capped (12 assertions, 15 evidence, 12K tokens), rich schema with provenance/epistemic_function/citation_contexts/nested ontology objects. Optimised for reliability and structured output compatible with the review pipeline.
+- **KG prompt**: Uncapped, lean schema (~100 tokens/claim vs ~300), section-aware tagging (primary_empirical / interpretive / attributed_prior / methodological), Abstract skipped as redundant. Optimised for maximum recall.
+
+**Schema differences (KG vs AutoReview):**
+- Dropped: `provenance`, `epistemic_function`, `citation_contexts`, nested ontology condition objects
+- Kept: `conditions` (flat strings), `evidence_strength`, `certainty`, `predicate` — all edge-relevant fields
+- Contradiction handling: Discussion contradictions with prior work flagged HIGH VALUE and extracted as paired claims (one `attributed_prior` + one `primary_empirical`/`interpretive`)
+
+**Rationale:** The original caps caused 83% truncation of actual claim content. Two prompts let each use case optimise independently without compromising the other.
+
+**Files:**
+- `Paper Extractor/KnowledgeGraph Extraction/kg_schema.py`
+- `Paper Extractor/KnowledgeGraph Extraction/kg_extraction_prompt.md`
+- `Paper Extractor/KnowledgeGraph Extraction/batch_extract_kg.py`
+
+### Claim-centric graph visualization over entity-centric (2026-03-26)
+- Chose claims-as-nodes with shared-entity edges over traditional entity graph
+- Rationale: entity graph with 2,462 nodes was intractable for text visualization; claim graph surfaces assertions directly
+- Used vis.js via CDN (no pyvis dependency) for full control over filter panel
+- Trade-off: 13.78 MB HTML file, 29K edges can be sluggish — mitigated by filters
+
+### Semantic contradiction detection: graph-constrained NLI + LLM (2026-03-26)
+- Chose Approach C: use existing 29K shared-entity pairs as candidate set
+- Two-tier: DeBERTa NLI cross-encoder → LLM verification on top candidates
+- Rejected: brute-force embedding (4.2M pairs), literal predicate matching (misses nuance)
+- Rationale: graph structure already constrains to biologically related claims, integrates back into Beta-Binomial
+
+### Semantic contradiction detection: graph-constrained NLI + LLM (2026-03-26)
+- Chose Approach C over brute-force embedding (4.2M pairs) or literal predicate matching
+- Pipeline: 29K shared-entity pairs → DeBERTa NLI cross-encoder → top ~500 → LLM verify
+- Cost: $0 for NLI (local), ~$0.05 for LLM verification (Haiku)
+- NLI p_contra integrates directly into Beta-Binomial as calibrated probability weight
+- Rejected Approach A (NLI-only, misses scientific nuance) and B (expensive LLM on all candidates)
+
+### Cross-claim beta propagation design (2026-03-26)
+- Extend confidence.py with score_cross_claim_contradictions() function
+- NLI p_contra gates how much claim B's evidence counts against claim A (and vice versa)
+- Preserves existing evidence strength weighting and author independence discounting
+- Three gaps identified: cross-claim propagation (blocking), extraction always "supports" (blocking), independence model extension (quality)
+
+### Extraction prompt improvements needed (2026-03-26)
+- KG extraction prompt: add result_summary field, add assertion_links with per-claim direction
+- Mycelium prompt: add explicit "refutes" classification guidance with examples
+- ingest.py: concatenate effect_description into experiment_summary (data already exists, just dropped)
+- Priority: ingest.py fix is zero-cost (uses existing data), prompt fixes need re-extraction
+
+### 2026-03-26: KG extraction v4 as standard extraction approach
+
+**Decision**: The v4 KG extraction pipeline (kg_schema.py, kg_extraction_prompt.md, batch_extract_kg.py) is the standard for all knowledge graph extraction going forward. The AutoReview pipeline (mycelium_extraction_prompt.md, batch_extract.py) remains untouched for review paper generation.
+
+**Key design choices**:
+- evidence_links with per-claim direction (supports/refutes/mixed) instead of flat evidence_ids
+- result_summary on evidence (conclusions, not methods)
+- Predicate coercion layer handles Haiku vocabulary drift deterministically
+- Post-processing flips absence claims to refutes
+- Prompt hardening: predicate table format, claim_type/section_source disambiguation, figure coverage requirement
+
+**Validated**: 4 prompt iterations on Veenvliet 2020 (Science). Haiku v4 + coercion = 0 schema violations, 65 claims, 39 evidence units, 3 native refutes links.

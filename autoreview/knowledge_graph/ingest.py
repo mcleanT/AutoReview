@@ -99,6 +99,8 @@ def _parse_evidence_unit(ev: dict, paper_hash: str, publication_date: str | None
         experiment_parts.append(experiment["description"])
     if experiment.get("readout"):
         experiment_parts.append(f"Readout: {experiment['readout']}")
+    if results.get("effect_description"):
+        experiment_parts.append(f"Result: {results['effect_description']}")
     experiment_summary = "; ".join(experiment_parts) if experiment_parts else ""
 
     return {

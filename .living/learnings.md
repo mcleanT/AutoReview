@@ -675,3 +675,135 @@ At realistic extraction rates (~80 claims/paper), 310K bioRxiv papers yield ~25M
 - 303 papers -> 492 Louvain communities, 522 contradictions (controversy > 0.5), 3,331 evidence units
 - Top hubs by degree: human RA-gastruloids, WNT/beta-catenin signaling, BMP-treated hESCs
 - These numbers calibrate expectations for other domains at similar corpus sizes
+
+## 2026-03-25 — mypy strict mode + KG package fixes
+
+- **mypy + `from __future__ import annotations` strips `Any` imports**: When `from __future__ import annotations` is active, all annotations become strings (lazy evaluation), so `Any` from `typing` appears unused to ruff and gets stripped. This breaks mypy strict mode. Fix: use `pyproject.toml` mypy overrides (`ignore_missing_imports = true`, `disallow_any_generics = false`) rather than per-file type annotations to avoid the ruff/mypy conflict.
+- **mypy overrides for third-party stubs**: `networkx` and `scipy` lack type stubs. Add `[[tool.mypy.overrides]]` sections in `pyproject.toml` with `ignore_missing_imports = true` per package rather than suppressing globally.
+- **`@computed_field` on `@property` not supported by mypy**: Use `# type: ignore[prop-decorator]` comments inline rather than a broad override. Affects Pydantic v2 computed fields.
+- **`no-any-return` in confidence calculations**: When a function return type is annotated as `str` but the expression can be `Any`, wrap with `str()` to satisfy mypy without disabling the rule.
+- **Stop hook debounce prevents mid-session blocking**: The mycelium stop hook now checks if the last work timestamp (mycelium-reminded.tmp) is less than 5 minutes old. If so, exits cleanly. Prevents false positives when the session is still active. Pattern: `$(date +) - WORK_TS < 300` check before the blocking `.living/` staleness check.
+
+## 2026-03-25 — CI Fixes: KG Integration + Pre-existing Failures
+
+### CI ruff config may differ from local
+Always check CI output, not just local ruff. The KG module had 74 lint errors (G→graph variable rename) that were clean locally but failed in CI due to differing ruff config.
+- **When useful**: Before assuming local lint passes means CI will pass; when adding new modules with external library aliases
+
+### mypy strict mode + untyped libraries → use pyproject.toml overrides
+For untyped libraries (networkx, scipy, fitz/PyMuPDF), use `[[tool.mypy.overrides]]` per-module in pyproject.toml rather than scattering `type:ignore` comments throughout the code. This is cleaner, survives refactors, and makes the intent explicit.
+- **When useful**: When integrating any library without type stubs; when mypy strict mode flags third-party imports
+- **Pattern**: `[[tool.mypy.overrides]] module = ["networkx.*", "scipy.*"] ignore_missing_imports = true`
+
+### Stop hook debounce prevents false positives
+Adding a 5-minute debounce timer to mycelium-stop-check.sh prevents the hook from blocking session end when .living/ was updated earlier in the same session but no new significant work occurred afterward.
+- **When useful**: When stop hook fires unexpectedly after .living/ was already updated
+
+---
+
+## 2026-03-26 — Schema Token Cost vs Claim Density Tradeoff
+
+**Context:** Analysed extraction yield from the AutoReview extraction prompt against realistic paper claim density.
+
+**Finding:** The original extraction prompt's caps (12 assertions, 15 evidence, 12K token budget) extracted only ~8% of a paper's actual claim content — approximately 9.5 claims vs a realistic 60–120 per paper.
+
+**Root cause — triple constraint compounding:**
+1. Prompt-level caps (12 assertions, 15 evidence)
+2. 12K token output budget
+3. Haiku 16K output limit
+Together these produce an 83% truncation rate on full-paper extraction.
+
+**Key insight — cost per claim drops when caps are removed:** Removing caps costs ~3x more per paper but yields ~8x more claims, halving the cost per claim. For KG use cases where recall matters, capping is actively counterproductive.
+
+**Conditions are load-bearing for contradiction detection:** Without species/cell_type/treatment context in the `conditions` field, cross-system comparisons generate massive false positive rates. A claim that "X activates Y in mouse ESCs" and "X inhibits Y in human iPSCs" looks like a contradiction without conditions — it is not. This makes flat-string conditions a mandatory edge attribute even in the lean KG schema.
+
+**Schema size finding:** Dropping provenance, epistemic_function, citation_contexts, and nested ontology condition objects reduces per-claim token cost from ~300 to ~100 tokens (~3x reduction) while preserving all graph-edge-relevant fields.
+
+**Actionable rule:** For any extraction task, ask "Is this field consumed by downstream graph edges or is it human-readability metadata?" Drop the latter when recall is the goal.
+
+### Confidence scoring framework is hollow (2026-03-26)
+- All 3,214 evidence links classified as "supports" — zero "contradicts" entries
+- BetaPosterior all default Beta(1,1), controversy_score = 1/alpha (meaningless)
+- Root cause: extraction prompts do not force support/contradict classification
+- Fix requires: extraction prompt update + re-scoring + semantic contradiction detection
+- source: interactive KG exploration session
+
+### Cross-claim contradiction requires Beta-Binomial extension (2026-03-26)
+- Current Beta-Binomial operates within a single edge (evidence for/against same triple)
+- NLI contradiction detection operates across edges (different claims about related entities)
+- Need cross-claim beta propagation: claim B's evidence becomes soft counter-evidence for claim A
+- Formula: claim_A.beta += p_contra × evidence_strength × independence_discount
+- Independence model also needs extension: same-lab contradiction ≠ independent-lab contradiction
+- source: semantic contradiction design discussion
+
+### Predicate normalization can hide contradictions (2026-03-26)
+- Synonym families (induces/inhibits kept separate) are fine
+- But if two contradictory claims use synonyms that normalize to SAME predicate, they merge into one edge
+- The merged edge loses the conflict because all evidence_direction = "supports"
+- Mitigation: compare pre-normalization drafts via source_assertions field
+- source: Bayesian integration gap analysis
+
+### NLI on evidence summaries gives 98% neutral — wrong abstraction level (2026-03-26)
+- Evidence summaries describe methodology ("Flow cytometry analysis of..."), not conclusions
+- NLI needs conclusive statements to classify entailment/contradiction
+- Cross-claim NLI (claim text vs claim text) works perfectly — 0.9999 on opposing predicates
+- Fix: run NLI on 29K shared-entity claim PAIRS, not on evidence-vs-claim
+- source: NLI diagnostic on 3,214 evidence links, 60s on MPS
+
+### Bayesian model selection: start with Model 1, dont skip ahead (2026-03-26)
+- Model 1 (edge-local Beta-Binomial) is correct framework, just needs real data
+- Cross-claim NLI contradiction signals can fix Model 1 without changing the model
+- Model 2 (TrustRank propagation) is ad hoc — no principled probabilistic semantics
+- "Bottleneck is extraction quality, not inference sophistication"
+- source: Bayesian statistics discussion + NLI diagnostic results
+
+### Cross-claim NLI produces real contradiction signal (2026-03-26)
+- 29,591 shared-entity pairs classified in 72s on MPS (408/sec, batch_size=64)
+- 4,793 contradictions (16.2%), but includes false positives from parallel assertions
+- "generates X" vs "generates Y" is the main false positive pattern — NLI sees different objects as contradictory
+- Fix: pre-filter pairs sharing same subject+predicate but differing only in object
+- Also: predicate-aware shortcuts (induces vs inhibits = deterministic, skip NLI)
+- source: cross-claim NLI pipeline run
+
+### Beta-Binomial comes alive with cross-claim NLI (2026-03-26)
+- Before: confidence 0.500-0.748, controversy meaningless (just 1/alpha)
+- After: confidence 0.024-0.795, 1,141 claims with controversy >0.5, 690 with >0.7
+- 1,901 of 2,899 claims (65%) received Beta updates from cross-claim signals
+- Top controversial claims are biologically real debates (BMP4, HTT CAG, CYP26A1)
+- But controversy=1.0/confidence=0.5 cluster needs evidence-weighted ranking
+- source: cross-claim NLI + Beta-Binomial integration
+
+### vis.js physics must be disabled after stabilization (2026-03-26)
+- Default behavior: physics keeps running after stabilization, causing constant jiggling
+- Fix: network.setOptions({ physics: { enabled: false } }) in stabilizationIterationsDone callback
+- Also: higher damping (0.7), weaker gravity (-4000), longer springs (140), more iterations (800)
+- User can re-enable physics via sidebar toggle for manual rearrangement
+- source: interactive KG usability feedback
+
+### NLI Pipeline for Knowledge Graph Contradiction Detection (2026-03-26)
+
+**Context**: Built cross-claim NLI pipeline using DeBERTa (cross-encoder/nli-deberta-v3-base) to detect contradictions between knowledge graph claims and update Beta-Binomial confidence scores.
+
+**Key lessons**:
+
+1. **Evidence-level NLI fails** — Evidence summaries describe methodology ("Flow cytometry analysis of CD34+ cells"), not conclusions. NLI returns 98% neutral because there's no assertive content to classify. Cross-claim NLI works because claims ARE conclusive statements ("BMP4 activates mesoderm differentiation").
+
+2. **Parallel assertions are NOT contradictions** — "X generates cardiac cells" vs "X generates skeletal muscle" share subject+predicate but differ in object. These are complementary, not contradictory. Filter: same S+P different O (or same O+P different S) = skip. This removed ~1,193 false positives (40% of initial contradictions).
+
+3. **Structural predicate opposition is deterministic** — induces/inhibits, required/not_required, etc. between the same entity pair are guaranteed contradictions (p_contra=1.0). No model inference needed. Maintain predicate family tables.
+
+4. **Contradiction-only Beta updates are safer than entailment-boosting** — v1 boosted alpha for entailment pairs, but this over-inflated confidence for claims that merely share subject matter. v2 uses contradiction-only: only beta_param gets updated, never alpha from cross-claim NLI.
+
+5. **All extraction evidence_direction = "supports"** — Zero "contradicts" in 3,214 evidence links. The LLM extraction never classifies evidence as contradicting. This means the original Beta-Binomial scores (from confidence.py) are all default Beta(1,1). Long-term fix: improve extraction prompts. Short-term fix: cross-claim NLI.
+
+6. **MPS (Apple Silicon) provides 6x speedup** — 29,591 pairs at 408 pairs/sec on MPS vs ~60/sec on CPU. Always auto-detect and use MPS/CUDA when available.
+
+7. **Shared-entity edges work better than shared-paper edges** — With only 6 papers (one covering 2,336 claims), shared-paper edges would be ~2.8M and useless. Shared-entity edges (29,591 pairs) are semantically meaningful and tractable.
+
+### 2026-03-26: Prompt engineering for schema adherence in small models
+
+**Finding**: Haiku schema adherence improves dramatically with (1) table-format vocabulary with "use when" column instead of comma-separated lists, (2) explicit "THESE ARE DIFFERENT FIELDS" disambiguation sections, (3) "Common mistakes to avoid" mapping blocks, and (4) few-shot examples showing the desired behavior. However, predicate adherence remains stochastic (5-20 violations per run) — a deterministic coercion layer is essential for production use.
+
+**Finding**: Evidence direction "refutes" never fires without a few-shot example demonstrating it. Even with explicit rules and guidance, Haiku defaults to "supports" for all links. A concrete JSON example with direction="refutes" on an absence claim was the only thing that broke this pattern.
+
+**Finding**: Post-processing rules must be scoped precisely. Initial rule flipped direction=negative → refutes, but this incorrectly converted anti-correlation findings (real positive findings) to refutes. Tightened to claim_type=absence only.
