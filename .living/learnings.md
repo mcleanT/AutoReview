@@ -807,3 +807,101 @@ Together these produce an 83% truncation rate on full-paper extraction.
 **Finding**: Evidence direction "refutes" never fires without a few-shot example demonstrating it. Even with explicit rules and guidance, Haiku defaults to "supports" for all links. A concrete JSON example with direction="refutes" on an absence claim was the only thing that broke this pattern.
 
 **Finding**: Post-processing rules must be scoped precisely. Initial rule flipped direction=negative → refutes, but this incorrectly converted anti-correlation findings (real positive findings) to refutes. Tightened to claim_type=absence only.
+
+### Evidence ID collision in KG ingestion (2026-03-26)
+- **Bug**: `evidence_id` values like `e_001` are per-paper scoped. The evidence_index dict comprehension overwrites earlier papers — only last ~6 (alphabetically) retain evidence links.
+- **Fix**: Namespace all cross-reference IDs with `paper_hash::` prefix in `ingest.py`.
+- **Impact**: 6 → 305 paper_ids in evidence, 0 → 3,878 cross-paper contradictions.
+- **Lesson**: Any per-document scoped ID must be globally namespaced before aggregation. Check for this pattern whenever combining multi-document extractions.
+
+### Predicate vocabulary compliance gap (2026-03-26)
+- Only 22% of edges (624/2,899) use closed vocabulary predicates.
+- Top non-vocab: expresses, contains, generates, related_to, recapitulates.
+- This creates massive NLI false positives — the model flags synonym differences as contradictions.
+- **Next step**: Build predicate coercion mapping for the top 20 non-vocab predicates.
+
+### Contradiction visualization architecture (2026-03-26)
+- Separated computation (contradiction_viz.py) from rendering (interactive.py) — the scoring logic is reusable for CLI reports, not just HTML.
+- Community auto-labeling uses top predicate + top 2 entities. Skip "related_to" as label predicate.
+- Normalization: disagreement_score = raw_score / sqrt(size_a * size_b) prevents large communities from dominating.
+- Claim IDs must match between NLI and visualization: use `{u}__{predicate}__{v}__{k}` format consistently.
+
+### vis.js performance with large graphs (2026-03-27)
+- vis.js canvas renderer chokes above ~5K edges with physics enabled. Pre-compute layout in Python and set fixed x/y positions.
+- For this graph: 29,402/29,591 shared-entity edges had weight=1 (single shared entity). Default filter should exclude these.
+- Contradiction edges with dashes are especially expensive to render. Cap at 500 max.
+- Range sliders are unusable for low-value discrete selections. Use buttons instead.
+
+## 2026-03-27 — Contradiction Visualization & KG Viewer Enhancements
+
+- **Evidence ID collision (critical)**: Per-paper scoped IDs (e_001, e_002) MUST be namespaced with `paper_hash::` prefix before corpus-level aggregation. Dict comprehension silently overwrites duplicate keys — this caused 99% data loss (6 → 305 papers with evidence links after fix).
+- **vis.js performance ceiling**: Canvas renderer chokes above ~5K edges with physics enabled; dashed edges are especially expensive. Pre-computed layout with `nx.spring_layout()` and fixed node positions is the correct pattern for large graphs in vis.js — avoids per-frame physics computation entirely.
+- **Range slider UX anti-pattern**: Range sliders are bad UX for selecting small integer values (e.g., neighbor depth 1–5). Use discrete buttons instead — more predictable, lower interaction cost.
+- **KG predicate vocabulary coverage**: Only 22% of KG edges use valid vocabulary predicates. Top non-vocab predicates: expresses (80), contains (66), generates (58). Predicate coercion/normalization is required before NLI scoring is reliable — otherwise NLI will score semantically unrelated claim pairs as contradictions due to mismatched predicate types.
+
+### igraph seed parameter expects Layout matrix, not integer
+- **Date**: 2026-03-27
+- **Context**: Switching from NetworkX spring_layout to igraph layout_fruchterman_reingold for faster KG visualization
+- **Learning**: igraph's `seed` param in `layout_fruchterman_reingold()` expects an `igraph.Layout` (coordinate matrix), not an int. NetworkX uses `seed=42` as an RNG seed. For igraph, generate deterministic initial positions: `random.seed(42); Layout([(gauss(0,1), gauss(0,1)) for _ in range(n)])`.
+- **Impact**: High — this is a silent API difference that causes a TypeError at runtime
+- **Tags**: igraph, networkx, visualization, layout
+
+## 2026-03-27 — Topology Analysis of Contradiction Networks
+- **Learning**: `scipy.stats.beta.entropy(1,1) = 0.0` (differential entropy of uniform on [0,1]). This makes it useless for normalizing Beta distribution uncertainty. Use variance instead: `αβ/((α+β)²(α+β+1))`, normalized by max variance (1/12), gives a proper 0-1 uncertainty scale.
+- **Learning**: The gastruloid contradiction network has 530 bridge edges out of 4,333 total contradictions (~12
+## 2026-03-27 — Topology Analysis of Contradiction Networks
+- **Learning**: `scipy.stats.beta.entropy(1,1) = 0.0` (differential entropy of uniform on [0,1]). This makes it useless for normalizing Beta distribution uncertainty. Use variance instead: alpha*beta/((alpha+beta)^2*(alpha+beta+1)), normalized by max variance (1/12), gives a proper 0-1 uncertainty scale.
+- **Learning**: The gastruloid contradiction network has 530 bridge edges out of 4,333 total contradictions (~12%). These are the "stems" connecting community "flowers". 326 articulation points (~11% of claims) are hub claims whose removal would fragment the network.
+- **Learning**: Edge betweenness + VOI computation on ~3,000 nodes / ~4,000 edges takes ~3 minutes due to simulate_resolution being called 3x per edge. Could be optimized with batch component analysis instead of per-edge graph reconstruction.
+
+## High-Impact Node Proportion in KG — 2026-03-27
+- **Learning**: 860 out of 2,899 claims (~30%) are high-impact nodes (articulation points + bridge endpoints + top-50 VOI). This is a high proportion — may want to add tiered highlighting (e.g., VOI-only vs all) in future to reduce visual noise.
+- **Context**: Gastruloid KG with 530 bridge edges, 326 articulation points, 1,178 components.
+
+- **vis.js value-based scaling for zoom-adaptive labels** (2026-03-27): Use `value` property on nodes instead of explicit `size`, combined with `scaling.label.drawThreshold` to hide small-community labels at low zoom and reveal them on zoom-in. Much cleaner than manual font-size calculation.
+- **window._navComm pattern for closure→onclick bridge** (2026-03-27): Functions defined inside closures (e.g., inside `initCommunityNetwork()`) cannot be called from inline `onclick` in innerHTML strings. Expose via `window._navComm = function(id) { ... }` to bridge the gap.
+
+### V4 extraction already captures rich fields that ingestion ignores
+**Date**: 2026-03-27
+**Finding**: The v4 extraction JSONs contain conditions, hedging, epistemic_status, negatable_form, causal_type, and scope — but _parse_assertion only extracts 8 of ~17 available fields. Always audit what's available before adding extraction fields.
+**Impact**: Most v5 "new" fields were already being extracted — we just needed to parse them into the graph.
+
+### V5 extraction test ran on wrong paper due to hash mismatch
+**Date**: 2026-03-27
+**Finding**: The cached raw text file `23a71393838d328f_raw.txt` contained the PIP5K-Ras paper, not the Rai14 paper that previous iterations used. Paper hash depends on DOI/title — grep for content, do not assume hash stability.
+**Impact**: V5 comparison shows schema improvements but not apples-to-apples claim count comparison.
+
+### claude -p --bare mode requires API key
+**Date**: 2026-03-27
+**Finding**: The `--bare` flag on `claude -p` disables OAuth/keychain auth and requires ANTHROPIC_API_KEY. Drop `--bare` for local extractions using Claude Code auth.
+**Impact**: Extraction scripts should not use --bare unless running with explicit API key.
+
+- **vis.js rendering: curved dashed edges are 10x slower than straight solid** (2026-03-27): `smooth: { type: "curvedCW" }` + `dashes: [8, 4]` causes thousands of extra canvas draw calls per frame. Use `smooth: false` for large graphs. Also `hideEdgesOnDrag: true` is essential for 1000+ edge graphs.
+- **Hub entity O(n²) edge explosion in claim graphs** (2026-03-27): Entity shared by N claims creates N*(N-1)/2 pairwise edges. Entity "human RA-gastruloids" with 43 claims = 903 edges. Fix: cap per-entity degree (MAX_CLAIMS_PER_ENTITY=20).
+
+### vis.js smooth edge override behavior (2026-03-27)
+- **Context**: Shared-entity edges had `"smooth": {"type": "continuous"}` baked into per-edge data, overriding the global `smooth: false` setting. This made ALL edges curved, removing the visual distinction between shared-entity (straight) and contradiction (curvedCW) edges.
+- **Fix**: Set shared-edge smooth to `False` in the Python data builder (`_build_claim_graph`), not just in the global vis.js options. Per-edge properties override global options in vis.js.
+- **Lesson**: In vis.js, per-edge properties always win over global `edges` options. If you want global `smooth: false` to apply, do not set `smooth` on individual edges at all — or explicitly set it to `false` on each edge.
+
+### KG extraction is a separate product from review pipeline extraction
+**Date**: 2026-03-27
+**Finding**: The KG extraction pipeline (knowledge_graph/) is completely separate from the review pipeline's extraction (extraction/). KG extraction exists solely to enable knowledge graph generation, interactive visualization, topology analysis, and VOI ranking. Do not conflate with or attempt to bridge to the review pipeline's PaperExtraction/EvidenceMap system.
+**Impact**: When evaluating KG extraction changes, assess against graph quality metrics (false contradiction rate, community purity, VOI accuracy), not review paper quality.
+
+### claude -p system prompt via --append-system-prompt-file for long prompts
+**Date**: 2026-03-27
+**Finding**: The `--system-prompt` CLI flag works for long system prompts, but `--bare` flag disables OAuth and requires ANTHROPIC_API_KEY. For local extractions using Claude Code auth, omit `--bare`. Use `--append-system-prompt-file` for file-based system prompts.
+**Impact**: Extraction test scripts should pipe user prompt via stdin and pass system prompt via flag, not concatenate both into a single CLI argument.
+
+### NLI contradiction count is pipeline output, not a cap (2026-03-27)
+- **Context**: 500 contradictions seemed low. Investigation showed 29,591 candidate pairs from shared entities go through the full NLI pipeline. Only 500 pass contradiction_threshold >= 0.3, all with p ≈ 1.000.
+- **Root cause**: DeBERTa nli-deberta-v3-base gives near-binary outputs — scores cluster at 0.0 or 1.0 with no gradation. This means the model is over-confident.
+- **Implication**: To get more contradictions, need a better-calibrated model or lower threshold. The 500 is not artificial.
+
+### NLI quality bottleneck: extraction context, not just model (2026-03-27)
+- **Context**: Investigated why NLI gives near-binary p_contradiction. Found two root causes:
+  1. DeBERTa nli-deberta-v3-base trained on SNLI/MNLI only (easy data) → overconfident
+  2. All KGEdge v5 context fields are EMPTY (natural_language, negatable_form, conditions, model_system, organism, certainty = 0% populated). NLI input is bare triples like "entity predicate entity", not real sentences.
+- **Implication**: Better extraction (populating context fields) is more impactful than model swap. Both are complementary: richer text + better-calibrated model = well-calibrated contradiction detection.
+- **Model recommendation**: MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli — trained on adversarial data, 304M params, needs label index remap (contradiction=idx[2] not idx[0]).

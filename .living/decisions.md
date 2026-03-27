@@ -725,3 +725,70 @@ The clustering stage produced 11 themes; these were consolidated into 5 body sec
 - Prompt hardening: predicate table format, claim_type/section_source disambiguation, figure coverage requirement
 
 **Validated**: 4 prompt iterations on Veenvliet 2020 (Science). Haiku v4 + coercion = 0 schema violations, 65 claims, 39 evidence units, 3 native refutes links.
+
+### Namespace evidence IDs with paper_hash (2026-03-26)
+- **Decision**: Prefix all per-paper IDs (evidence_id, draft_id, evidence_unit_ids, assertion_draft_ids) with `paper_hash::` in ingest.py.
+- **Why**: Without namespacing, dict comprehension collision loses 99% of evidence provenance.
+- **Trade-off**: Slightly longer IDs, but correctness is non-negotiable.
+- **Scope**: Applied to all four ID fields in ingest.py; __init__.py lookup unchanged (reads namespaced IDs naturally).
+
+### Contradiction viz: separate computation from rendering (2026-03-26)
+- **Decision**: Created contradiction_viz.py (computation) separate from interactive.py (rendering).
+- **Why**: Contradiction scoring (community labels, disagreement scores, cross-paper classification) has value beyond HTML — feeds CLI, reports, future analysis.
+- **Trade-off**: Extra module, but clean separation. interactive.py accepts optional ContradictionVizData.
+
+## 2026-03-27 — Contradiction Visualization Architecture
+
+- **Separate computation module for contradiction viz**: `contradiction_viz.py` handles computation of contradiction edges, community auto-labeling, and cross-community disagreement scores. Kept separate from `interactive.py` (rendering) — decouples analysis logic from HTML/JS generation and makes each testable independently.
+- **Community disagreement normalization**: Cross-community disagreement score normalized by `sqrt(size_a * size_b)` to prevent large communities from dominating the ranking. Raw edge counts would systematically favor large-community pairs.
+- **Default contradiction threshold = 0.9**: Set higher than the analytical threshold (0.8) for performance — fewer edges rendered by default. Users can lower it interactively. Prioritizes load-time responsiveness over completeness.
+- **Claim ID format standardized**: NLI-format `"{u}__{predicate}__{v}__{k}"` used consistently across `interactive.py`, `nli.py`, and `contradiction_viz.py`. Single canonical format prevents ID mismatch bugs when joining claim sets across modules.
+
+### Use igraph as primary layout engine for KG visualization
+- **Date**: 2026-03-27
+- **Decision**: Added igraph Fruchterman-Reingold as the primary layout engine in `interactive.py`, with NetworkX spring_layout as fallback
+- **Rationale**: NetworkX spring_layout is too slow for large claim graphs (2900+ nodes, 29K+ edges). igraph's C-backed implementation computes the same layout ~10-100x faster. Layout took ~10s for 2899 nodes with igraph.
+- **Trade-offs**: Adds igraph as a dependency. Mitigated by try/except ImportError fallback to NetworkX.
+- **Alternatives considered**: graph-tool (faster but harder to install via pip), vis.js headless stabilization (still browser-bound)
+
+## 2026-03-27 — VOI Uncertainty Metric: Beta Variance over Differential Entropy
+- **Decision**: Used Beta variance (not differential entropy) for uncertainty metric in VOI calculation. `scipy.stats.beta.entropy(1,1) = 0.0` (differential entropy of uniform on [0,1]), making it useless as a normalizer. Beta variance = αβ/((α+β)²(α+β+1)) normalized by max variance (1/12) gives a proper 0-1 uncertainty scale.
+- **Decision**: VOI formula is `betweenness × uncertainty × blast_radius` with fallback to 1 when `blast_radius=0`. This ensures high-betweenness uncertain contradictions still rank even if they do not fragment the graph.
+- **Decision**: Resolution simulation uses 3 scenarios: `a_wins` removes node B, `b_wins` removes node A, `dissolved` removes just the edge. `blast_radius` = max delta_components across all 3 scenarios.
+
+## Topology Highlight Design — 2026-03-27
+- **Decision**: Topology highlight uses red border (#FF3333, 3.5px) rather than changing node color, so it composes with both assertion-type and community coloring modes without conflict. Hidden by default (toggle off), sidebar section hidden entirely when no topology data is loaded.
+- **Rationale**: Composability — users can combine topology highlighting with any other color mode without visual conflict.
+
+### Community subfield labeling: combined LLM + heuristic approach (2026-03-27)
+**Decision**: Use heuristic subfield labels (entity-type priority ranking) for all communities, with optional LLM enrichment for significant communities (>=5 claims or in disagreements).
+**Rationale**: Heuristic is fast/free and covers all 319 communities. LLM gives much better domain-specific labels ("BMP4 AP Axis Patterning" vs "BMP4 / Wnt3a") but costs tokens. Combined approach: heuristic as baseline, LLM as optional upgrade for ~30 significant communities in a single batched call.
+**Alternatives rejected**: LLM-only (too expensive for 319 communities), heuristic-only (labels too generic for understanding subfields).
+
+### V5 KG Extraction Pipeline
+**Date**: 2026-03-27
+**Decision**: Upgrade extraction pipeline from v4 to v5 with context-aware contradiction detection.
+**Key changes**:
+- Added claim-level model_system, organism, in_vitro fields (previously only at evidence level)
+- Added certainty→Beta prior width mapping (high/medium/low)
+- Added section_source→epistemic weight (primary_empirical 1.0, interpretive 0.7, attributed_prior 0.5)
+- NLI context mismatch discount: cross-organism/model contradictions get 0.3x p_contradiction
+- Citation contexts with relationship="contradicts" now annotate graph edges
+- Ingestion handles both v4 (assertion_drafts) and v5 (claims) JSON formats
+**Rationale**: ~30-40% of NLI-detected contradictions were false positives from cross-context comparisons (different species, model systems, or in_vitro vs in_vivo). The v5 changes eliminate these by propagating experimental context to the claim level.
+**Files changed**: models.py, ingest.py, confidence.py, nli.py, __init__.py, kg_extraction_prompt.md, test_models.py
+
+### V5 KG extraction schema expansion
+**Date**: 2026-03-27
+**Decision**: Expanded KG schema with SectionSource, Certainty, QuantitativeContext models; added model_system and organism fields to evidence; extended EntityType (+5) and EvidenceStrength (+2) enums.
+**Rationale**: Richer epistemic metadata enables context-aware NLI contradiction detection (organism/model_system mismatch discounting) and section-source weighting in confidence scoring.
+**Tradeoffs**: More fields increase prompt complexity and LLM output tokens; 43% quantitative_context fill rate suggests this field needs prompt reinforcement.
+
+### 5-tab analytical visualization + rendering performance (2026-03-27)
+**Decision**: Generate 5 pre-plotted tabs (Assertion Types, Community Clusters, Cross-Paper Disputes, Mechanistic Core, Controversial Frontier) with straight solid edges and hub degree capping.
+**Rationale**: Different analytical perspectives on the same KG data. Performance required removing vis.js curved/dashed edges and capping hub degree at 20 to keep rendering interactive.
+
+### NLI improvement strategy: extraction-first (2026-03-27)
+- **Decision**: Prioritize populating KGEdge v5 context fields (natural_language, negatable_form, conditions, model_system) in the extraction prompt before swapping NLI model.
+- **Why**: The NLI model can't calibrate what it can't see. Bare triples provide insufficient signal for nuanced contradiction scoring. Context fields are already defined in the data model but never populated.
+- **Plan**: (1) Update extraction prompt to populate v5 fields, (2) Use natural_language as NLI input instead of bare triples, (3) Then evaluate model swap.
