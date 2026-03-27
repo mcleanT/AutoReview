@@ -792,3 +792,9 @@ The clustering stage produced 11 themes; these were consolidated into 5 body sec
 - **Decision**: Prioritize populating KGEdge v5 context fields (natural_language, negatable_form, conditions, model_system) in the extraction prompt before swapping NLI model.
 - **Why**: The NLI model can't calibrate what it can't see. Bare triples provide insufficient signal for nuanced contradiction scoring. Context fields are already defined in the data model but never populated.
 - **Plan**: (1) Update extraction prompt to populate v5 fields, (2) Use natural_language as NLI input instead of bare triples, (3) Then evaluate model swap.
+
+### Citation evidence stubs for attributed_prior claims (2026-03-27)
+- **Context**: v5 extraction produced 42 claims but only 20 evidence units (0.48 ratio), with all 18 attributed_prior claims having zero evidence links — blocking hypothesis generation for contradiction resolution.
+- **Decision**: Generate citation evidence stubs (review_citation strength) for every attributed_prior claim, carrying citing_sentence, source_doi, model_system, organism.
+- **Alternative rejected**: Simply exclude attributed_prior from evidence counts — would leave dangling edges unable to participate in VOI ranking or hypothesis framing.
+- **Rationale**: Stubs enable the topology/VOI system to frame resolution hypotheses like "Paper A found X in human cells, contradicting Smith et al. who found Y in mouse DCs" — the stub provides the model system context for the cited work.

@@ -905,3 +905,18 @@ Together these produce an 83% truncation rate on full-paper extraction.
   2. All KGEdge v5 context fields are EMPTY (natural_language, negatable_form, conditions, model_system, organism, certainty = 0% populated). NLI input is bare triples like "entity predicate entity", not real sentences.
 - **Implication**: Better extraction (populating context fields) is more impactful than model swap. Both are complementary: richer text + better-calibrated model = well-calibrated contradiction detection.
 - **Model recommendation**: MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli — trained on adversarial data, 304M params, needs label index remap (contradiction=idx[2] not idx[0]).
+
+### v5 evidence units use flat format, not nested (2026-03-27)
+- **Context**: Ingest parser was written for v4 format with nested `experiment`/`results` sub-dicts. v5 extractions place fields (`description`, `result_summary`, `model_system`) at the top level of each evidence unit.
+- **Fix**: `_parse_evidence_unit` in ingest.py now checks for top-level `description` first (v5 flat format), falling back to nested `experiment`/`results` (v4 format). Both formats co-exist in the codebase.
+- **Warning**: Any new ingest code touching evidence units must handle both formats or use the coercion layer.
+
+### `--max-turns 1` insufficient for large KG extractions (2026-03-27)
+- **Context**: With 18K system prompt + 66K paper text, `claude -p` with `--max-turns 1` returned "Reached max turns (1)" after 27s without completing extraction.
+- **Fix**: Use `--max-turns 2` (or higher) for KG extraction runs. The current `run_v5_test.py` and `kg_runner.py` use `--max-turns 2`.
+- **Rule**: For extractions on papers >20K tokens, always use `--max-turns 2` minimum.
+
+### v5 experimental evidence units omit evidence_strength (2026-03-27)
+- **Context**: The v5 extraction prompt example only shows `evidence_strength` on citation stubs, not on experimental evidence units. As a result, most experimental evidence units in v5 outputs lack this field.
+- **Ingest fallback**: Parser falls back to `"expert_opinion"` when field is missing. Non-blocking since claim-level `evidence_strength` is always populated.
+- **Fix needed**: Add `evidence_strength` to the experimental evidence example in `kg_extraction_prompt.md` before re-extracting the 305-paper corpus.
