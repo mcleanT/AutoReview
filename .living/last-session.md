@@ -1,20 +1,23 @@
 ## Last Session: 2026-03-27
 
+### Commits
+- 2099571 feat(kg): interactive contradiction viz, NLI pipeline improvements, community labeling
+- d0055db feat(kg): v4 KG models, ingest pipeline, confidence scoring, NLI CLI command
+- 259855b docs: v0.3.0 changelog, extraction prompt v5 context fields, README KG section
+- 058fdab chore: update .living/ index, session state, and log entries
+
 ### What changed
-- `autoreview/knowledge_graph/interactive.py`: Bigger nodes (20-70px), straight shared edges, curved contradiction edges, clickable contradiction edge detail panel, Playground tab
-- `autoreview/knowledge_graph/nli.py`: Default model swapped to MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli-ling-wanli, auto-detect label indices from model config, rich claim text using natural_language/context fields when available
-- `autoreview/knowledge_graph/contradiction_viz.py`: Pydantic models and functions for contradiction data
-- `autoreview/knowledge_graph/community_labeling.py`: Async LLM enrichment for community subfield labels
-- `autoreview/llm/prompts/community_labeling.py`: LLM prompt for batched community labeling
-- `scripts/generate_5tab_viz.py`: 6-tab HTML generation with Playground tab
+- interactive.py: 6-tab viz with Playground, bigger nodes (20-70px), straight shared edges, curved contradiction edges, clickable contradiction edge detail panel
+- nli.py: MoritzLaurer model default, auto-detect label indices, rich claim text from natural_language/context fields
+- contradiction_viz.py, community_labeling.py: community subfield labeling (LLM + heuristic)
+- models.py, ingest.py, confidence.py, cli.py: v5 context fields, coercion layer, nli-score CLI
+- kg_extraction_prompt.md: v5 context fields, citation evidence stubs, contradiction extraction rules
 
-### Committed
-- `2099571` feat(kg): interactive contradiction viz, NLI pipeline improvements, community labeling (9 files, +4849 lines)
-
-### Remaining uncommitted (from prior sessions)
-- KG models, ingest, CLI, confidence, tests, README, CHANGELOG, extraction prompt
+### Key findings
+- KGEdge v5 context fields 0% populated — root cause of poor NLI calibration
+- Better extraction more impactful than model swap (both complementary)
+- MoritzLaurer DeBERTa-v3-base best drop-in replacement (adversarial training)
 
 ### Current state
-- Branch: main
-- 6-tab visualization working in Safari
-- NLI pipeline ready for enriched extraction (uses natural_language when available)
+- Branch: main, all code committed
+- Remaining untracked: extraction data artifacts (JSONs, PDFs, batch scripts)

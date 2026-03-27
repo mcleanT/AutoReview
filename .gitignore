@@ -46,6 +46,25 @@ run_full_text_*.py
 # Session state
 .claude/session-*.tmp
 .claude/last-session.md
+.claude/mycelium-*.tmp
+.claude/worktrees/
+
+# Extraction data artifacts (large, generated)
+Paper Extractor/KnowledgeGraph Extraction/gastruloid_run/
+Paper Extractor/KnowledgeGraph Extraction/extraction_test_*.json
+Paper Extractor/KnowledgeGraph Extraction/extraction_report_*.pdf
+Paper Extractor/KnowledgeGraph Extraction/extraction_comparison*.png
+Paper Extractor/KnowledgeGraph Extraction/_system_prompt_tmp.md
+
+# Checkpoint/baseline files
+*.checkpoint
+*.baseline
+
+# Log files
+*.log
+
+# Full-text dumps
+Paper Extractor/KnowledgeGraph Extraction/*.txt
 
 # Environment
 .env
