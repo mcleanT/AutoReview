@@ -385,3 +385,18 @@
 | 2026-03-25 | 2026-03-25-006 | autoreview | main | 2m | 4 | 348f0ba3e2a15a1a.json,403e3ec78f10774a.json,41084d7f92d17557.json (+8 more) | | complete | | [log](2026-03-25-006-autoreview.md) |
 | 2026-03-25 | 2026-03-25-007 | autoreview | main | 0m | 4 | gen_kg_figure.py | | complete | | [log](2026-03-25-007-autoreview.md) |
 | 2026-03-26 | 2026-03-25-008 | autoreview | main | 1m | 4 | 2026-03-25-knowledge-graph-prototype-design.md | | complete | | [log](2026-03-25-008-autoreview.md) |
+| 2026-03-26 | 2026-03-26-001 | autoreview | main | 2m | 2 |  | | complete | | [log](2026-03-26-001-autoreview.md) |
+| 2026-03-26 | 2026-03-26-002 | autoreview | main | 4m | 4 | interactive.py | | complete | | [log](2026-03-26-002-autoreview.md) |
+| 2026-03-26 | 2026-03-26-003 | autoreview | main | 15m | 6 | kg_extraction_paper2_haiku_v3.json,__init__.py,ingest.py (+7 more) | | complete | | [log](2026-03-26-003-autoreview.md) |
+| 2026-03-26 | 2026-03-26-004 | autoreview | main | 0m | 7 |  | | complete | | [log](2026-03-26-004-autoreview.md) |
+| 2026-03-26 | 2026-03-26-005 | autoreview | main | 2m | 6 | CHANGELOG.md,README.md | | complete | | [log](2026-03-26-005-autoreview.md) |
+| 2026-03-27 | 2026-03-27-001 | autoreview | main | 3m | 9 | interactive.py | | complete | | [log](2026-03-27-001-autoreview.md) |
+| 2026-03-27 | 2026-03-27-002 | autoreview | main | 2m | 10 | interactive.py | | complete | | [log](2026-03-27-002-autoreview.md) |
+| 2026-03-27 | 2026-03-27-003 | autoreview | main | 1m | 10 |  | | complete | | [log](2026-03-27-003-autoreview.md) |
+| 2026-03-27 | 2026-03-27-004 | autoreview | main | 10m | 10 | interactive.py,topology.py | | complete | | [log](2026-03-27-004-autoreview.md) |
+| 2026-03-27 | 2026-03-27-005 | autoreview | main | 8m | 10 |  | | complete | | [log](2026-03-27-005-autoreview.md) |
+
+| 2026-03-27-003-autoreview | V5 KG extraction pipeline — context-aware contradiction detection, claim-level model_system/organism/in_vitro fields, certainty→Beta prior mapping, NLI mismatch discount | knowledge_graph, nli, extraction |
+| 2026-03-27 | 2026-03-27-006 | autoreview | main | 8m | 14 | interactive.py | | complete | | [log](2026-03-27-006-autoreview.md) |
+| 2026-03-27 | 2026-03-27-007 | autoreview | main | 1m | 14 | interactive.py,generate_5tab_viz.py | | complete | | [log](2026-03-27-007-autoreview.md) |
+| 2026-03-27 | 2026-03-27-008 | autoreview | main | 1m | 14 | interactive.py,generate_5tab_viz.py | | complete | | [log](2026-03-27-008-autoreview.md) |
