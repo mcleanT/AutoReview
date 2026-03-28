@@ -920,3 +920,114 @@ Together these produce an 83% truncation rate on full-paper extraction.
 - **Context**: The v5 extraction prompt example only shows `evidence_strength` on citation stubs, not on experimental evidence units. As a result, most experimental evidence units in v5 outputs lack this field.
 - **Ingest fallback**: Parser falls back to `"expert_opinion"` when field is missing. Non-blocking since claim-level `evidence_strength` is always populated.
 - **Fix needed**: Add `evidence_strength` to the experimental evidence example in `kg_extraction_prompt.md` before re-extracting the 305-paper corpus.
+
+## 2026-03-27 — weasyprint PDF conversion in conda base env
+- weasyprint works for markdown→PDF when pandoc+xelatex unavailable; install in conda base
+- Requires table CSS extension (--css flag or inline) to render markdown tables correctly
+
+## 2026-03-28 — Batch KG Extraction Pipeline (Haiku 4.5)
+
+### Haiku 4.5 output token limit is 64K, not 128K
+The API rejects `max_tokens > 64000` for Haiku 4.5 with an explicit error: `max_tokens: 128000 > 64000`. Always set MAX_OUTPUT_TOKENS = 64000 for Haiku 4.5. Affects `batch_extract_kg.py` and any other node using Haiku for long-form generation.
+
+### Streaming required for high-max_tokens generation
+When max_tokens is set high enough that generation could exceed 10 minutes, the Anthropic API requires streaming mode. Non-streaming calls with high max_tokens time out. Use `client.messages.stream()` context manager for these operations.
+
+### `setdefault()` does not overwrite None values
+`dict.setdefault("key", "default")` only sets the key if it is ABSENT. If the key is present with value `None`, it leaves `None` in place. For required string fields that may be explicitly set to `None` by the LLM, use explicit checks: `if ev.get("field") is None: ev["field"] = ""`.
+
+### Haiku returns `[]` for string fields declared in the schema
+Haiku 4.5 was observed returning an empty list `[]` for `developmental_stage`, which is declared as a string field in the schema. Coercion logic must handle list→str conversion (join with `"; "` or take first element) for all string fields that might receive list values.
+
+### Assistant prefill eliminates prose-instead-of-JSON failure mode
+Adding an assistant prefill of `{` forces Haiku to begin with JSON output, eliminating the failure mode where it generates a prose explanation before the JSON block. In batch jobs, this requires prepending the prefill to `assistant_content` in the poll response.
+
+### Truncation repair recovers 64K-ceiling outputs
+Papers >50K chars tend to exceed the 64K output ceiling mid-JSON (claims are generated first; evidence sections are truncated). A `_repair_truncated_json()` function that closes unclosed arrays/objects recovered outputs as large as 210K chars. After repair, required fields on claims and evidence must be re-validated and defaulted (direction, claim_type, evidence_strength, etc.) because truncated objects may be incomplete.
+
+### Review/perspective papers slip through title-only filter
+The `retrieve_corpus.py` review filter uses `\breview\b` regex on titles and journal names. Papers from "Current Opinion in…" journals and reviews that do not contain "review" in their title pass through. In a 10-paper micro-sample, 4/10 papers were reviews, accounting for ~600f total claims — all `attributed_prior`, adding cost without novel knowledge. Full corpus filtering must address journal-name heuristics (e.g., "Current Opinion", "Trends in", "Annual Review") and abstract-level review detection before the full 311-paper extraction run.
+
+### L019 — Contradiction detection belongs at graph comparison layer, not extraction layer
+- **Date**: 2026-03-27
+- **Context**: KG extraction prompt review; architectural discussion of Phase 2 MRF confidence scoring
+- **Learning**: Prompting an LLM to flag contradictions during single-paper extraction conflates two distinct tasks: (1) faithful information capture and (2) cross-paper consistency judgment. The extractor has no access to other papers, so contradiction labels are based on intra-paper framing (e.g., authors hedging their own results). True contradictions only become visible when comparing extracted claims across papers via NLI. Keeping extraction neutral and moving contradiction detection to the NLI/graph layer produces cleaner, less biased graphs.
+- **Impact**: Affects `kg_extraction_prompt.md` design philosophy; guides Phase 2 MRF factor graph design (contradiction factor operates on NLI scores, not extraction-time labels)
+
+### L020 — MRF factor graph variables should be resolved assertions, not raw claims
+- **Date**: 2026-03-27
+- **Context**: Phase 2 Bayesian confidence scoring architecture brainstorm
+- **Learning**: Factor graph variables must represent resolved biological assertions (entity-predicate-entity triples after entity resolution) rather than raw per-paper claims. This is because multiple papers may state the same assertion with different surface forms. Entity resolution (ontology ID → normalized string → synonym lookup) is therefore a hard prerequisite before any MRF construction. Skipping entity resolution produces a graph where equivalent assertions appear as distinct nodes, breaking contradiction and corroboration signals.
+- **Impact**: Entity resolution pipeline must be built before Phase 2 MRF can be implemented. Predicate composition table (~50–80 rules) and condition compatibility gating are additional prerequisites.
+
+## Review Filter Gap in Original Corpus (2026-03-27)
+
+- **Finding**: ~15% of the original gastruloid corpus was review papers that slipped through the title-only regex filter
+- **Impact**: Reviews generate 0% primary_empirical claims (all attributed_prior) and dominated extraction output — 60% of claims in micro test came from just 4 review papers
+- **Cause**: Title-only regex missed reviews titled as "insights", "perspectives", or journal-branded reviews (e.g., Current Opinion, Trends in)
+- **Fix**: Three-layer filter — OpenAlex API type field (primary), enhanced title regex, new abstract + journal regex
+- **Lesson**: Always validate corpus composition before extraction; review contamination silently distorts claim statistics
+
+## OpenAlex as Authoritative Publication Type Source (2026-03-27)
+
+- **Finding**: OpenAlex provides 100% DOI coverage for the gastruloid corpus and exposes a machine-readable `type` field classifying each paper
+- **Impact**: Enables authoritative, API-backed review detection instead of heuristic regex
+- **Lesson**: For any PubMed/curated corpus, use OpenAlex batch lookup as primary type classifier — it is more reliable than title/abstract heuristics
+- **Note**: Batch API supports up to 100 DOIs per request; parallelise for large corpora
+
+## Corpus Coverage Gap: Original Corpus Was ~24% of Literature (2026-03-27)
+
+- **Finding**: Full gastruloid literature on OpenAlex is ~1,087 papers; original curated corpus captured only 256/1,087 (~24%)
+- **Cause**: Original corpus was seeded from a manually curated reference list, not a systematic literature search
+- **Impact**: Motivated systematic corpus expansion via OpenAlex bulk retrieval across 12 search terms
+- **Lesson**: Curated corpora are high-precision but low-recall; pair with systematic retrieval for comprehensive coverage
+
+## Full Text Resolution Success Rate for Expanded Corpus (2026-03-27)
+
+- **Finding**: Full text resolution success rate is ~57% for newly retrieved OpenAlex candidates (vs effectively 100% for the original curated corpus)
+- **Context**: FullTextResolver uses 17 strategies in priority order (Elsevier XML, Wiley XML, PMC JATS, PDF extraction, etc.)
+- **Implication**: ~43% of expansion candidates will be archived as inaccessible; inaccessible papers report (grouped by publisher with access hints) is generated automatically
+- **Lesson**: Expect significant access attrition when expanding beyond a curated corpus; budget retrieval time accordingly
+
+## Broad Search Terms Require Relevance Filtering (2026-03-27)
+
+- **Finding**: Broad terms like "post-implantation embryo model pluripotent" return ~5,000 papers on OpenAlex; without relevance filtering, corpus bloat is severe
+- **Fix**: Require 2+ relevance terms for non-"gastruloid" papers; "gastruloid" auto-passes
+- **Lesson**: Always apply relevance scoring when using broad literature retrieval; OpenAlex type field alone is insufficient for topical specificity
+
+### L021 — Condition metadata enables boundary detection vs. contradiction disambiguation
+- **Date**: 2026-03-27
+- **Context**: Phase 2 MRF confidence scoring design — handling (S, P, O) triples that have opposing directions under different experimental conditions.
+- **Learning**: Same (S, P, O) with opposite directions under different conditions (e.g. "in hypoxia" vs. "in normoxia") is a validity boundary, not a contradiction. The conditions field on each claim enables this disambiguation automatically. Without conditions metadata, these would be incorrectly flagged as contradictions and penalized in confidence scoring.
+- **Impact**: KG extraction schema must preserve conditions metadata; structural_contradictions.py condition_compat module must check condition overlap before flagging direction conflicts; this distinction increases scientific accuracy of the confidence graph significantly.
+
+## S2 API Key Dramatically Improves Full Text Recovery
+**date:** 2026-03-27
+**area:** full-text resolution
+
+- S2 API key (free, self-service at semanticscholar.org/product/api) increases rate limit from 1 req/s to 10 req/s
+- Clearing negative cache entries (7-day TTL via `CachedFullTextResolver`) is essential before retry — otherwise previously-failed papers are silently skipped
+- Of 454 papers retried with S2 key, ~51% recovered — mostly bioRxiv preprints and S2-indexed OA papers
+- `retry_inaccessible.py` pattern: clear negative cache → combine expansion candidates + archived papers → re-resolve with S2 key
+
+## Always re-run review filter after corpus expansion (2026-03-27)
+
+**Context**: AutoReview corpus expansion via OpenAlex brought in papers classified as "article" by OpenAlex but which were actually reviews. The abstract heuristic caught 61 of these, plus 2 others flagged by title patterns — 63 total removed after the expansion pass.
+
+**Learning**: After ANY corpus expansion (OpenAlex, Semantic Scholar, or other source), always re-run the full review/non-primary filter on the entire corpus, not just the newly added papers. Cross-source classification inconsistencies mean a subset of "articles" from any bibliographic database may be reviews. The abstract heuristic is the most reliable discriminator — trust it over source metadata.
+
+**Impact**: Skipping this step would have left ~6% contamination in the corpus, degrading KG extraction quality.
+
+**Source**: AutoReview corpus expansion, 2026-03-27 session
+
+### L022 — Custom HL-MRF via scipy L-BFGS-B avoids Java dependency while providing convex optimization
+- **Date**: 2026-03-27
+- **Context**: Phase 2 MRF confidence propagation for KG scoring
+- **Learning**: A custom Hinge-Loss MRF implementation using scipy L-BFGS-B is sufficient for KG confidence propagation. The engine requires ~200 lines of code, achieves guaranteed convex convergence, and avoids the pslpython Java dependency that would complicate deployment. Unified objective+gradient computation (beneficial subagent deviation from spec) improves L-BFGS-B convergence efficiency.
+- **Impact**: Any future ML/probabilistic inference layer in the pipeline — prefer scipy optimizers over heavy JVM-based frameworks when the problem is convex.
+
+### L023 — Subagent-driven development with 4 parallel batches completed 7 tasks and 264 tests in a single session
+- **Date**: 2026-03-27
+- **Context**: Phase 2 MRF implementation: predicate_algebra, condition_compat, hlmrf, structural_contradictions, mrf_scoring, __init__ integration, code review
+- **Learning**: Dispatching 7 independent tasks across 4 dependency batches (parallel where possible) allows an entire subsystem to be built and tested in one session without context blowout. Subagents made beneficial deviations from the written spec — frozenset opposition lookup (O(1) vs O(n)), principled species grouping, unified gradient computation — that improved the final implementation. Code review identified these as non-blocking improvements rather than spec violations.
+- **Impact**: Multi-module implementation plans with clear dependency layers should always use subagent batching. Write specs with enough detail for correct implementation but allow subagents latitude on data structure choices within stated complexity constraints.

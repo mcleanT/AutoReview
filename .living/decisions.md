@@ -798,3 +798,79 @@ The clustering stage produced 11 themes; these were consolidated into 5 body sec
 - **Decision**: Generate citation evidence stubs (review_citation strength) for every attributed_prior claim, carrying citing_sentence, source_doi, model_system, organism.
 - **Alternative rejected**: Simply exclude attributed_prior from evidence counts — would leave dangling edges unable to participate in VOI ranking or hypothesis framing.
 - **Rationale**: Stubs enable the topology/VOI system to frame resolution hypotheses like "Paper A found X in human cells, contradicting Smith et al. who found Y in mouse DCs" — the stub provides the model system context for the cited work.
+
+## 2026-03-27 — KG extraction version history as standalone technical document
+- Decided to write extraction_improvements_update.md covering v1→v5 KG extraction evolution for PI communication
+- Rationale: version-by-version narrative makes schema rationale and design decisions legible to non-implementation readers
+
+## 2026-03-28 — Batch KG Extraction Model and Token Decisions
+
+### Haiku-only for KG extraction (no Sonnet fallback)
+**Decision**: Use Haiku 4.5 exclusively for KG extraction. No Sonnet fallback path.
+**Rationale**: User requirement. Cost at scale ($18 estimated for 311 papers) is acceptable with Haiku. Sonnet would 5-10x the cost without proportional quality gain for structured JSON extraction with a detailed schema.
+**Applies to**: `batch_extract_kg.py`, `kg-extract` skill
+
+### MAX_OUTPUT_TOKENS = 64000 for Haiku 4.5
+**Decision**: Set `MAX_OUTPUT_TOKENS = 64000` (not 128K, not 16K).
+**Rationale**: 64K is the hard API ceiling for Haiku 4.5. Setting 128K causes immediate API rejection. The previous value of 16K was causing severe truncation — average output is ~26K tokens/paper, with large papers hitting the 64K ceiling.
+**Applies to**: `batch_extract_kg.py`
+
+### Streaming required when max_tokens is high
+**Decision**: Use streaming (`client.messages.stream()`) for single-paper extractions when max_tokens is set to 64K.
+**Rationale**: High max_tokens values can cause non-streaming calls to exceed the 10-minute API timeout. Streaming keeps the connection alive during long generation.
+**Applies to**: Direct API extraction paths in `batch_extract_kg.py`
+
+### Corpus filtering must precede full extraction run
+**Decision**: Do not proceed with full 311-paper batch extraction until `retrieve_corpus.py` review filter is improved.
+**Rationale**: Review/perspective papers (e.g., from "Current Opinion in…" journals) dominate extraction output with `attributed_prior` claims, inflating cost without adding novel primary empirical knowledge. The current title-only `\breview\b` filter is insufficient.
+**Next step**: Improve filter to include journal-name heuristics and/or abstract-level review detection before re-running full corpus extraction.
+
+### D016 — Remove contradiction bias from KG extraction prompt (blinded graph philosophy)
+- **Date**: 2026-03-27
+- **Status**: accepted
+- **Context**: KG extraction prompt contained explicit "HIGH VALUE", "CRITICAL for graph quality", and "HIGH PRIORITY" markers that directed LLMs to surface contradictions during extraction. This pre-labels contradictions at extraction time.
+- **Decision**: Remove all contradiction-specific emphasis from `kg_extraction_prompt.md`. Extraction focuses purely on information collection. Contradictions are detected downstream via blinded NLI comparison across papers.
+- **Rationale**: Pre-labeling contradictions during extraction introduces author-framing bias. Blinded NLI comparison across independent extractions is more principled: the same claim from two papers will be compared without the extractor having been primed to flag disagreement. Contradiction detection becomes a graph-level signal rather than a per-paper annotation.
+- **Applies to**: `Paper Extractor/KnowledgeGraph Extraction/kg_extraction_prompt.md`, NLI scoring stage
+
+## Use OpenAlex as Primary Source for Corpus Expansion (2026-03-27)
+
+- **Decision**: OpenAlex is the primary source for bulk corpus expansion, not PubMed or Semantic Scholar
+- **Rationale**: 100% DOI coverage for this corpus, authoritative `type` field for review detection, free batch API, supports 12+ search terms in parallel
+- **Alternatives considered**: PubMed (no type field, API rate limits), Semantic Scholar (lower coverage for embryo organoid literature)
+- **Consequence**: expand_corpus.py is built around OpenAlex; review filter in retrieve_corpus.py uses OpenAlex batch lookup as primary layer
+
+## Relevance Threshold: 2+ Terms for Non-Gastruloid Papers (2026-03-27)
+
+- **Decision**: Papers retrieved under broad search terms (e.g., assembloid, trunk-like structure) must match 2+ relevance terms from a curated list to enter the corpus; "gastruloid" in title/abstract auto-passes
+- **Rationale**: Broad terms return thousands of papers; single-term relevance is insufficient to prevent corpus bloat
+- **Threshold**: 2 relevance terms chosen empirically — 1 term had ~30% false positive rate in spot-check; 3 terms excluded too many genuine papers
+- **Implementation**: relevance_terms list in expand_corpus.py; easily tunable
+
+## Exclude Abstract-Only Papers from Extraction Corpus (2026-03-27)
+
+- **Decision**: Papers where only abstract (not full text) was retrievable are archived to papers_archived.json and excluded from the extraction corpus
+- **Rationale**: User requirement: complete papers only. Abstract-only extraction would produce sparse, low-confidence claims and inflate the inaccessible paper count
+- **Consequence**: retrieve_corpus.py now performs abstract-only exclusion after full text retrieval attempt; papers_archived.json stores all non-primary records
+
+## Token Ceiling: 64K Limit + Truncation Repair, No Section-Level Extraction (2026-03-27)
+
+- **Decision**: Proceed with 64K output token ceiling (Haiku 4.5 hard limit) and existing truncation repair logic; do not implement section-level extraction
+- **Rationale**: Micro extraction test showed 0/5 primary research papers hit the ceiling; the 64K limit is sufficient for the current corpus
+- **Alternatives considered**: Section-level extraction (Option 2) would increase complexity and API calls without demonstrated benefit
+- **Trigger for revisit**: If batch extraction shows >5% of papers hitting the ceiling, revisit section-level extraction
+- **Note**: MAX_OUTPUT_TOKENS corrected from 128000 to 64000 in batch_extract_kg.py (was silently ignored by API; now explicit)
+
+### D017 — Adopt PSL/HL-MRF over discrete MRFs for Phase 2 confidence propagation
+- **Date**: 2026-03-27
+- **Status**: accepted
+- **Context**: Phase 2 requires confidence propagation across a KG with potentially 100K+ edges. Evaluated discrete MRFs with loopy belief propagation vs. PSL/Hinge-Loss MRFs.
+- **Decision**: Use PSL/HL-MRF with a custom scipy L-BFGS-B implementation (no Java/pslpython dependency).
+- **Rationale**: HL-MRFs operate on continuous [0,1] truth values and reduce to a convex optimization problem with guaranteed convergence. Discrete MRF+LBP oscillates and does not scale past ~100K edges. Custom scipy engine avoids the Java runtime requirement of the reference pslpython library.
+
+### D018 — Replace NLI with structural contradiction detection
+- **Date**: 2026-03-27
+- **Status**: accepted
+- **Context**: Phase 2 contradiction detection originally planned to use NLI models (e.g. DeBERTa) on claim text. KG extraction now produces structured triples with controlled predicates and explicit direction fields.
+- **Decision**: Drop NLI; implement structural contradiction detection via predicate opposition table + direction comparison + condition disambiguation.
+- **Rationale**: Structured triples make contradictions detectable from graph structure alone. NLI was designed for unstructured text and adds ~800ms/pair latency with no accuracy gain on controlled-vocabulary predicates. Structural detection covers ~950f cases; condition metadata handles the boundary-vs-contradiction disambiguation that NLI cannot reliably perform anyway.

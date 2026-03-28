@@ -93,9 +93,11 @@ class HLMRFEngine:
             name: Unique variable name.
             init: Initial value in [0, 1].
         """
-        if name not in self._variables:
-            idx = len(self._variables)
-            self._variables[name] = (idx, float(init))
+        if name in self._variables:
+            log.debug("hlmrf.duplicate_variable", name=name)
+            return
+        idx = len(self._variables)
+        self._variables[name] = (idx, max(0.0, min(1.0, float(init))))
 
     def add_ground_rule(self, rule: GroundRule) -> None:
         """Add a grounded rule to the engine.
@@ -169,14 +171,21 @@ class HLMRFEngine:
                 elif rule.rule_type == "composition":
                     # AND semantics: weakest body link
                     if rule.body_vars:
-                        body_strength = min(x[var_idx[bv]] for bv in rule.body_vars)
+                        body_indices = [var_idx[bv] for bv in rule.body_vars]
+                        body_vals = [x[bi] for bi in body_indices]
+                        argmin_local = int(np.argmin(body_vals))
+                        body_strength = body_vals[argmin_local]
+                        argmin_idx = body_indices[argmin_local]
                     else:
                         body_strength = 1.0
+                        argmin_idx = None
                     expected = rule.target * body_strength
                     shortfall = max(0.0, expected - x[hi])
                     if shortfall > 0.0:
                         obj += rule.weight * shortfall * shortfall
                         grad[hi] -= 2.0 * rule.weight * shortfall
+                        if argmin_idx is not None:
+                            grad[argmin_idx] += 2.0 * rule.weight * shortfall * rule.target
 
             return obj, grad
 
