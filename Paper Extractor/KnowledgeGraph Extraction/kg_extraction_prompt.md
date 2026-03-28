@@ -21,14 +21,7 @@ Only extract if the paper introduces or validates a novel method. Skip routine m
 **Discussion → `interpretive` OR `attributed_prior`**
 - `interpretive`: Authors' synthesis, mechanistic models, scope limitations ("These results suggest a model where...")
 - `attributed_prior`: Explicit citations of prior work's findings ("Smith et al. demonstrated that X [12]"). Set `source_doi` to the cited work's DOI if resolvable, else `null`.
-- **HIGH VALUE**: Discussion sentences that explicitly contradict prior work ("In contrast to Smith et al., we found...") must always be extracted as TWO claims: one `attributed_prior` for the prior finding, one `primary_empirical` or `interpretive` for this paper's finding.
-
-**CRITICAL for graph quality**: When the Discussion explicitly states disagreement with prior work (e.g., "In contrast to...", "Unlike the findings of...", "However, X et al. showed..."), you MUST extract:
-1. An `attributed_prior` claim for the prior finding (with source_doi if available)
-2. The current paper's finding as `primary_empirical` or `interpretive`
-3. A citation_context entry with `relationship: "contradicts"` linking them
-
-These explicit author-stated contradictions are the highest-quality signals for the contradiction network.
+- When a Discussion sentence references prior work alongside this paper's finding, extract BOTH as separate claims: one `attributed_prior` for the prior finding, one `primary_empirical` or `interpretive` for this paper's finding. This applies regardless of whether the authors frame the relationship as agreement, disagreement, extension, or refinement.
 
 **Introduction → `attributed_prior`**
 Only extract when a SPECIFIC finding is attributed to a SPECIFIC citation. Skip generic statements ("It is well established that...") — these are not informative graph edges.
@@ -42,6 +35,8 @@ Redundant with Results. Do not extract from it.
 
 - **Atomic**: one testable relationship per claim
 - **Scoped**: capture ALL qualifying conditions in the `conditions` object
+- **Consistent entity naming**: Use the most specific canonical name for each entity consistently across ALL claims in this extraction. If the paper uses multiple names for the same entity (e.g., "T", "Brachyury", "TBXT"), pick the most common form in the paper and use it everywhere. Do not alternate between synonyms across claims.
+- **Pathway completeness**: For multi-step mechanisms (e.g., "X activates Y, which in turn inhibits Z"), extract each step as a separate claim. Do not collapse pathway steps into a single claim — the graph needs each edge to enable transitive inference.
 
 ### Predicate vocabulary — CLOSED SET
 
@@ -159,6 +154,7 @@ For claims where truth depends on specific concentrations, doses, or timepoints,
 - Capture negative and null results
 - Copy statistical values verbatim; set `null` if not stated
 - Brief descriptions — no full protocol detail needed
+- **`evidence_strength` is REQUIRED on every evidence unit**: Use one of `direct_experimental`, `indirect_experimental`, `observational_controlled`, `observational_uncontrolled`, `computational_prediction`, `expert_opinion`, or `review_citation` (citation stubs only)
 
 ### Citation evidence stubs for `attributed_prior` claims
 
@@ -203,7 +199,7 @@ Extract citation contexts from the Introduction and Discussion. Each citation co
 
 - **`source_doi`**: DOI of the cited paper if resolvable from the reference list. Set null if not resolvable.
 - **`linked_claim_ids`**: List of claim_ids in THIS paper that the citation relates to.
-- **HIGH PRIORITY**: Discussion sentences with explicit disagreement MUST generate a citation_context with `relationship: "contradicts"`.
+- Label the `relationship` accurately based on the authors' framing — do not default to any single relationship type.
 
 ---
 
@@ -214,16 +210,14 @@ Before outputting, verify:
 2. Every `primary_empirical` claim links to at least one evidence unit
 3. Every claim's `conditions` includes species and cell type (where applicable)
 4. No abstract-derived claims present
-5. Discussion contradictions with prior work are captured as paired claims
-6. Every `predicate` is from the closed vocabulary table above — no invented predicates
-7. Every `claim_type` is one of: mechanistic_causal, correlational, comparative, existence, absence, conditional, methodological — NOT a section_source value
-8. Every `evidence_links` entry has a `direction` that accurately reflects whether the evidence supports or refutes the claim — not all "supports"
-9. Every claim has `model_system` and `organism` populated (null only for purely computational/review claims with no experimental system)
-10. Discussion contradictions with prior work include citation_context entries with `relationship: "contradicts"` linking the paired claims
-11. Quantitative claims (dose-dependent, time-dependent, concentration-dependent) include `quantitative_context` with relevant fields populated
-12. Citation contexts extracted for all explicitly cited prior findings in Introduction and Discussion
-13. Every `relationship: contradicts` citation context has a corresponding `attributed_prior` claim
-14. Every `attributed_prior` claim links to at least one citation evidence stub with `evidence_strength: "review_citation"`
+5. Every `predicate` is from the closed vocabulary table above — no invented predicates
+6. Every `claim_type` is one of: mechanistic_causal, correlational, comparative, existence, absence, conditional, methodological — NOT a section_source value
+7. Every `evidence_links` entry has a `direction` that accurately reflects whether the evidence supports or refutes the claim — not all "supports"
+8. Every claim has `model_system` and `organism` populated (null only for purely computational/review claims with no experimental system)
+9. Quantitative claims (dose-dependent, time-dependent, concentration-dependent) include `quantitative_context` with relevant fields populated
+10. Citation contexts extracted for all explicitly cited prior findings in Introduction and Discussion, with accurate `relationship` labels
+11. Every `attributed_prior` claim links to at least one citation evidence stub with `evidence_strength: "review_citation"`
+12. Discussion sentences referencing prior work alongside this paper's findings are extracted as paired claims (one `attributed_prior`, one `primary_empirical` or `interpretive`)
 
 ---
 
@@ -343,7 +337,8 @@ Output ONLY a single JSON object — no preamble, no markdown fences. No limit o
       "sample_size": "n=30 gastruloids per condition",
       "key_figure": "Figure 2A",
       "approach": "cell_biology",
-      "assay_types": ["immunofluorescence", "confocal_microscopy"]
+      "assay_types": ["immunofluorescence", "confocal_microscopy"],
+      "evidence_strength": "direct_experimental"
     },
     {
       "evidence_id": "e_cite_001",
