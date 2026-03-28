@@ -34,6 +34,7 @@ from autoreview.knowledge_graph.models import (
     QuantitativeContext,
     SectionSource,
 )
+from autoreview.knowledge_graph.mrf_scoring import MRFConfig
 from autoreview.knowledge_graph.nli import (
     NLIConfig,
     classify_cross_claims,
@@ -52,6 +53,7 @@ __all__ = [
     "SectionSource",
     "Certainty",
     "QuantitativeContext",
+    "MRFConfig",
 ]
 
 
@@ -112,7 +114,11 @@ def _build_citation_edges(
     return added
 
 
-def build_graph(extraction_dir: Path) -> nx.MultiDiGraph:
+def build_graph(
+    extraction_dir: Path,
+    use_mrf: bool = False,
+    mrf_config: MRFConfig | None = None,
+) -> nx.MultiDiGraph:
     """Full pipeline: ingest → dedup → graph → confidence.
 
     Steps:
@@ -124,9 +130,16 @@ def build_graph(extraction_dir: Path) -> nx.MultiDiGraph:
     6. Build KGEdge model instances from merged assertions + evidence units.
     7. Build the NetworkX MultiDiGraph from entities and edges.
     8. Score edge confidence with Beta-Binomial posteriors.
+    8b. (Optional) MRF confidence propagation — writes ``mrf_confidence`` onto
+        each edge when ``use_mrf=True``.
+    9. Annotate edges with citation context.
 
     Args:
         extraction_dir: Path to a directory of ``*.json`` extraction files.
+        use_mrf: If ``True``, run HL-MRF inference after Beta-Binomial scoring
+            and write ``mrf_confidence`` posteriors back onto each edge.
+        mrf_config: Optional :class:`MRFConfig` to control MRF hyperparameters.
+            Uses defaults when ``None``.
 
     Returns:
         A scored NetworkX MultiDiGraph ready for analysis and serialization.
@@ -335,6 +348,28 @@ def build_graph(extraction_dir: Path) -> nx.MultiDiGraph:
     # Step 8: Score confidence
     # ------------------------------------------------------------------
     graph = score_all_edges(graph, corpus.provenance_by_paper)
+
+    # ------------------------------------------------------------------
+    # Step 8b: MRF confidence propagation (optional)
+    # ------------------------------------------------------------------
+    if use_mrf:
+        from autoreview.knowledge_graph.mrf_scoring import score_graph_mrf
+
+        mrf_cfg = mrf_config or MRFConfig()
+        mrf_result = score_graph_mrf(graph, config=mrf_cfg)
+
+        # Write MRF posteriors back to edges
+        for u, v, key, data in graph.edges(data=True, keys=True):
+            edge_id = data.get("edge_id")
+            if edge_id and edge_id in mrf_result.posteriors:
+                graph[u][v][key]["mrf_confidence"] = mrf_result.posteriors[edge_id]
+
+        log.info(
+            "kg.pipeline.mrf_done",
+            n_rules=mrf_result.n_rules,
+            n_contradictions=mrf_result.n_contradictions,
+            n_compositions=mrf_result.n_compositions,
+        )
 
     # ------------------------------------------------------------------
     # Step 9: Annotate edges with citation context
