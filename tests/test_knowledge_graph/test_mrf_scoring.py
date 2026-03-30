@@ -13,7 +13,11 @@ from __future__ import annotations
 
 import networkx as nx
 
-from autoreview.knowledge_graph.mrf_scoring import MRFConfig, MRFResult, score_graph_mrf
+from autoreview.knowledge_graph.mrf_scoring import (
+    MRFConfig,
+    MRFResult,
+    score_graph_mrf,
+)
 
 # ---------------------------------------------------------------------------
 # Helper: canonical scored graph
@@ -330,3 +334,225 @@ def test_all_posteriors_bounded() -> None:
 
     for edge_id, val in result.posteriors.items():
         assert 0.0 <= val <= 1.0, f"Posterior for {edge_id} = {val:.6f} is outside [0, 1]"
+
+
+# ---------------------------------------------------------------------------
+# Multi-hop composition tests (Feature 1)
+# ---------------------------------------------------------------------------
+
+
+def _make_4node_chain_graph() -> nx.MultiDiGraph:
+    """Build A->B->C->D with direct A->D edge for 2-hop composition testing."""
+    G = nx.MultiDiGraph()
+    for n in ["A", "B", "C", "D"]:
+        G.add_node(n, canonical_name=n, entity_type="protein")
+    G.add_edge(
+        "A",
+        "B",
+        predicate="induces",
+        direction="positive",
+        confidence_mean=0.90,
+        edge_id="ab",
+        organism="Mus musculus",
+        model_system="mESC",
+        in_vitro=True,
+        conditions={},
+    )
+    G.add_edge(
+        "B",
+        "C",
+        predicate="induces",
+        direction="positive",
+        confidence_mean=0.85,
+        edge_id="bc",
+        organism="Mus musculus",
+        model_system="mESC",
+        in_vitro=True,
+        conditions={},
+    )
+    G.add_edge(
+        "C",
+        "D",
+        predicate="induces",
+        direction="positive",
+        confidence_mean=0.80,
+        edge_id="cd",
+        organism="Mus musculus",
+        model_system="mESC",
+        in_vitro=True,
+        conditions={},
+    )
+    G.add_edge(
+        "A",
+        "D",
+        predicate="induces",
+        direction="positive",
+        confidence_mean=0.25,
+        edge_id="ad",
+        organism="Mus musculus",
+        model_system="mESC",
+        in_vitro=True,
+        conditions={},
+    )
+    return G
+
+
+def test_mrf_config_multihop_defaults() -> None:
+    """MRFConfig should have multi-hop composition defaults."""
+    config = MRFConfig()
+    assert config.max_composition_hops == 3
+    assert config.composition_decay == 0.7
+
+
+def test_multihop_2hop_boosts_ad() -> None:
+    """A->B->C->D chain (2-hop) should boost A->D above its prior 0.25."""
+    G = _make_4node_chain_graph()
+    config = MRFConfig(max_composition_hops=3)
+    result = score_graph_mrf(G, config=config)
+    ad_posterior = result.posteriors["ad"]
+    assert ad_posterior > 0.28, (
+        f"2-hop chain should boost A->D above prior 0.25, got {ad_posterior:.4f}"
+    )
+
+
+def test_multihop_disabled_at_hops_1() -> None:
+    """max_composition_hops=1 should not discover 2-hop chains."""
+    G = _make_4node_chain_graph()
+    config_1hop = MRFConfig(max_composition_hops=1)
+    result_1hop = score_graph_mrf(G, config=config_1hop)
+    config_3hop = MRFConfig(max_composition_hops=3)
+    result_3hop = score_graph_mrf(G, config=config_3hop)
+    assert result_3hop.posteriors["ad"] >= result_1hop.posteriors["ad"] - 1e-6
+
+
+def test_composition_decay_reduces_strength() -> None:
+    """Higher decay = less attenuation = stronger multi-hop boost."""
+    G = _make_4node_chain_graph()
+    result_low = score_graph_mrf(G, config=MRFConfig(composition_decay=0.3))
+    result_high = score_graph_mrf(G, config=MRFConfig(composition_decay=0.9))
+    assert result_high.posteriors["ad"] >= result_low.posteriors["ad"] - 1e-6
+
+
+# ---------------------------------------------------------------------------
+# Diagnostics tests (Feature 2)
+# ---------------------------------------------------------------------------
+
+
+def test_mrf_result_has_diagnostics_field() -> None:
+    """MRFResult should have an optional diagnostics field."""
+    result = MRFResult()
+    assert result.diagnostics is None
+
+
+def test_mrf_config_diagnostics_default() -> None:
+    """MRFConfig should have diagnostics_top_n default."""
+    config = MRFConfig()
+    assert config.diagnostics_top_n == 20
+
+
+def test_diagnostics_populated_on_solve() -> None:
+    """Solving a non-empty graph should populate diagnostics."""
+    G = _make_scored_graph()
+    result = score_graph_mrf(G)
+    assert result.diagnostics is not None
+    assert result.diagnostics.converged is True
+    assert result.diagnostics.n_iterations >= 0
+    assert result.diagnostics.final_objective >= 0.0
+    assert isinstance(result.diagnostics.top_violations, list)
+    assert isinstance(result.diagnostics.mean_violation_by_type, dict)
+    assert "unary" in result.diagnostics.mean_violation_by_type
+
+
+def test_diagnostics_top_violations_limited() -> None:
+    """Top violations should be limited to diagnostics_top_n."""
+    G = _make_scored_graph()
+    config = MRFConfig(diagnostics_top_n=2)
+    result = score_graph_mrf(G, config=config)
+    assert result.diagnostics is not None
+    assert len(result.diagnostics.top_violations) <= 2
+
+
+# ---------------------------------------------------------------------------
+# Incremental update tests (Feature 3)
+# ---------------------------------------------------------------------------
+
+
+def test_update_graph_mrf_returns_all_edges() -> None:
+    """update_graph_mrf should return posteriors for all edges including new ones."""
+    G = _make_scored_graph()
+    prior_result = score_graph_mrf(G)
+    G.add_edge(
+        "e1",
+        "e3",
+        predicate="inhibits",
+        direction="negative",
+        confidence_mean=0.40,
+        edge_id="edge_ac2",
+        organism="Mus musculus",
+        model_system="mESC",
+        in_vitro=True,
+        conditions={},
+    )
+    from autoreview.knowledge_graph.mrf_scoring import update_graph_mrf
+
+    updated = update_graph_mrf(G, new_edge_ids=["edge_ac2"], prior_result=prior_result)
+    assert "edge_ac2" in updated.posteriors
+    assert "edge_ab" in updated.posteriors
+    assert "edge_ac" in updated.posteriors
+
+
+def test_update_graph_mrf_close_to_full_solve() -> None:
+    """Incremental should produce posteriors within 0.15 of full re-solve."""
+    G = _make_scored_graph()
+    prior_result = score_graph_mrf(G)
+    G.add_edge(
+        "e2",
+        "e3",
+        predicate="inhibits",
+        direction="negative",
+        confidence_mean=0.20,
+        edge_id="edge_bc2",
+        organism="Mus musculus",
+        model_system="mESC",
+        in_vitro=True,
+        conditions={},
+    )
+    from autoreview.knowledge_graph.mrf_scoring import update_graph_mrf
+
+    incremental = update_graph_mrf(G, new_edge_ids=["edge_bc2"], prior_result=prior_result)
+    full = score_graph_mrf(G)
+    for eid in full.posteriors:
+        if eid in incremental.posteriors:
+            assert abs(incremental.posteriors[eid] - full.posteriors[eid]) < 0.15
+
+
+# ---------------------------------------------------------------------------
+# Finding layer config and result tests
+# ---------------------------------------------------------------------------
+
+
+def test_mrf_config_finding_layer_defaults() -> None:
+    """MRFConfig should have finding layer defaults."""
+    config = MRFConfig()
+    assert config.finding_contradiction_weight == 12.0
+    assert config.propagation_weight == 3.0
+    assert config.enable_finding_layer is True
+
+
+def test_mrf_result_has_finding_posteriors() -> None:
+    """MRFResult should have a finding_posteriors field."""
+    result = MRFResult()
+    assert result.finding_posteriors == {}
+    assert result.n_findings == 0
+    assert result.n_finding_contradictions == 0
+
+
+def test_finding_layer_disabled_matches_baseline() -> None:
+    """enable_finding_layer=False should produce identical results to current behavior."""
+    G = _make_scored_graph()
+    config_off = MRFConfig(enable_finding_layer=False)
+    config_default = MRFConfig(enable_finding_layer=False)
+    result_off = score_graph_mrf(G, config=config_off)
+    result_default = score_graph_mrf(G, config=config_default)
+    for eid in result_off.posteriors:
+        assert abs(result_off.posteriors[eid] - result_default.posteriors[eid]) < 1e-9
