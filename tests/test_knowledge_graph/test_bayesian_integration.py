@@ -49,7 +49,7 @@ def test_full_pipeline_laplace_only() -> None:
     config = BayesianConfig(hotspot_top_k=0, seed=42)
     result = score_graph_bayesian(G, config=config)
 
-    assert result.n_variables == 5  # 5 nodes: A, B, C, D, E
+    assert result.n_variables == 6  # 6 edge variables in the inference model
     assert len(result.posteriors) == 6  # 6 edges
     assert len(result.credible_intervals) == 6
     assert all(0.0 <= v <= 1.0 for v in result.posteriors.values())
@@ -73,7 +73,7 @@ def test_full_pipeline_with_nuts() -> None:
     )
     result = score_graph_bayesian(G, config=config)
 
-    assert result.n_variables == 5  # 5 nodes: A, B, C, D, E
+    assert result.n_variables == 6  # 6 edge variables in the inference model
     assert len(result.posteriors) == 6  # 6 edges
     # Hotspot edges should have samples (graph has contradictions)
     assert len(result.posterior_samples) > 0

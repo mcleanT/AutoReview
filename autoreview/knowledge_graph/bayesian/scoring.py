@@ -49,7 +49,7 @@ class BayesianResult:
         bimodality_flags: True for edges flagged as bimodal by Hartigan's dip.
         diagnostics: MCMC diagnostics from the most recent NUTS run, or None
             if only Laplace approximation was used.
-        n_variables: Number of distinct graph nodes (entity variables).
+        n_variables: Number of edge variables in the inference model.
         n_contradictions: Number of contradiction pairs found in the graph.
         n_compositions: Number of composition chains discovered.
     """
@@ -112,9 +112,7 @@ def score_graph_bayesian(
     # Guard: empty graph
     # ------------------------------------------------------------------
     if graph.number_of_edges() == 0:
-        return BayesianResult(
-            n_variables=graph.number_of_nodes(),
-        )
+        return BayesianResult()
 
     # ------------------------------------------------------------------
     # Step 1: prepare model inputs
@@ -160,7 +158,7 @@ def score_graph_bayesian(
         posterior_samples=samples,
         bimodality_flags=bimodality_flags,
         diagnostics=nuts_diagnostics,
-        n_variables=graph.number_of_nodes(),
+        n_variables=inputs.n_edges,
         n_contradictions=len(inputs.contra_a_idx),
         n_compositions=len(inputs.composition_chains),
     )
@@ -350,7 +348,7 @@ def update_graph_bayesian(
         posterior_samples=samples,
         bimodality_flags=bimodality_flags,
         diagnostics=nuts_result.diagnostics,
-        n_variables=graph.number_of_nodes(),
-        n_contradictions=prior_result.n_contradictions,
-        n_compositions=prior_result.n_compositions,
+        n_variables=sub_inputs.n_edges,
+        n_contradictions=len(sub_inputs.contra_a_idx),
+        n_compositions=len(sub_inputs.composition_chains),
     )
