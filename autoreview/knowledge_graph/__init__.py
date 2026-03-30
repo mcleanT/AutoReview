@@ -8,7 +8,20 @@ from pathlib import Path
 import networkx as nx
 import structlog
 
-from autoreview.knowledge_graph.analysis import score_contradiction_centrality
+from autoreview.knowledge_graph.analysis import (
+    score_contradiction_centrality,
+    score_finding_contradiction_centrality,
+    summarize_topic_clusters,
+)
+from autoreview.knowledge_graph.cluster import (
+    Finding,
+    FindingContradiction,
+    TopicCluster,
+    build_topic_clusters,
+    detect_finding_contradictions,
+    form_findings,
+    get_predicate_class,
+)
 from autoreview.knowledge_graph.confidence import score_all_edges
 from autoreview.knowledge_graph.dedup import (
     EntityRegistry,
@@ -66,6 +79,10 @@ __all__ = [
     "WeightLearningConfig",
     "learn_weights",
     "score_contradiction_centrality",
+    "score_graph_bayesian",
+    "update_graph_bayesian",
+    "BayesianConfig",
+    "BayesianResult",
 ]
 
 
@@ -133,6 +150,8 @@ def build_graph(
     version: int = 1,
     normalize: bool = False,
     llm_decompose: bool = True,
+    bayesian: bool = False,
+    bayesian_config: BayesianConfig | None = None,
 ) -> nx.MultiDiGraph:
     """Full pipeline: ingest → dedup → graph → confidence.
 
@@ -168,6 +187,12 @@ def build_graph(
         llm_decompose: If ``True`` and ``normalize=True``, use LLM fallback
             for compound objects that rule-based patterns can't handle.
             Default ``True``.
+        bayesian: If ``True``, run Bayesian inference (Laplace + targeted NUTS)
+            after Beta-Binomial scoring and write ``bayesian_confidence``,
+            ``bayesian_ci_low``, ``bayesian_ci_high``, and ``bayesian_bimodal``
+            onto each edge. Requires ``pip install autoreview[bayesian]``.
+        bayesian_config: Optional :class:`BayesianConfig` to control Bayesian
+            inference hyperparameters. Uses defaults when ``None``.
 
     Returns:
         A scored NetworkX MultiDiGraph ready for analysis and serialization.
@@ -461,6 +486,36 @@ def build_graph(
             n_rules=mrf_result.n_rules,
             n_contradictions=mrf_result.n_contradictions,
             n_compositions=mrf_result.n_compositions,
+        )
+
+    # ------------------------------------------------------------------
+    # Step 8c: Bayesian inference (optional)
+    # ------------------------------------------------------------------
+    if bayesian:
+        from autoreview.knowledge_graph.bayesian import (
+            BayesianConfig,
+            score_graph_bayesian,
+        )
+
+        b_cfg = bayesian_config or BayesianConfig()
+        bayesian_result = score_graph_bayesian(graph, config=b_cfg)
+
+        for u, v, key, data in graph.edges(data=True, keys=True):
+            edge_id = data.get("edge_id")
+            if edge_id and edge_id in bayesian_result.posteriors:
+                graph[u][v][key]["bayesian_confidence"] = bayesian_result.posteriors[edge_id]
+                if edge_id in bayesian_result.credible_intervals:
+                    ci = bayesian_result.credible_intervals[edge_id]
+                    graph[u][v][key]["bayesian_ci_low"] = ci[0]
+                    graph[u][v][key]["bayesian_ci_high"] = ci[1]
+                if edge_id in bayesian_result.bimodality_flags:
+                    graph[u][v][key]["bayesian_bimodal"] = bayesian_result.bimodality_flags[edge_id]
+
+        log.info(
+            "kg.pipeline.bayesian_done",
+            n_variables=bayesian_result.n_variables,
+            n_contradictions=bayesian_result.n_contradictions,
+            n_compositions=bayesian_result.n_compositions,
         )
 
     # ------------------------------------------------------------------
