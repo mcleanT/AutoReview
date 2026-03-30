@@ -83,6 +83,15 @@ __all__ = [
     "update_graph_bayesian",
     "BayesianConfig",
     "BayesianResult",
+    "TopicCluster",
+    "Finding",
+    "FindingContradiction",
+    "build_topic_clusters",
+    "form_findings",
+    "detect_finding_contradictions",
+    "get_predicate_class",
+    "score_finding_contradiction_centrality",
+    "summarize_topic_clusters",
 ]
 
 
