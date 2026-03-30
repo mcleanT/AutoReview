@@ -17,11 +17,11 @@ Provides three public callables:
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 import numpy as np
+import structlog
 
 if TYPE_CHECKING:
     import networkx as nx
@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from autoreview.knowledge_graph.bayesian.config import BayesianConfig
     from autoreview.knowledge_graph.bayesian.diagnostics import BayesianDiagnostics
 
-log = logging.getLogger(__name__)
+log = structlog.get_logger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -348,7 +348,7 @@ def update_graph_bayesian(
         posterior_samples=samples,
         bimodality_flags=bimodality_flags,
         diagnostics=nuts_result.diagnostics,
-        n_variables=sub_inputs.n_edges,
+        n_variables=len(posteriors),
         n_contradictions=len(sub_inputs.contra_a_idx),
         n_compositions=len(sub_inputs.composition_chains),
     )

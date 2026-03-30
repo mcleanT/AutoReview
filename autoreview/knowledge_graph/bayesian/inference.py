@@ -14,13 +14,15 @@ Provides three public callables:
 
 from __future__ import annotations
 
-import logging
 import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 import networkx as nx
 import numpy as np
+import structlog
+
+from autoreview.knowledge_graph.bayesian.diagnostics import BayesianDiagnostics
 
 if TYPE_CHECKING:
     import jax
@@ -28,7 +30,7 @@ if TYPE_CHECKING:
     from autoreview.knowledge_graph.bayesian.config import BayesianConfig
     from autoreview.knowledge_graph.bayesian.model import ModelInputs
 
-log = logging.getLogger(__name__)
+log = structlog.get_logger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -182,16 +184,16 @@ def laplace_approximate(
         bounds=[(0.01, 0.99)] * n,
         options={"maxiter": 200},
     )
-    map_est = jnp.array(opt_result.x, dtype=jnp.float32)
+    map_est = jnp.array(opt_result.x, dtype=jnp.float64)
 
     # ------------------------------------------------------------------
-    # Hessian of neg-log-posterior at MAP (float32 — JAX default)
+    # Hessian of neg-log-posterior at MAP (float64 for numerical stability)
     # ------------------------------------------------------------------
     hessian_fn = jax.hessian(neg_log_post)
     hess = hessian_fn(map_est)
 
-    # Regularise and invert
-    hess_reg = hess + 1e-6 * jnp.eye(n)
+    # Regularise and invert — ridge of 1e-4 guards against ill-conditioning
+    hess_reg = hess + 1e-4 * jnp.eye(n)
     cov = jnp.linalg.inv(hess_reg)
     variances = jnp.maximum(jnp.diag(cov), 1e-10)
     stds = jnp.sqrt(variances)

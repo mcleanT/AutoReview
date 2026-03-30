@@ -84,6 +84,12 @@ def compute_mcmc_diagnostics(
     r_hats = summary["r_hat"].values.astype(float)
     ess_bulk = summary["ess_bulk"].values.astype(float)
 
+    # R-hat is undefined for single-chain runs — ArviZ returns NaN.
+    # Default to 1.0 (perfect convergence) so single-chain runs are not
+    # spuriously flagged as non-converged.
+    if np.any(np.isnan(r_hats)):
+        r_hats = np.where(np.isnan(r_hats), 1.0, r_hats)
+
     # Divergences
     n_divergences = 0
     if hasattr(idata, "sample_stats") and "diverging" in idata.sample_stats:

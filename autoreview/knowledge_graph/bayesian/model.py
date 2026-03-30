@@ -21,17 +21,17 @@ Design notes
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 import networkx as nx
 import numpy as np
+import structlog
 
 if TYPE_CHECKING:
     from autoreview.knowledge_graph.bayesian.config import BayesianConfig
 
-log = logging.getLogger(__name__)
+log = structlog.get_logger(__name__)
 
 
 # ---------------------------------------------------------------------------
