@@ -185,6 +185,7 @@ class NLIPairResult(AutoReviewModel):
     shared_entities: list[str]
     context_mismatch: str | None = None
     original_p_contradiction: float | None = None
+    contradiction_type: str | None = None
 
 
 class CrossClaimNLIResult(AutoReviewModel):
@@ -361,6 +362,7 @@ def _build_claims(
             "subject_name": subj_name,
             "object_name": obj_name,
             "edge_data": data,
+            "condition_signature": data.get("condition_signature"),
         }
         entity_to_claim_ids[subj_name].add(edge_key)
         entity_to_claim_ids[obj_name].add(edge_key)
@@ -485,6 +487,47 @@ def _contexts_mismatch(claim_a: dict[str, Any], claim_b: dict[str, Any]) -> str 
                 return f"model_system: {ms_a} vs {ms_b}"
 
     return None
+
+
+def _classify_contradiction_type(
+    claim_a: dict[str, Any],
+    claim_b: dict[str, Any],
+) -> str:
+    """Classify the type of contradiction between two claims.
+
+    Uses condition signatures and predicate relationships to determine
+    whether a contradiction is within-context, cross-context, structural,
+    or NLI-semantic.
+
+    Args:
+        claim_a: Claim dict with subj_id, obj_id, predicate, edge_data.
+        claim_b: Claim dict with subj_id, obj_id, predicate, edge_data.
+
+    Returns:
+        One of: "within_context", "cross_context", "structural", "nli_semantic".
+    """
+    same_subject = claim_a["subj_id"] == claim_b["subj_id"]
+    same_object = claim_a["obj_id"] == claim_b["obj_id"]
+    same_predicate = claim_a["predicate"] == claim_b["predicate"]
+
+    sig_a = claim_a.get("edge_data", {}).get("condition_signature")
+    sig_b = claim_b.get("edge_data", {}).get("condition_signature")
+    same_condition = sig_a is not None and sig_b is not None and sig_a == sig_b
+
+    if same_subject and same_object:
+        # Check for structural opposition (opposing predicates)
+        if not same_predicate and same_condition:
+            opposition = _predicates_oppose(claim_a["predicate"], claim_b["predicate"])
+            if opposition is not None:
+                return "structural"
+
+        if same_predicate:
+            if same_condition:
+                return "within_context"
+            if sig_a is not None and sig_b is not None:
+                return "cross_context"
+
+    return "nli_semantic"
 
 
 def _batch_nli_classify(
@@ -822,6 +865,7 @@ def classify_cross_claims(
 
         if p_contra >= config.contradiction_threshold and method != "parallel_skip":
             shared = pair_shared.get((a_id, b_id), [])
+            contradiction_type = _classify_contradiction_type(claims[a_id], claims[b_id])
             pair_results.append(
                 NLIPairResult(
                     claim_a_id=a_id,
@@ -833,6 +877,7 @@ def classify_cross_claims(
                     shared_entities=shared,
                     context_mismatch=nli_out.get("context_mismatch"),
                     original_p_contradiction=nli_out.get("original_p_contra"),
+                    contradiction_type=contradiction_type,
                 )
             )
 

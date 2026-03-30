@@ -695,3 +695,122 @@ class TestUpdateGraphPosteriors:
         if "confidence_mean" in data_b:
             expected_cross_beta_b = p_contra * (1.0 + 1.0)  # two evs from A
             assert data_b["_nli_cross_beta"] == pytest.approx(expected_cross_beta_b, rel=1e-4)
+
+
+class TestContradictionTaxonomy:
+    """Test the v2 contradiction type classification."""
+
+    def test_nli_pair_result_has_contradiction_type(self):
+        from autoreview.knowledge_graph.nli import NLIPairResult
+
+        result = NLIPairResult(
+            claim_a_id="a",
+            claim_b_id="b",
+            p_contradiction=0.9,
+            p_entailment=0.05,
+            p_neutral=0.05,
+            method="nli",
+            shared_entities=["BMP4"],
+            contradiction_type="within_context",
+        )
+        assert result.contradiction_type == "within_context"
+
+    def test_nli_pair_result_contradiction_type_default_none(self):
+        from autoreview.knowledge_graph.nli import NLIPairResult
+
+        result = NLIPairResult(
+            claim_a_id="a",
+            claim_b_id="b",
+            p_contradiction=0.9,
+            p_entailment=0.05,
+            p_neutral=0.05,
+            method="nli",
+            shared_entities=["BMP4"],
+        )
+        assert result.contradiction_type is None
+
+    def test_classify_contradiction_type_within_context(self):
+        from autoreview.knowledge_graph.nli import _classify_contradiction_type
+
+        claim_a = {
+            "subj_id": "e1",
+            "obj_id": "e2",
+            "predicate": "induces",
+            "edge_data": {"condition_signature": "abc123"},
+        }
+        claim_b = {
+            "subj_id": "e1",
+            "obj_id": "e2",
+            "predicate": "induces",
+            "edge_data": {"condition_signature": "abc123"},
+        }
+        assert _classify_contradiction_type(claim_a, claim_b) == "within_context"
+
+    def test_classify_contradiction_type_cross_context(self):
+        from autoreview.knowledge_graph.nli import _classify_contradiction_type
+
+        claim_a = {
+            "subj_id": "e1",
+            "obj_id": "e2",
+            "predicate": "induces",
+            "edge_data": {"condition_signature": "abc123"},
+        }
+        claim_b = {
+            "subj_id": "e1",
+            "obj_id": "e2",
+            "predicate": "induces",
+            "edge_data": {"condition_signature": "def456"},
+        }
+        assert _classify_contradiction_type(claim_a, claim_b) == "cross_context"
+
+    def test_classify_contradiction_type_structural(self):
+        from autoreview.knowledge_graph.nli import _classify_contradiction_type
+
+        claim_a = {
+            "subj_id": "e1",
+            "obj_id": "e2",
+            "predicate": "induces",
+            "edge_data": {"condition_signature": "abc123"},
+        }
+        claim_b = {
+            "subj_id": "e1",
+            "obj_id": "e2",
+            "predicate": "inhibits",
+            "edge_data": {"condition_signature": "abc123"},
+        }
+        assert _classify_contradiction_type(claim_a, claim_b) == "structural"
+
+    def test_classify_contradiction_type_nli_semantic(self):
+        from autoreview.knowledge_graph.nli import _classify_contradiction_type
+
+        claim_a = {
+            "subj_id": "e1",
+            "obj_id": "e2",
+            "predicate": "induces",
+            "edge_data": {"condition_signature": "abc123"},
+        }
+        claim_b = {
+            "subj_id": "e3",
+            "obj_id": "e4",
+            "predicate": "regulates",
+            "edge_data": {"condition_signature": "abc123"},
+        }
+        assert _classify_contradiction_type(claim_a, claim_b) == "nli_semantic"
+
+    def test_classify_missing_condition_signature(self):
+        """v1 graphs without condition_signature default to nli_semantic."""
+        from autoreview.knowledge_graph.nli import _classify_contradiction_type
+
+        claim_a = {
+            "subj_id": "e1",
+            "obj_id": "e2",
+            "predicate": "induces",
+            "edge_data": {},
+        }
+        claim_b = {
+            "subj_id": "e1",
+            "obj_id": "e2",
+            "predicate": "induces",
+            "edge_data": {},
+        }
+        assert _classify_contradiction_type(claim_a, claim_b) == "nli_semantic"
