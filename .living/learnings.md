@@ -1290,3 +1290,138 @@ Review papers and abstract-only papers yield qualitatively different KG extracti
 - Per-claim quality is good: 7/10 factual accuracy, evidence descriptions accurate with correct effect sizes/p-values
 - One ontology error: P04637 (p53) assigned to Invariant chain instead of P04233
 - Claude CLI does not expose --max-tokens flag; unclear if this is purely a token limit issue
+
+### Sonnet vs Haiku extraction comparison (2026-03-29)
+- Sonnet produces ~2x claims vs Haiku (39 vs 21 on corpus_4) with zero structural integrity issues (no orphans, no dangling refs)
+- Sonnet captures claim types Haiku misses entirely (interpretive, methodological)
+- Haiku with v8.7 prompt is wildly inconsistent across papers: 3-57 claims on similar-sized papers, with massive orphaning on longer papers
+- Root cause of Haiku issues: v8.7 prompt's per-claim field requirements overwhelm Haiku's capacity — optimizer improved quality-per-claim but degraded consistency and completeness
+- CLI (`claude -p`) is not viable for Sonnet extractions: timeouts at 900s, max-turns=1 conflicts with Sonnet's approach. Need direct API calls.
+- Sonnet consolidates evidence more aggressively (1 unit per figure vs per panel), but this was appropriate for the test paper (computational methods, only 3 figures)
+- Prompt reinforcement for panel-level evidence splitting had no effect on Sonnet — model behavior may need stronger examples
+- Cost: Sonnet ~10x Haiku per extraction, but 50-paper corpus via Batch API = ~$15 (reasonable)
+
+## 2026-03-29 — rapidfuzz threshold for scientific model system strings
+
+- **Finding:** Scientific model system descriptions (e.g., "mouse ESC gastruloids" vs "mESC-derived gastruloids") score lower on rapidfuzz.ratio (~71) than expected because abbreviations and hyphens reduce character-level similarity. Threshold 80 (used for entity dedup) is too aggressive for model system bucketing.
+- **Resolution:** ModelSystemRegistry uses threshold 65. Entity dedup stays at 85.
+- **Applies to:** Any future fuzzy matching on scientific terminology with abbreviation variation.
+
+## 2026-03-29 — Condition-aware merging impact on real corpus
+
+- **Finding:** On the micro_v5 gastruloid corpus (11 papers, ~700 assertions), v2 condition-aware merging produces only 1.5% more edges than v1 (690 vs 680). This is because most papers in the gastruloid corpus study the same model system (mouse ESC gastruloids). The impact will be larger on heterogeneous corpora spanning multiple organisms/systems.
+- **Implication:** For domain-specific reviews (single model system), v1 and v2 produce nearly identical graphs. For cross-species or cross-system reviews, v2 is essential.
+
+---
+
+## Learning — 2026-03-29: MRF diagnostics are essential for debugging contradiction quality
+
+- **Context**: MRF posteriors were opaque — hard to tell why certain contradictions scored low
+- **Finding**: Added `MRFDiagnostics` (converged, n_iterations, final_objective, top_violations, mean_violation_by_type) and `RuleViolation` dataclass to `mrf_scoring.py`
+- **Impact**: `_build_diagnostics()` extracts top-N violated rules post-solve; `compute_diagnostics()` on HLMRFEngine gives per-rule breakdown
+- **Lesson**: Always expose convergence metadata (converged, nit, fun) as engine properties — scipy optimize result is not available post-solve otherwise
+- **Files**: `autoreview/knowledge_graph/hlmrf.py`, `autoreview/knowledge_graph/mrf_scoring.py`
+
+## MRF Weight Learning / Diagnostics Layer — 2026-03-29
+
+**Context:** MRF scoring refactor + incremental solve additions (prior session).
+
+- `HLMRFEngine.solve_incremental()` supports warm-start re-solves restricted to a hop-radius subgraph around affected variables — substantially cheaper than full re-solve when new edges are sparse.
+- Convergence metadata (`last_converged`, `last_n_iterations`, `last_final_objective`) exposed as properties on `HLMRFEngine` so callers can inspect solver state without re-running.
+- `_ground_rules()` refactor extracted Steps 1–5 of the MRF pipeline into a shared helper, enabling both `score_graph_mrf` and `update_graph_mrf` to share grounding logic.
+- `MRFDiagnostics` + `RuleViolation` dataclasses added to `mrf_scoring.py` — attach per-rule violation diagnostics to `MRFResult`. Useful for surfacing which claim types are driving contradiction penalties.
+- `max_composition_hops` and `composition_decay` added to `MRFConfig` (defaults 3, 0.7) to control chain-following depth and decay in composition rules.
+- Pattern: incremental updates require tracking which `edge_id`s are new; callers must pass `new_edge_ids` + prior `MRFResult` to `update_graph_mrf`.
+
+### Subagent approach too slow for Sonnet extraction (2026-03-29)
+- Sonnet subagent took 23 minutes on a 66K char paper before hitting 32K output token limit — unusable
+- Root cause: multi-turn agent framework resends full context each turn (prompt + paper + generated output), compounding latency
+- Haiku on same paper: 1 claim, 18 evidence ALL orphaned — worst result yet, confirming Haiku is broken for long papers with v8.7 prompt
+- Direct Anthropic API calls (single request-response, max_tokens=64000) are the required path forward
+- CLAUDE_CODE_MAX_OUTPUT_TOKENS env var controls subagent output cap (default 32K)
+- Elsevier API key works for fetching Cell/Dev Cell papers programmatically
+
+## 2026-03-29 — Post-Extraction Claim Normalization Layer
+
+- **Ruff strips unreferenced imports on the same edit**: When adding a new import in one edit and its consuming code in a subsequent edit, Ruff may remove the import before the code lands. Add imports in the same edit as the code that uses them.
+
+- **Parallel subagents on overlapping files risk commit absorption**: Task 5's commit was absorbed into Task 4's when both ran concurrently against the same files. For tasks that touch the same file set, sequential dispatch is safer than parallel dispatch even when the logical work is independent.
+
+- **ModelSystemRegistry fuzzy threshold of 65 also applies to normalization**: Domain abbreviations (e.g., short gene/protein names) score lower than expected on `fuzz.ratio`. The threshold calibrated during v2 graph work transfers directly here — no re-tuning needed.
+
+- **Entity matching (verbose/inconsistent names) was the primary bottleneck for contradiction detection**: The normalization layer addresses the root cause. Graph construction logic was already sound; the false-negative rate in NLI was almost entirely due to mis-matched entity strings preventing claim pairs from being compared.
+
+### CLAUDE_CODE_MAX_OUTPUT_TOKENS was the root cause all along (2026-03-30)
+- The CLI's default output token limit (likely 8-16K) was truncating all Haiku extractions
+- Setting CLAUDE_CODE_MAX_OUTPUT_TOKENS=64000 completely fixes the issue
+- Haiku with 64K limit: 71 claims, 57 evidence, 0 orphans on a 66K char paper (same paper that gave 1 claim with default limit)
+- Haiku actually outperforms Sonnet: 96% completeness vs 79%, better DOI coverage, faster (5 min vs 18 min), ~10x cheaper
+- Sonnet has better certainty calibration and less redundancy, but misses more findings
+- The v8.7 prompt was never the problem — it works excellently with adequate output tokens
+- All yesterday's diagnosis (prompt complexity, model capability limits, depth-vs-breadth tradeoff) was wrong — it was purely a token limit issue
+
+## 2026-03-29 — Contradiction Centrality, Bayesian Inference, Ground Truth
+
+### High contradiction count signals extraction noise, not science
+- The old gastruloid corpus produced 4,333 contradictions from 2,899 claims — a ~1.5 contradictions-per-claim ratio is implausibly high for a real scientific corpus.
+- **Implication**: `contradiction_centrality` on noisy extractions flags extraction errors, not genuine scientific hotspots. Do not interpret high-centrality nodes as scientifically controversial until extraction quality is validated.
+- **Action**: Prioritize extraction quality improvements before investing in Bayesian inference. The Bayesian model needs clean input signal.
+
+### No single ground truth standard for biomedical KGs
+- Literature review of STRING, PharmGKB, CTD, GO: each uses a different validation approach (co-expression thresholds, manual curation, text-mining scores, expert ontology review).
+- **Implication**: There is no off-the-shelf ground truth to borrow. The tiered strategy (database anchors + evidence stratification + expert spot-check) is the norm, not a workaround.
+
+### Hierarchical Bayesian models: structural parameters transfer across fields, priors do not
+- **Structural parameters** (evidence weights, contradiction penalties) are relatively field-agnostic — single-corpus training transfers well.
+- **Certainty priors** (how strong claims tend to be in a field) are field-dependent and need per-corpus adaptation.
+- **Implication**: When building the hierarchical model, separate structural hyperparameters from field-specific priors in the model architecture.
+
+### `contradiction_centrality` is the right triage lens for human review
+- Aggregating contradiction pairs to entity nodes (rather than edge-level review) surfaces the most disputed entities — useful for both ground truth curation and identifying genuine scientific controversy.
+- New function `score_contradiction_centrality()` in `analysis.py` writes `contradiction_centrality` and `n_contradictions` as node attributes.
+
+### 2026-03-30 — Prompt additions cause primary_empirical claim drop (collateral damage)
+- Adding interpretive/negative/certainty instructions to v8.7 caused Haiku to halve primary_empirical claims (53→27)
+- NOT truncation — output was only 22K of 64K tokens, structurally perfect (zero orphans/dangles)
+- Haiku reallocates attention budget: more Discussion synthesis = less granular Results extraction
+- The density metric (1.0 for 25-50 claims) failed to detect this because 46 still scores 1.0
+- Fix options: raise density floor to 40-70, add per-section minimums, or accept the tradeoff
+
+### 2026-03-30 — quant_context improved as side effect of certainty calibration
+- Adding "Quantitative parameters must be exact regardless of certainty level" improved quant_context 0.35→0.49
+- Prompt instructions have second-order effects; small wording changes shift model attention
+
+### 2026-03-30 — Interpretive claims bridge extraction granularity and graph-level reasoning
+- Haiku produced 0 interpretive claims with v8.7, 8 with v11.0
+- These naturally serve as paper-level "findings" without schema changes
+- Combined with graph-time clustering, enables meta-level contradiction detection
+
+### 2026-03-30 — KG prompt optimization ceiling at 0.98 (excluding unfixable metrics)
+- Composite score reached 0.98 when excluding 2 metrics that are structurally unfixable at extraction time
+- Remaining gaps (quant_context completeness, certainty calibration edge cases) are downstream problems
+- Further prompt tuning has diminishing returns and risks collateral damage (v11.0 primary_empirical drop is evidence)
+- Correct investment: post-extraction normalization layer + graph-time inference, not more prompt iterations
+- Rule of thumb: if a metric requires world knowledge or cross-claim context to evaluate, it cannot be fixed in the extraction prompt
+
+### 2026-03-30 — Density floor prevents attention reallocation in Haiku
+- Adding new extraction categories (interpretive, negative) without a density floor caused Haiku to halve primary claims
+- Fix: explicit per-section minimum (30+ primary_empirical) prevents the model from trading granular Results for Discussion synthesis
+- The scoring density metric must match the prompt guidance or it creates false regressions
+
+### 2026-03-30 — Downward propagation rule direction matters
+- In HL-MRF, `max(0, head + coeff*body - target)^2` penalizes when head exceeds the threshold. For downward propagation (finding→edge), the **edge** must be the head variable, not the finding, so that edges are pulled DOWN when their parent finding drops. Initial implementation had head/body swapped — caught in code review.
+
+## 2026-03-30: Bayesian Package Build
+
+**Tags**: [jax, numpyro, arviz, bayesian-inference, knowledge-graph]
+
+**What happened**: Three non-obvious issues encountered while building the bayesian/ inference package:
+
+1. **arviz dtype casting bug** — arviz.summary() returns object dtype for r_hat and ess_bulk columns in some arviz versions (0.18.x). Direct float comparisons silently fail. Fix: cast with .astype(float) before threshold checks in diagnostics.py.
+2. **BFS chain replication pattern** — bayesian/model.py must replicate the BFS composition chain discovery logic from mrf_scoring._ground_rules independently. There is no shared utility; any future refactor of that BFS logic must update both files or chains will diverge between backends.
+3. **JAX float32 adequacy** — JAX defaults to float32 globally. For Hessian computation on [0,1]-bounded confidence variables, float32 precision is sufficient. Switching to float64 (jax.config.update("jax_enable_x64", True)) would slow Hessian computation with no meaningful accuracy benefit for this use case.
+
+**Lesson**:
+- Always cast arviz summary columns to float before numeric comparisons — object dtype is a silent failure mode
+- When two backends share conceptual logic (BFS chain discovery), document the coupling explicitly; a shared utility should be extracted in a future refactor
+- For [0,1]-bounded probabilistic variables, JAX float32 is adequate; reserve float64 overrides for numerical analysis tasks requiring high precision

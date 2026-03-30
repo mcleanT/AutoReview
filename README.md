@@ -12,6 +12,7 @@ Fully autonomous pipeline for generating publication-ready scientific review pap
 - **Domain-agnostic** — ships with biomedical, CS/AI, and chemistry presets; add new domains via YAML
 - **Review depth control** — three depth levels (low/medium/deep) with evidence-weighted word allocation for concise summaries to exhaustive reviews
 - **Knowledge graph extraction** — structured claim extraction with 34-predicate vocabulary, evidence linking, and graph construction
+- **Finding-level contradiction detection** — hierarchical clustering (TopicCluster → Finding) with HL-MRF inference resolves cross-paper scientific disagreements
 - **Crash recovery** — pipeline state saved after every stage; resume from any snapshot
 
 ## Architecture
@@ -43,6 +44,8 @@ Each stage is an async DAG node with typed Pydantic inputs/outputs. Pipeline sta
 AutoReview can build a structured knowledge graph from extracted paper claims. The pipeline runs: extraction → ingestion → entity deduplication → graph construction → confidence scoring → community detection → contradiction detection → gap analysis → visualization.
 
 Each claim is represented as a typed predicate triple (subject → predicate → object) drawn from a closed 34-predicate vocabulary. Evidence units carry per-claim direction (`supports`/`refutes`/`mixed`) and are scored with Beta-Binomial confidence to surface high-confidence vs. contested assertions. The graph is exported as GraphML and rendered as network plots and confidence histograms.
+
+Beyond edge-level analysis, AutoReview detects **meta-level contradictions** where two papers may have individually-consistent claims but reach opposite conclusions. Edges are grouped into TopicClusters by predicate class, partitioned into Findings by direction and experimental conditions, and contradictions are resolved via HL-MRF inference with finding-level truth variables.
 
 **Single-paper extraction** (local, no API cost):
 ```bash
@@ -207,7 +210,7 @@ The `.mcp.json` file is pre-configured for use with Claude Code. Available tools
 | Format conversion | `pypandoc` |
 | Testing | `pytest` + `pytest-asyncio` |
 | Logging | `structlog` |
-| Knowledge Graph | NetworkX + custom scoring |
+| Knowledge Graph | NetworkX + HL-MRF inference + custom scoring |
 
 ## Contributing
 

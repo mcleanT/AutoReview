@@ -1,5 +1,31 @@
 # Changelog
 
+## v0.4.0 — Meta-Level Contradiction Structure & Bayesian Inference
+
+### Meta-Level Finding Contradictions
+- **Hierarchical finding layer**: TopicCluster → Finding → FindingContradiction hierarchy built algorithmically from graph structure at graph-time (no extraction schema changes)
+- **Predicate class collapse**: 6-class grouping table (activating, inhibiting, regulatory, associative, structural, transformative) maps 18 predicates so related assertions cluster together
+- **Finding formation**: edges partitioned by (direction, organism_class, in_vitro) within each topic cluster; anchor selection prefers interpretive claims over empirical
+- **Three contradiction types**: directional (opposite direction, overlapping conditions), boundary (opposite direction, different conditions), interpretive (same direction, both anchors from Discussion sections of different papers)
+- **HL-MRF integration**: finding-level truth variables with upward aggregation (edge→finding), finding contradiction (finding↔finding, weight=12.0), and downward propagation (finding→edge, weight=3.0)
+- **New aggregation rule type** in HL-MRF engine: `weight × (head - weighted_mean(body))²` with analytical gradients across solve(), solve_incremental(), and compute_diagnostics()
+- **Finding-level analysis**: `summarize_topic_clusters()` for reporting, `score_finding_contradiction_centrality()` for entity-level contradiction scoring
+- **Toggle**: `MRFConfig.enable_finding_layer` (default True) for backward-compatible A/B comparison
+- New module: `autoreview/knowledge_graph/cluster.py` (541 lines)
+
+### Bayesian Inference Upgrade
+- NumPyro probabilistic model as alternative to HL-MRF: JAX-compatible Beta priors, softplus contradiction factors, per-chain composition loops
+- `BayesianConfig` with MCMC/VI sampler selection, `score_graph_bayesian()` orchestration
+- Laplace approximation and NUTS sampling with subgraph extraction for large graphs
+- `build_graph(bayesian=True)` integration flag
+
+### Knowledge Graph Improvements
+- MRF weight learning via grid search or gradient descent (`learn_weights()`)
+- Incremental MRF update (`update_graph_mrf()`) with warm-start solving
+- MRF diagnostics: per-rule violation tracking, top-N violation reporting, mean violation by rule type
+- Post-extraction normalization layer: `ClaimNormalizer` with text cleaning, predicate normalization, compound object decomposition, quantitative context backfilling
+- Condition-aware assertion merging (v2): separate edges for claims with distinct experimental contexts
+
 ## v0.3.0 — Knowledge Graph & Extraction Overhaul
 
 ### Knowledge Graph Pipeline

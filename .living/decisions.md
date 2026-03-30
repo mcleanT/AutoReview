@@ -1158,3 +1158,153 @@ Added `--version-prefix` CLI arg to `optimize_extraction_prompt.py` (default `v7
 - DECISION: v8.7 prompt produces accurate, detailed claims but catastrophically under-extracts (10 vs 34 claims). Cannot use for production until resolved.
 - Need to determine if this is a token limit issue, prompt verbosity issue, or Haiku capability issue before choosing fix path
 - Audit report at /tmp/rai14_extraction_audit.md
+
+## 2026-03-29 — Claims Graph v2: Condition-Aware Merging
+
+- **Decision:** Merge key changed from (S,P,O) to (S,P,O,condition_signature) for v2 graph construction. v1 preserved as default (`build_graph(version=1)`).
+- **Three-tier condition hierarchy:** Hard partition (organism, in_vitro), soft partition (model_system via fuzzy bucketing), scoring modifiers (cell_type, treatment, stage).
+- **Rationale:** v1 merged claims across incompatible experimental contexts, causing false-positive contradictions and hiding real ones. v2 keeps context-different claims as parallel edges.
+- **Trade-off:** Fuzzy threshold for ModelSystemRegistry set to 65 (not 80 as planned) because rapidfuzz ratio for domain synonyms ("mouse ESC gastruloids" vs "mESC-derived gastruloids") only scores ~71.
+
+### Sonnet recommended for KG extraction over Haiku (2026-03-29)
+- DECISION: Sonnet should replace Haiku for KG extraction — dramatically better consistency, completeness, and structural integrity
+- Haiku v8.7 prompt produces 3-57 claims depending on paper (unacceptable variance); Sonnet consistently produces 33-39
+- Next steps: (1) refactor extraction to use direct API calls instead of CLI, (2) test on wet-lab paper for evidence granularity, (3) evaluate Batch API for cost optimization
+- Minor prompt edit made: reinforced panel-level evidence splitting in EVIDENCE RULES section
+
+---
+
+## Decision — 2026-03-29: MRF incremental solving with hop-radius subgraph
+
+- **Context**: Claims Graph v2 adds new edges incrementally as papers are processed
+- **Decision**: Added `solve_incremental()` to `HLMRFEngine` — freezes variables outside `hop_radius` hops of affected vars, re-solves only the local subgraph
+- **Rationale**: Full re-solve on every new paper is O(N²) in rules; incremental is O(k²) where k = affected neighborhood. hop_radius=2 captures most constraint propagation.
+- **Trade-off**: Warm-start from prior solution may not find global optimum if affected subgraph is large. Accept this for online updates; full re-solve available for offline batch.
+- **Files**: `autoreview/knowledge_graph/hlmrf.py`, `autoreview/knowledge_graph/mrf_scoring.py`
+
+## 2026-03-29 — MRF Incremental Solve + Diagnostics Architecture
+
+**Decision:** Extract `_ground_rules()` as a private helper shared by `score_graph_mrf` and `update_graph_mrf` rather than duplicating grounding logic.
+- **Rationale:** Both full-solve and incremental-update paths need identical variable registration and rule grounding; duplication would drift. A shared helper enforces consistency.
+- **Rejected alternative:** Subclass `HLMRFEngine` per use-case — too heavy for what is essentially a procedural pipeline step.
+
+**Decision:** Expose convergence metadata as read-only properties on `HLMRFEngine` (not returned from `solve()`).
+- **Rationale:** `solve()` already returns the variable dict; callers needing diagnostics inspect `.last_converged` etc. separately. Avoids breaking the return-type contract for all existing callers.
+
+**Decision:** `MRFDiagnostics` stored on `MRFResult.diagnostics` (nullable) rather than a separate return value.
+- **Rationale:** Keeps the public API surface stable — callers that do not need diagnostics are unaffected. `None` for empty graphs.
+
+**Decision:** `composition_decay` default = 0.7 and `max_composition_hops` default = 3 chosen empirically for typical 2–4 hop KG chains; expose in `MRFConfig` for tuning.
+
+### Direct API calls required for extraction pipeline (2026-03-29)
+- DECISION: Must refactor extraction to use Anthropic Python SDK (`client.messages.create()`) instead of CLI or subagent approaches
+- CLI: no max_tokens control, Sonnet timeouts at 900s, max-turns=1 conflicts
+- Subagent: 23 min per paper, hits 32K output token limit, massive context overhead
+- Direct API: single request-response, explicit max_tokens=64000, 2-3 min expected, full diagnostics (stop_reason, usage)
+
+## 2026-03-29 — Post-Extraction Claim Normalization Layer
+
+- **Two-phase normalization (pre_dedup / post_dedup)**: Chose to split normalization into a pre-dedup pass (text cleaning + decomposition) and a post-dedup pass (quantitative backfill). Text cleaning must happen before entity dedup so that canonical name matching works on clean strings; quantitative backfill does not affect entity resolution and is safely deferred.
+
+- **Hybrid decomposition (rule-based + LLM fallback)**: Rule-based patterns run first; LLM fallback triggers only for object strings longer than 6 words. Balances determinism and auditability with coverage for complex, free-form claims.
+
+- **ClaimNormalizer accepts both entities and assertions**: Deviation from the original spec (which described operating on claims only). Necessary because `entity.canonical_name` and `assertion.subject_canonical_name` / `assertion.object_canonical_name` must stay in sync; normalizing only one side would leave dangling references.
+
+- **Cascade order for decomposition — slash → prepositional → conjunction**: Prepositional must strip its wrapper phrase before conjunction splitting can correctly parse the inner content. Slash splitting is applied first as it is the most unambiguous delimiter.
+
+- **normalize=False default, independent of graph version**: The flag is opt-in and does not gate on KG schema version. Keeps the change fully backwards-compatible; callers must explicitly pass normalize=True to activate the layer.
+
+### Set CLAUDE_CODE_MAX_OUTPUT_TOKENS=64000 for all extractions (2026-03-30)
+- DECISION: Use Haiku with CLAUDE_CODE_MAX_OUTPUT_TOKENS=64000 as the production extraction configuration
+- This resolves all truncation issues discovered on 2026-03-29
+- Haiku outperforms Sonnet on completeness (96% vs 79%), speed (3.5x faster), cost (~10x cheaper), and structural integrity (0 vs 5 orphaned evidence)
+- Sonnet advantages (certainty calibration, less redundancy) are minor and addressable via prompt tweaks
+- Previous decisions about Sonnet being required and CLI being unviable are SUPERSEDED by this finding
+- The env var must be set in experiment_runner.py or batch_extract_kg.py for all extraction runs
+
+## 2026-03-29 — Bayesian Inference Architecture & Ground Truth Strategy
+
+### Bayesian model will REPLACE HL-MRF (not layer on top)
+- **Decision**: Once validated, the Bayesian model becomes the primary inference engine; HL-MRF is deprecated.
+- **Rationale**: Maintaining two parallel inference paths long-term adds complexity with no benefit. The HL-MRF serves as the baseline to beat during validation, then is retired.
+- **Approach B chosen**: Parallel model with shared interface (NumPyro/JAX), not a layer on top of HL-MRF.
+
+### NumPyro/JAX as sampling framework
+- **Decision**: NumPyro/JAX selected over PyMC/Stan for the Bayesian inference model.
+- **Rationale**: Better GPU utilization, JAX JIT compilation for large KGs, active biomedical NLP ecosystem.
+
+### Ground truth curation strategy: hybrid tiered approach
+- **Decision**: Database anchors (Reactome/KEGG matching) + rank-order validation + expert spot-check of high `contradiction_centrality` edges.
+- **Rationale**: No single ground truth standard exists for biomedical KGs. Tiered approach mirrors literature practice (STRING, PharmGKB, CTD, GO).
+- **`contradiction_centrality` as triage tool**: High-centrality edges are first candidates for human review — flags both extraction noise and genuine scientific disputes.
+
+### Ground truth curation will be agent-directed
+- **Decision**: Automated database matching + targeted human judgment. Not purely manual.
+- **Rationale**: Scale of ~1000-paper corpus makes manual review infeasible; agent narrows to highest-value spots.
+
+### Build corpus-agnostic interfaces, validate on gastruloid corpus first
+- **Decision**: Interfaces designed generically; first validation target is the ~1000-paper gastruloid corpus (pending extraction).
+- **Rationale**: Gastruloid corpus is the immediate use case and has an existing extraction pipeline.
+
+### Migration path: 5-step Laplace → MCMC
+- Identified migration path: (1) Laplace approximation, (2) flat NumPyro factor graph, (3) ground truth curation, (4) hierarchical priors, (5) integration.
+- **Status**: Brainstorming complete; spec authorship pending user approval.
+
+### 2026-03-30 — KG prompt v11.0: interpretive claims + negative results + certainty calibration
+- Added 4 targeted prompt additions to v8.7 baseline, saved as v11.0
+- Negative results: extract mechanisms tested and ruled out (e.g., YAP/TAZ)
+- Interpretive claims: minimum 3-5 from Discussion for meta-level contradiction resolution
+- Computational certainty: model predictions default to "medium", Discussion extrapolations to "low"
+- Validated composite 0.8253 (no regression from 0.8241), quant_context improved 0.35→0.49
+- ISSUE: primary_empirical claims dropped 53→27 on Etoc paper (collateral damage pattern). Needs density floor adjustment.
+
+### 2026-03-30 — Graph contradiction: B+C approach (interpretive claims + graph clustering)
+- Do NOT add extraction-time "findings" layer; author framing should not influence ground truth
+- (B) Interpretive claims serve as natural cluster anchors for meta-level reasoning
+- (C) Graph-time clustering by (subject, predicate_family, object) tuples in new cluster.py module
+- Implementation not yet done — needs next session
+
+### 2026-03-30 — CLAUDE_CODE_MAX_OUTPUT_TOKENS=64000 set in experiment_runner.py
+- Root cause of ALL extraction truncation across multiple sessions
+- Added env var to subprocess.run() call in run_extraction()
+
+### 2026-03-30 — Meta-contradiction structure: graph-time hierarchical clustering (not extraction-time schema)
+- **Decision**: Do NOT add extraction-time "findings" or "meta-claim" schema layer for contradiction detection
+- **Rationale**: Author framing at extraction time poisons ground truth; meta-level structure should emerge from claim relationships, not be injected
+- **Chosen approach**: Graph-time hierarchical clustering by (subject, predicate_family, object) tuples in a new `cluster.py` module
+- Interpretive claims (added in v11.0) serve as natural cluster anchors — they are still ground-level claims, not meta-claims
+- Implementation target: `autoreview/knowledge_graph/cluster.py` with `build_claim_clusters()` function
+- Status: design finalized, implementation pending
+
+### 2026-03-30 — v11.1 set as standard KG extraction prompt
+- v11.1 adds module independence controls and density floor (40-70) over v11.0
+- Recovered primary_empirical claims from 27→44 while keeping interpretive/negative/certainty improvements
+- Full composite 0.8465 (up from 0.8241 v8.7 baseline)
+- Density scoring metric updated: sweet spot 30-70 (was 25-50)
+- Opus audit confirms 83% of major findings captured, 0 critical gaps
+
+### 2026-03-30 — Meta-level contradiction: graph-time hierarchical clustering
+- **Decision**: Built TopicCluster → Finding → FindingContradiction hierarchy algorithmically from graph structure (no extraction schema changes)
+- **Why**: Field-level scientific contradictions operate at a higher level than individual claim edges. Two papers may have individually-consistent granular claims but reach opposite conclusions.
+- **Approach**: Predicate class collapse table groups related predicates (e.g., induces + is_sufficient_for → activating). Findings partition by (direction, organism_class, in_vitro). Three contradiction types: directional, boundary, interpretive.
+- **HL-MRF integration**: Finding-level truth variables with aggregation (edge→finding), finding contradiction (finding↔finding, weight=12.0), downward propagation (finding→edge, weight=3.0). Toggled via enable_finding_layer flag.
+- **Literature basis**: SemMedDB predication grouping, PSL/HL-MRF cluster variables, GraphRAG community detection.
+
+## 2026-03-30: Bayesian Inference Package — Key Architectural Decisions
+
+**Context**: Implementing Phase 1 Bayesian upgrade for the knowledge graph system (bayesian/ package, 6 modules).
+
+**Decisions**:
+1. **Alpha/beta derivation from confidence_mean + evidence_count** — score_all_edges() only stores confidence_mean (not full alpha/beta). Derived via kappa=2+evidence_count. Known approximation; future improvement: store exact alpha/beta in score_all_edges().
+2. **Softplus instead of hinge loss** — jax.nn.softplus(x) replaces max(0,x) in factor graph for smooth HMC gradient flow. Hinge loss produces non-differentiable kinks that break NUTS sampling.
+3. **Laplace + targeted NUTS hybrid** — full-graph Laplace approximation is fast (~1s via scipy L-BFGS-B MAP + JAX Hessian); NUTS MCMC runs only on contradiction-centrality hotspot subgraphs extracted via BFS. Avoids O(n) NUTS cost on large graphs.
+4. **JAX float32 mode** — stayed with JAX default float32 for Hessian computation. float64 overhead unjustified for [0,1]-bounded confidence variables where float32 precision is adequate.
+5. **BFS composition chain discovery mirrors mrf_scoring._ground_rules** — bayesian/model.py replicates the BFS logic from HL-MRF to ensure composition factors are consistent across both inference backends.
+6. **HL-MRF system left unchanged** — bayesian/ is a parallel backend; build_graph(bayesian=True) activates it. Existing MRF pipeline untouched.
+
+**Alternatives considered**:
+- Full NUTS on entire graph (rejected: too slow, O(n) cost)
+- Hinge loss for contradiction factors (rejected: non-differentiable, breaks HMC)
+- Storing exact alpha/beta in score_all_edges() (deferred: requires schema change, noted as future improvement)
+
+**Consequences**: bayesian_confidence, bayesian_ci_low, bayesian_ci_high, bayesian_bimodal written as edge attributes. New optional dependency group: jax, jaxlib, numpyro, arviz, diptest.
