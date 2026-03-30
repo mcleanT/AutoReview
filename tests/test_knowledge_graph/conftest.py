@@ -177,3 +177,115 @@ def sample_extraction_dir(
     (tmp_path / "debug_raw.txt").write_text("raw extraction text")
 
     return tmp_path
+
+
+@pytest.fixture
+def sample_v5_claim() -> dict:
+    """A v5-format claim with conditions, certainty, section_source."""
+    return {
+        "claim_id": "c_001",
+        "natural_language": "BMP4 induces mesoderm differentiation in mouse ESC gastruloids",
+        "subject": {
+            "name": "BMP4",
+            "type": "protein",
+            "ontology_id": "UniProt:P21275",
+        },
+        "object": {
+            "name": "mesoderm differentiation",
+            "type": "biological_process",
+            "ontology_id": "GO:0007498",
+        },
+        "predicate": "induces",
+        "direction": "positive",
+        "claim_type": "mechanistic_causal",
+        "causal_type": "sufficient",
+        "conditions": {
+            "species": ["Mus musculus"],
+            "cell_type": ["mESC"],
+            "tissue": [],
+            "treatment": ["10 ng/mL BMP4"],
+            "developmental_stage": "day 5",
+            "in_vitro": True,
+        },
+        "evidence_strength": "direct_experimental",
+        "certainty": "high",
+        "section_source": "primary_empirical",
+        "source_doi": None,
+        "model_system": "mouse ESC gastruloids",
+        "organism": "Mus musculus",
+        "quantitative_context": {
+            "concentration": "10 ng/mL BMP4",
+            "timepoint": "48h",
+            "dose": None,
+        },
+        "evidence_links": [{"evidence_id": "e_001", "direction": "supports"}],
+    }
+
+
+@pytest.fixture
+def sample_v5_evidence() -> dict:
+    """A v5-format evidence unit."""
+    return {
+        "evidence_id": "e_001",
+        "description": "BMP4 treatment of mouse ESC gastruloids at day 3",
+        "result_summary": "BMP4 at 10 ng/mL induced robust T/Brachyury expression by day 5",
+        "model_system": "mouse ESC gastruloids",
+        "organism": "Mus musculus",
+        "perturbation": None,
+        "readout": "T/Brachyury immunofluorescence",
+        "result_direction": "positive",
+        "effect_size": "3.5-fold increase",
+        "p_value": "p < 0.001",
+        "sample_size": "n=50",
+        "key_figure": "Figure 2A",
+        "approach": "cell_biology",
+        "assay_types": ["immunofluorescence"],
+        "evidence_strength": "direct_experimental",
+    }
+
+
+@pytest.fixture
+def sample_v5_extraction_dir(
+    tmp_path: Path,
+    sample_v5_claim: dict,
+    sample_v5_evidence: dict,
+) -> Path:
+    """Write v5-format extraction JSONs with varying conditions for v2 graph testing.
+
+    Creates 3 papers:
+    - Paper 1: BMP4 induces mesoderm (mouse, in vitro, gastruloids)
+    - Paper 2: BMP4 induces mesoderm (mouse, in vitro, gastruloids) — same context, should merge
+    - Paper 3: BMP4 induces mesoderm (human, in vitro, iPSC organoids) — different context, separate
+    """
+    paper_configs = [
+        ("mouse_p1", "Mus musculus", "mouse ESC gastruloids", ["mESC"]),
+        ("mouse_p2", "Mus musculus", "mouse ESC gastruloids", ["E14Tg2a"]),
+        ("human_p3", "Homo sapiens", "human iPSC organoids", ["iPSC"]),
+    ]
+    for i, (paper_hash, organism, model_sys, cell_types) in enumerate(paper_configs):
+        claim = json.loads(json.dumps(sample_v5_claim))
+        evidence = json.loads(json.dumps(sample_v5_evidence))
+
+        claim["claim_id"] = f"c_{i + 1:03d}"
+        claim["organism"] = organism
+        claim["model_system"] = model_sys
+        claim["conditions"]["species"] = [organism]
+        claim["conditions"]["cell_type"] = cell_types
+        claim["evidence_links"] = [{"evidence_id": f"e_{i + 1:03d}", "direction": "supports"}]
+
+        evidence["evidence_id"] = f"e_{i + 1:03d}"
+        evidence["organism"] = organism
+        evidence["model_system"] = model_sys
+
+        data = {
+            "doi": f"10.1234/paper-{i}",
+            "title": f"Paper {i} on BMP4",
+            "journal": "Nature",
+            "publication_date": f"2023-0{i + 1}-15",
+            "claims": [claim],
+            "evidence": [evidence],
+            "citation_contexts": [],
+        }
+        (tmp_path / f"{paper_hash}.json").write_text(json.dumps(data, indent=2))
+
+    return tmp_path
