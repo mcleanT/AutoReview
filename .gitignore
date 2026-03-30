@@ -45,6 +45,7 @@ run_full_text_*.py
 
 # Session state
 .claude/session-*.tmp
+.claude/active-session-log.tmp
 .claude/last-session.md
 .claude/mycelium-*.tmp
 .claude/worktrees/
@@ -52,6 +53,7 @@ run_full_text_*.py
 # Extraction data artifacts (large, generated)
 Paper Extractor/KnowledgeGraph Extraction/gastruloid_run/
 Paper Extractor/KnowledgeGraph Extraction/extraction_test_*.json
+Paper Extractor/KnowledgeGraph Extraction/etoc_v6_extraction_results.json
 Paper Extractor/KnowledgeGraph Extraction/extraction_report_*.pdf
 Paper Extractor/KnowledgeGraph Extraction/extraction_comparison*.png
 Paper Extractor/KnowledgeGraph Extraction/_system_prompt_tmp.md
