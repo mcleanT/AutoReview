@@ -61,6 +61,7 @@ def build_nx_graph(
             evidence_count=len(edge.evidence_links),
             publication_date=edge.publication_date or "",
             source_assertions=",".join(edge.source_assertions),
+            condition_signature=edge.condition_signature or "",
             # Rich object for programmatic access (not GraphML-safe)
             _kg_edge=edge,
         )

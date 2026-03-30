@@ -37,3 +37,38 @@ class TestBuildGraph:
         graph2 = load_graph(tmp_path / "test_kg.pkl")
         assert graph2.number_of_nodes() == graph.number_of_nodes()
         assert graph2.number_of_edges() == graph.number_of_edges()
+
+
+class TestBuildGraphV2:
+    def test_v2_pipeline_condition_aware(self, sample_v5_extraction_dir: Path):
+        from autoreview.knowledge_graph import build_graph
+
+        graph = build_graph(sample_v5_extraction_dir, version=2)
+
+        assert graph.number_of_nodes() > 0
+        assert graph.number_of_edges() > 0
+
+        # Papers 1 and 2 share same (S,P,O) + same conditions → merge to 1 edge
+        # Paper 3 has same (S,P,O) but different conditions → separate edge
+        # So expect 2 edges (not 1 as in v1)
+        assert graph.number_of_edges() == 2
+
+        # Every edge should have condition_signature
+        for _u, _v, _k, data in graph.edges(keys=True, data=True):
+            assert "condition_signature" in data
+            assert data["condition_signature"] != ""
+
+    def test_v1_pipeline_unchanged(self, sample_v5_extraction_dir: Path):
+        from autoreview.knowledge_graph import build_graph
+
+        graph = build_graph(sample_v5_extraction_dir, version=1)
+
+        # v1 merges all 3 papers into 1 edge (same S,P,O regardless of conditions)
+        assert graph.number_of_edges() == 1
+
+    def test_v1_default(self, sample_extraction_dir: Path):
+        """Default version=1 gives same result as before."""
+        from autoreview.knowledge_graph import build_graph
+
+        graph = build_graph(sample_extraction_dir)
+        assert graph.number_of_edges() == 2  # same as existing test

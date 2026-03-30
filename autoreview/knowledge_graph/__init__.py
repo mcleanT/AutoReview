@@ -13,6 +13,7 @@ from autoreview.knowledge_graph.dedup import (
     EntityRegistry,
     deduplicate_entities,
     merge_assertions,
+    merge_assertions_v2,
     normalize_predicate,
 )
 from autoreview.knowledge_graph.graph import (
@@ -29,6 +30,7 @@ from autoreview.knowledge_graph.models import (
     AssertionType,
     BetaPosterior,
     Certainty,
+    ConditionContext,
     KGEdge,
     KGEvidenceLink,
     QuantitativeContext,
@@ -118,6 +120,7 @@ def build_graph(
     extraction_dir: Path,
     use_mrf: bool = False,
     mrf_config: MRFConfig | None = None,
+    version: int = 1,
 ) -> nx.MultiDiGraph:
     """Full pipeline: ingest → dedup → graph → confidence.
 
@@ -127,6 +130,9 @@ def build_graph(
     3. Normalize predicates in all assertions.
     4. Remap subject/object canonical names to deduplicated entity IDs.
     5. Merge assertions sharing the same (subject_id, predicate, object_id) triple.
+       When version >= 2, uses condition-aware merging (merge_assertions_v2) which
+       also groups by condition_signature so claims with different experimental
+       contexts become separate edges.
     6. Build KGEdge model instances from merged assertions + evidence units.
     7. Build the NetworkX MultiDiGraph from entities and edges.
     8. Score edge confidence with Beta-Binomial posteriors.
@@ -140,6 +146,10 @@ def build_graph(
             and write ``mrf_confidence`` posteriors back onto each edge.
         mrf_config: Optional :class:`MRFConfig` to control MRF hyperparameters.
             Uses defaults when ``None``.
+        version: Pipeline version. ``1`` (default) uses the original
+            condition-agnostic merging. ``2`` uses condition-aware merging
+            (``merge_assertions_v2``) which creates separate edges for claims
+            with distinct experimental contexts (organism, in_vitro, model_system).
 
     Returns:
         A scored NetworkX MultiDiGraph ready for analysis and serialization.
@@ -209,11 +219,15 @@ def build_graph(
     # ------------------------------------------------------------------
     # Step 5: Assertion merging
     # ------------------------------------------------------------------
-    merge_result = merge_assertions(normalized_assertions)
+    if version >= 2:
+        merge_result = merge_assertions_v2(normalized_assertions)
+    else:
+        merge_result = merge_assertions(normalized_assertions)
     log.info(
         "kg.pipeline.merge_done",
         merged_assertions=len(merge_result.assertions),
         merges=len(merge_result.merge_log),
+        version=version,
     )
 
     # ------------------------------------------------------------------
@@ -260,8 +274,12 @@ def build_graph(
         object_id = merged["object_id"]
         predicate = merged["predicate"]
 
-        # Deterministic edge_id from the canonical triple
-        edge_key = f"{subject_id}|{predicate}|{object_id}"
+        # Deterministic edge_id from the canonical triple (+ condition for v2)
+        condition_sig = merged.get("condition_signature")
+        if version >= 2 and condition_sig:
+            edge_key = f"{subject_id}|{predicate}|{object_id}|{condition_sig}"
+        else:
+            edge_key = f"{subject_id}|{predicate}|{object_id}"
         edge_id = hashlib.sha256(edge_key.encode()).hexdigest()[:16]
 
         # Build evidence links
@@ -311,6 +329,12 @@ def build_graph(
         if isinstance(raw_qc, dict):
             quantitative_context = QuantitativeContext(**raw_qc)
 
+        # v2 condition fields
+        raw_cc = merged.get("condition_context")
+        condition_context = None
+        if isinstance(raw_cc, dict):
+            condition_context = ConditionContext(**raw_cc)
+
         kg_edges.append(
             KGEdge(
                 edge_id=edge_id,
@@ -334,6 +358,8 @@ def build_graph(
                 negatable_form=merged.get("negatable_form"),
                 natural_language=merged.get("natural_language"),
                 quantitative_context=quantitative_context,
+                condition_signature=merged.get("condition_signature"),
+                condition_context=condition_context,
             )
         )
 
