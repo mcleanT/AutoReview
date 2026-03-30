@@ -57,7 +57,6 @@ def test_bayesian_config_custom_values() -> None:
 def test_bayesian_config_is_autoreview_model() -> None:
     """BayesianConfig should be a Pydantic AutoReviewModel for serialization."""
     from autoreview.knowledge_graph.bayesian.config import BayesianConfig
-
     from autoreview.models.base import AutoReviewModel
 
     assert issubclass(BayesianConfig, AutoReviewModel)
