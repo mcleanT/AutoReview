@@ -11,7 +11,7 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Any
 
-from pydantic import computed_field
+from pydantic import Field, computed_field
 
 from autoreview.models.base import AutoReviewModel
 
@@ -126,6 +126,17 @@ class QuantitativeContext(AutoReviewModel):
     dose: str | None = None
 
 
+class ConditionContext(AutoReviewModel):
+    """Structured summary of the experimental context for a condition-partitioned edge."""
+
+    organism: str | None = None
+    model_system_class: str | None = None
+    in_vitro: bool | None = None
+    cell_types: list[str] = Field(default_factory=list)
+    treatments: list[str] = Field(default_factory=list)
+    stages: list[str] = Field(default_factory=list)
+
+
 class KGEdge(AutoReviewModel):
     """A typed assertion between two entities, grounded in evidence (Tier 1)."""
 
@@ -150,6 +161,9 @@ class KGEdge(AutoReviewModel):
     negatable_form: str | None = None
     natural_language: str | None = None
     quantitative_context: QuantitativeContext | None = None
+    # v2 condition-aware merging fields
+    condition_signature: str | None = None
+    condition_context: ConditionContext | None = None
 
 
 class KGCitation(AutoReviewModel):

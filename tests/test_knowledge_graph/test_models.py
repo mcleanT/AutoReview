@@ -177,3 +177,80 @@ class TestKGCitation:
             section="introduction",
         )
         assert cit.relationship == "supports"
+
+
+class TestConditionContext:
+    def test_default_construction(self):
+        from autoreview.knowledge_graph.models import ConditionContext
+
+        ctx = ConditionContext()
+        assert ctx.organism is None
+        assert ctx.model_system_class is None
+        assert ctx.in_vitro is None
+        assert ctx.cell_types == []
+        assert ctx.treatments == []
+        assert ctx.stages == []
+
+    def test_full_construction(self):
+        from autoreview.knowledge_graph.models import ConditionContext
+
+        ctx = ConditionContext(
+            organism="Mus musculus",
+            model_system_class="mouse esc gastruloids",
+            in_vitro=True,
+            cell_types=["mESC", "E14Tg2a"],
+            treatments=["10 ng/mL BMP4"],
+            stages=["day 5"],
+        )
+        assert ctx.organism == "Mus musculus"
+        assert ctx.cell_types == ["mESC", "E14Tg2a"]
+
+
+class TestKGEdgeV2Fields:
+    def test_condition_fields_default_none(self):
+        from autoreview.knowledge_graph.models import (
+            AssertionType,
+            BetaPosterior,
+            KGEdge,
+        )
+
+        edge = KGEdge(
+            edge_id="test",
+            subject_id="s1",
+            object_id="o1",
+            predicate="induces",
+            direction="positive",
+            assertion_type=AssertionType.mechanistic_causal,
+            confidence=BetaPosterior(),
+            evidence_links=[],
+            source_assertions=[],
+            publication_date=None,
+        )
+        assert edge.condition_signature is None
+        assert edge.condition_context is None
+
+    def test_condition_fields_populated(self):
+        from autoreview.knowledge_graph.models import (
+            AssertionType,
+            BetaPosterior,
+            ConditionContext,
+            KGEdge,
+        )
+
+        ctx = ConditionContext(organism="Mus musculus", in_vitro=True)
+        edge = KGEdge(
+            edge_id="test",
+            subject_id="s1",
+            object_id="o1",
+            predicate="induces",
+            direction="positive",
+            assertion_type=AssertionType.mechanistic_causal,
+            confidence=BetaPosterior(),
+            evidence_links=[],
+            source_assertions=[],
+            publication_date=None,
+            condition_signature="abc123",
+            condition_context=ctx,
+        )
+        assert edge.condition_signature == "abc123"
+        assert edge.condition_context.organism == "Mus musculus"
