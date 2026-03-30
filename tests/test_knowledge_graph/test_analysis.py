@@ -300,3 +300,396 @@ class TestExtractSubgraph:
         sub = extract_subgraph(graph, {"wnt", "nonexistent"})
         assert "nonexistent" not in sub.nodes()
         assert "wnt" in sub.nodes()
+
+
+# ---------------------------------------------------------------------------
+# Helpers for contradiction centrality tests
+# ---------------------------------------------------------------------------
+
+
+def _make_contradiction_edge(
+    graph: nx.MultiDiGraph,
+    u: str,
+    v: str,
+    key: str,
+    predicate: str,
+    direction: str | None = None,
+    organism: str | None = "mouse",
+    model_system: str | None = "in_vivo",
+    in_vitro: bool | None = False,
+    conditions: dict | None = None,
+) -> None:
+    """Add a minimally-valid edge for contradiction detection tests."""
+    graph.add_edge(
+        u,
+        v,
+        key=key,
+        edge_id=key,
+        predicate=predicate,
+        direction=direction,
+        organism=organism,
+        model_system=model_system,
+        in_vitro=in_vitro,
+        conditions=conditions or {},
+    )
+
+
+class TestContradictionCentrality:
+    def test_contradiction_centrality_basic(self):
+        """Node involved in contradictions should have positive score."""
+        from autoreview.knowledge_graph.analysis import score_contradiction_centrality
+
+        graph = nx.MultiDiGraph()
+        graph.add_node("A", canonical_name="Entity A")
+        graph.add_node("B", canonical_name="Entity B")
+        # A->B with "induces" and "inhibits" — a predicate opposition
+        _make_contradiction_edge(graph, "A", "B", "e1", "induces")
+        _make_contradiction_edge(graph, "A", "B", "e2", "inhibits")
+
+        results = score_contradiction_centrality(graph)
+
+        assert len(results) > 0
+        node_ids = {r["node_id"] for r in results}
+        assert "A" in node_ids
+        assert "B" in node_ids
+        for r in results:
+            assert r["raw_score"] > 0.0
+
+    def test_contradiction_centrality_empty(self):
+        """Graph with no contradictions should return empty list."""
+        from autoreview.knowledge_graph.analysis import score_contradiction_centrality
+
+        graph = nx.MultiDiGraph()
+        graph.add_node("A", canonical_name="Entity A")
+        graph.add_node("B", canonical_name="Entity B")
+        # Only one edge — no pair to contradict
+        _make_contradiction_edge(graph, "A", "B", "e1", "induces")
+
+        results = score_contradiction_centrality(graph)
+        assert results == []
+
+    def test_contradiction_centrality_hub_detection(self):
+        """Node involved in multiple contradictions should score higher than one with one."""
+        from autoreview.knowledge_graph.analysis import score_contradiction_centrality
+
+        # Node B is involved in two contradiction pairs: A->B and B->C
+        graph = nx.MultiDiGraph()
+        graph.add_node("A", canonical_name="Entity A")
+        graph.add_node("B", canonical_name="Entity B")
+        graph.add_node("C", canonical_name="Entity C")
+        graph.add_node("D", canonical_name="Entity D")
+
+        # Contradiction pair on A->B (B and A both involved)
+        _make_contradiction_edge(graph, "A", "B", "e1", "induces")
+        _make_contradiction_edge(graph, "A", "B", "e2", "inhibits")
+
+        # Contradiction pair on B->C (B and C both involved)
+        _make_contradiction_edge(graph, "B", "C", "e3", "induces")
+        _make_contradiction_edge(graph, "B", "C", "e4", "inhibits")
+
+        # Contradiction pair on A->D (A and D involved, but not B)
+        _make_contradiction_edge(graph, "A", "D", "e5", "induces")
+        _make_contradiction_edge(graph, "A", "D", "e6", "inhibits")
+
+        results = score_contradiction_centrality(graph)
+        by_node = {r["node_id"]: r for r in results}
+
+        # B is in 2 contradiction pairs; A is also in 2 pairs (A->B and A->D),
+        # C and D are each in 1 pair
+        assert by_node["B"]["n_contradictions"] == 2
+        assert by_node["C"]["n_contradictions"] == 1
+        assert by_node["D"]["n_contradictions"] == 1
+        assert by_node["B"]["raw_score"] > by_node["C"]["raw_score"]
+
+    def test_contradiction_centrality_normalization(self):
+        """High-degree node with same contradiction count should have lower normalized score."""
+        from autoreview.knowledge_graph.analysis import score_contradiction_centrality
+
+        # Node HUB has many edges (high degree) with just one contradiction pair
+        # Node LOW has fewer edges with the same one contradiction pair
+        graph = nx.MultiDiGraph()
+        for name in ["HUB", "LOW", "X", "Y", "Z", "W", "Q"]:
+            graph.add_node(name, canonical_name=name)
+
+        # One contradiction pair for HUB (HUB->X)
+        _make_contradiction_edge(graph, "HUB", "X", "h1", "induces")
+        _make_contradiction_edge(graph, "HUB", "X", "h2", "inhibits")
+
+        # Extra non-contradicting edges to inflate HUB's degree
+        _make_contradiction_edge(graph, "HUB", "Y", "h3", "induces")
+        _make_contradiction_edge(graph, "HUB", "Z", "h4", "induces")
+        _make_contradiction_edge(graph, "HUB", "W", "h5", "induces")
+        _make_contradiction_edge(graph, "HUB", "Q", "h6", "induces")
+
+        # One contradiction pair for LOW (LOW->X) — same raw contribution
+        _make_contradiction_edge(graph, "LOW", "X", "l1", "induces")
+        _make_contradiction_edge(graph, "LOW", "X", "l2", "inhibits")
+
+        results = score_contradiction_centrality(graph)
+        by_node = {r["node_id"]: r for r in results}
+
+        # Both should have the same n_contradictions (1 pair each)
+        assert by_node["HUB"]["n_contradictions"] == 1
+        assert by_node["LOW"]["n_contradictions"] == 1
+
+        # HUB has higher degree so its normalized_score should be lower
+        assert by_node["HUB"]["degree"] > by_node["LOW"]["degree"]
+        assert by_node["HUB"]["normalized_score"] < by_node["LOW"]["normalized_score"]
+
+    def test_contradiction_centrality_writes_node_attrs(self):
+        """Should write contradiction_centrality and n_contradictions onto graph nodes."""
+        from autoreview.knowledge_graph.analysis import score_contradiction_centrality
+
+        graph = nx.MultiDiGraph()
+        graph.add_node("A", canonical_name="Entity A")
+        graph.add_node("B", canonical_name="Entity B")
+        graph.add_node("C", canonical_name="Entity C")
+
+        # Contradiction on A->B; C has no contradictions
+        _make_contradiction_edge(graph, "A", "B", "e1", "induces")
+        _make_contradiction_edge(graph, "A", "B", "e2", "inhibits")
+
+        score_contradiction_centrality(graph)
+
+        # Involved nodes get non-zero attributes
+        assert graph.nodes["A"]["contradiction_centrality"] > 0.0
+        assert graph.nodes["A"]["n_contradictions"] == 1
+        assert graph.nodes["B"]["contradiction_centrality"] > 0.0
+        assert graph.nodes["B"]["n_contradictions"] == 1
+
+        # Non-involved node gets zero
+        assert graph.nodes["C"]["contradiction_centrality"] == 0.0
+        assert graph.nodes["C"]["n_contradictions"] == 0
+
+    def test_contradiction_centrality_dict_structure(self):
+        """Each result dict should have all required keys with correct types."""
+        from autoreview.knowledge_graph.analysis import score_contradiction_centrality
+
+        graph = nx.MultiDiGraph()
+        graph.add_node("A", canonical_name="Entity A")
+        graph.add_node("B", canonical_name="Entity B")
+        _make_contradiction_edge(graph, "A", "B", "e1", "induces")
+        _make_contradiction_edge(graph, "A", "B", "e2", "inhibits")
+
+        results = score_contradiction_centrality(graph)
+
+        required_keys = {
+            "node_id",
+            "canonical_name",
+            "raw_score",
+            "normalized_score",
+            "n_contradictions",
+            "degree",
+        }
+        for r in results:
+            assert required_keys.issubset(r.keys())
+            assert isinstance(r["node_id"], str)
+            assert isinstance(r["raw_score"], float)
+            assert isinstance(r["normalized_score"], float)
+            assert isinstance(r["n_contradictions"], int)
+            assert isinstance(r["degree"], int)
+
+    def test_contradiction_centrality_sorted_descending(self):
+        """Results should be sorted by raw_score descending."""
+        from autoreview.knowledge_graph.analysis import score_contradiction_centrality
+
+        graph = nx.MultiDiGraph()
+        for name in ["A", "B", "C", "D"]:
+            graph.add_node(name, canonical_name=name)
+
+        # A->B contradiction (A and B each get 1 pair)
+        _make_contradiction_edge(graph, "A", "B", "e1", "induces")
+        _make_contradiction_edge(graph, "A", "B", "e2", "inhibits")
+        # B->C contradiction (B gets a 2nd pair, C gets 1)
+        _make_contradiction_edge(graph, "B", "C", "e3", "induces")
+        _make_contradiction_edge(graph, "B", "C", "e4", "inhibits")
+
+        results = score_contradiction_centrality(graph)
+        scores = [r["raw_score"] for r in results]
+        assert scores == sorted(scores, reverse=True)
+
+
+from autoreview.knowledge_graph.cluster import (
+    build_topic_clusters,
+    detect_finding_contradictions,
+    form_findings,
+)
+
+
+def _make_finding_test_graph() -> nx.MultiDiGraph:
+    """Graph with topic clusters for finding-level analysis testing."""
+    G = nx.MultiDiGraph()
+    G.add_node("A", canonical_name="Entity A")
+    G.add_node("B", canonical_name="Entity B")
+    G.add_node("C", canonical_name="Entity C")
+
+    # Cluster 1: A→B activating (3 edges, 2 directions → contradiction)
+    G.add_edge(
+        "A",
+        "B",
+        edge_id="ab1",
+        predicate="induces",
+        direction="positive",
+        confidence_mean=0.8,
+        organism="Mus musculus",
+        in_vitro=True,
+        model_system="mESC",
+        conditions={},
+        section_source="primary_empirical",
+        natural_language="A induces B",
+        _kg_edge=None,
+    )
+    G.add_edge(
+        "A",
+        "B",
+        edge_id="ab2",
+        predicate="is_sufficient_for",
+        direction="positive",
+        confidence_mean=0.7,
+        organism="Mus musculus",
+        in_vitro=True,
+        model_system="mESC",
+        conditions={},
+        section_source="primary_empirical",
+        natural_language="A is sufficient for B",
+        _kg_edge=None,
+    )
+    G.add_edge(
+        "A",
+        "B",
+        edge_id="ab3",
+        predicate="induces",
+        direction="negative",
+        confidence_mean=0.4,
+        organism="Mus musculus",
+        in_vitro=True,
+        model_system="mESC",
+        conditions={},
+        section_source="primary_empirical",
+        natural_language="A does not induce B",
+        _kg_edge=None,
+    )
+
+    # Cluster 2: B→C activating (2 edges, same direction → no contradiction)
+    G.add_edge(
+        "B",
+        "C",
+        edge_id="bc1",
+        predicate="induces",
+        direction="positive",
+        confidence_mean=0.9,
+        organism="Mus musculus",
+        in_vitro=True,
+        model_system="mESC",
+        conditions={},
+        section_source="primary_empirical",
+        natural_language="B induces C",
+        _kg_edge=None,
+    )
+    G.add_edge(
+        "B",
+        "C",
+        edge_id="bc2",
+        predicate="is_sufficient_for",
+        direction="positive",
+        confidence_mean=0.85,
+        organism="Mus musculus",
+        in_vitro=True,
+        model_system="mESC",
+        conditions={},
+        section_source="primary_empirical",
+        natural_language="B is sufficient for C",
+        _kg_edge=None,
+    )
+    return G
+
+
+class TestSummarizeTopicClusters:
+    def test_returns_list_of_dicts(self):
+        from autoreview.knowledge_graph.analysis import summarize_topic_clusters
+
+        G = _make_finding_test_graph()
+        clusters = build_topic_clusters(G)
+        findings = form_findings(clusters, G)
+        summary = summarize_topic_clusters(clusters, findings)
+        assert isinstance(summary, list)
+        assert len(summary) >= 1
+
+    def test_dict_structure(self):
+        from autoreview.knowledge_graph.analysis import summarize_topic_clusters
+
+        G = _make_finding_test_graph()
+        clusters = build_topic_clusters(G)
+        findings = form_findings(clusters, G)
+        summary = summarize_topic_clusters(clusters, findings)
+        required_keys = {
+            "cluster_id",
+            "subject_id",
+            "object_id",
+            "predicate_class",
+            "n_edges",
+            "n_findings",
+            "member_predicates",
+        }
+        for s in summary:
+            assert required_keys.issubset(s.keys())
+
+    def test_edge_counts_correct(self):
+        from autoreview.knowledge_graph.analysis import summarize_topic_clusters
+
+        G = _make_finding_test_graph()
+        clusters = build_topic_clusters(G)
+        findings = form_findings(clusters, G)
+        summary = summarize_topic_clusters(clusters, findings)
+        ab_cluster = [s for s in summary if s["subject_id"] == "A" and s["object_id"] == "B"]
+        assert len(ab_cluster) == 1
+        assert ab_cluster[0]["n_edges"] == 3
+
+
+class TestScoreFindingContradictionCentrality:
+    def test_returns_list_of_dicts(self):
+        from autoreview.knowledge_graph.analysis import score_finding_contradiction_centrality
+
+        G = _make_finding_test_graph()
+        clusters = build_topic_clusters(G)
+        findings = form_findings(clusters, G)
+        contradictions = detect_finding_contradictions(findings, clusters, graph=G)
+        results = score_finding_contradiction_centrality(G, contradictions)
+        assert isinstance(results, list)
+
+    def test_dict_structure(self):
+        from autoreview.knowledge_graph.analysis import score_finding_contradiction_centrality
+
+        G = _make_finding_test_graph()
+        clusters = build_topic_clusters(G)
+        findings = form_findings(clusters, G)
+        contradictions = detect_finding_contradictions(findings, clusters, graph=G)
+        results = score_finding_contradiction_centrality(G, contradictions)
+        if results:
+            required_keys = {
+                "node_id",
+                "canonical_name",
+                "raw_score",
+                "n_finding_contradictions",
+            }
+            for r in results:
+                assert required_keys.issubset(r.keys())
+
+    def test_contradicted_nodes_have_positive_scores(self):
+        from autoreview.knowledge_graph.analysis import score_finding_contradiction_centrality
+
+        G = _make_finding_test_graph()
+        clusters = build_topic_clusters(G)
+        findings = form_findings(clusters, G)
+        contradictions = detect_finding_contradictions(findings, clusters, graph=G)
+        results = score_finding_contradiction_centrality(G, contradictions)
+        if results:
+            for r in results:
+                assert r["raw_score"] > 0.0
+
+    def test_empty_contradictions_returns_empty(self):
+        from autoreview.knowledge_graph.analysis import score_finding_contradiction_centrality
+
+        G = _make_finding_test_graph()
+        results = score_finding_contradiction_centrality(G, [])
+        assert results == []
