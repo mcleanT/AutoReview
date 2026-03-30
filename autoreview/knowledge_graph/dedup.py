@@ -589,3 +589,75 @@ def merge_assertions(assertions: list[dict[str, Any]]) -> MergeResult:
         merges=len(result.merge_log),
     )
     return result
+
+
+# ---------------------------------------------------------------------------
+# v2: Condition-Aware Merging
+# ---------------------------------------------------------------------------
+
+_MODEL_SYSTEM_FUZZY_THRESHOLD = 65
+
+
+def compute_condition_signature(
+    organism: str | None,
+    in_vitro: bool | None,
+    model_system_class: str | None,
+) -> str:
+    """Deterministic hash of hard + soft partition fields for condition-aware merging.
+
+    Args:
+        organism: Species name (e.g., "Mus musculus").
+        in_vitro: True for cell culture, False for in vivo, None for unknown.
+        model_system_class: Normalized model system bucket string.
+
+    Returns:
+        12-character hex hash string.
+    """
+    key = (
+        f"{(organism or '').lower().strip()}"
+        f"|{in_vitro}"
+        f"|{(model_system_class or '').lower().strip()}"
+    )
+    return hashlib.sha1(key.encode()).hexdigest()[:12]  # noqa: S324
+
+
+class ModelSystemRegistry:
+    """Fuzzy bucketing of model system strings.
+
+    Uses rapidfuzz to cluster synonymous model system descriptions into
+    canonical buckets. First string seen becomes the canonical representative;
+    subsequent strings matching above threshold join that bucket.
+    """
+
+    def __init__(self, threshold: int = _MODEL_SYSTEM_FUZZY_THRESHOLD) -> None:
+        self._threshold = threshold
+        self._canonical: dict[str, str] = {}  # normalized → canonical bucket
+        self._buckets: list[str] = []  # list of canonical representatives
+
+    def normalize(self, raw: str | None) -> str:
+        """Normalize a model system string to its canonical bucket.
+
+        Args:
+            raw: Raw model system string from extraction.
+
+        Returns:
+            Canonical bucket string (lowercased), or "" for None/empty.
+        """
+        if not raw or not raw.strip():
+            return ""
+
+        normalized = raw.lower().strip()
+        if normalized in self._canonical:
+            return self._canonical[normalized]
+
+        # Check against existing buckets
+        for bucket in self._buckets:
+            ratio = fuzz.ratio(normalized, bucket)
+            if ratio >= self._threshold:
+                self._canonical[normalized] = bucket
+                return bucket
+
+        # New bucket
+        self._buckets.append(normalized)
+        self._canonical[normalized] = normalized
+        return normalized

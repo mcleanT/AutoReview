@@ -409,3 +409,92 @@ class TestAssertionMerging:
         result = merge_assertions(assertions)
         assert len(result.assertions) == 1
         assert result.assertions[0]["subject_id"] == result.assertions[0]["object_id"]
+
+
+class TestConditionSignature:
+    """Test condition signature computation for v2 merging."""
+
+    def test_deterministic(self):
+        from autoreview.knowledge_graph.dedup import compute_condition_signature
+
+        sig1 = compute_condition_signature("Mus musculus", True, "mouse esc gastruloids")
+        sig2 = compute_condition_signature("Mus musculus", True, "mouse esc gastruloids")
+        assert sig1 == sig2
+
+    def test_different_organism_different_signature(self):
+        from autoreview.knowledge_graph.dedup import compute_condition_signature
+
+        sig_mouse = compute_condition_signature("Mus musculus", True, "esc gastruloids")
+        sig_human = compute_condition_signature("Homo sapiens", True, "ipsc organoids")
+        assert sig_mouse != sig_human
+
+    def test_different_in_vitro_different_signature(self):
+        from autoreview.knowledge_graph.dedup import compute_condition_signature
+
+        sig_vitro = compute_condition_signature("Mus musculus", True, "esc gastruloids")
+        sig_vivo = compute_condition_signature("Mus musculus", False, "mouse embryo")
+        assert sig_vitro != sig_vivo
+
+    def test_case_insensitive(self):
+        from autoreview.knowledge_graph.dedup import compute_condition_signature
+
+        sig1 = compute_condition_signature("Mus musculus", True, "Mouse ESC Gastruloids")
+        sig2 = compute_condition_signature("mus musculus", True, "mouse esc gastruloids")
+        assert sig1 == sig2
+
+    def test_none_values_hash_consistently(self):
+        from autoreview.knowledge_graph.dedup import compute_condition_signature
+
+        sig1 = compute_condition_signature(None, None, None)
+        sig2 = compute_condition_signature(None, None, None)
+        assert sig1 == sig2
+
+    def test_none_vs_populated_different(self):
+        from autoreview.knowledge_graph.dedup import compute_condition_signature
+
+        sig_none = compute_condition_signature(None, None, None)
+        sig_mouse = compute_condition_signature("Mus musculus", True, "gastruloids")
+        assert sig_none != sig_mouse
+
+
+class TestModelSystemNormalization:
+    """Test fuzzy bucketing of model system strings."""
+
+    def test_identical_strings(self):
+        from autoreview.knowledge_graph.dedup import ModelSystemRegistry
+
+        reg = ModelSystemRegistry()
+        cls1 = reg.normalize("mouse ESC gastruloids")
+        cls2 = reg.normalize("mouse ESC gastruloids")
+        assert cls1 == cls2
+
+    def test_synonym_merge(self):
+        from autoreview.knowledge_graph.dedup import ModelSystemRegistry
+
+        reg = ModelSystemRegistry()
+        cls1 = reg.normalize("mouse ESC gastruloids")
+        cls2 = reg.normalize("mESC-derived gastruloids")
+        assert cls1 == cls2
+
+    def test_different_systems_separate(self):
+        from autoreview.knowledge_graph.dedup import ModelSystemRegistry
+
+        reg = ModelSystemRegistry()
+        cls1 = reg.normalize("mouse ESC gastruloids")
+        cls2 = reg.normalize("zebrafish embryo")
+        assert cls1 != cls2
+
+    def test_none_returns_empty(self):
+        from autoreview.knowledge_graph.dedup import ModelSystemRegistry
+
+        reg = ModelSystemRegistry()
+        assert reg.normalize(None) == ""
+        assert reg.normalize("") == ""
+
+    def test_case_insensitive(self):
+        from autoreview.knowledge_graph.dedup import ModelSystemRegistry
+
+        reg = ModelSystemRegistry()
+        cls1 = reg.normalize("Mouse Embryo")
+        cls2 = reg.normalize("mouse embryo")
+        assert cls1 == cls2
