@@ -593,8 +593,15 @@ def update_graph_mrf(
     if not edge_data:
         return MRFResult()
 
+    # Merge edge + finding posteriors so solve_incremental can warm-start
+    # finding variables from the prior solution (they are stripped from
+    # prior_result.posteriors by score_graph_mrf).
+    prior_solution = dict(prior_result.posteriors)
+    for fid, val in prior_result.finding_posteriors.items():
+        prior_solution[f"finding:{fid}"] = val
+
     posteriors = engine.solve_incremental(
-        prior_solution=prior_result.posteriors,
+        prior_solution=prior_solution,
         affected_vars=set(new_edge_ids),
         hop_radius=2,
     )

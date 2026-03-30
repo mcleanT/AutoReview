@@ -312,7 +312,7 @@ def test_custom_config_affects_result() -> None:
 def test_diagnostic_counts() -> None:
     """n_rules should equal n_variables (unary) + n_contradictions + n_compositions."""
     G = _make_scored_graph()
-    result = score_graph_mrf(G)
+    result = score_graph_mrf(G, config=MRFConfig(enable_finding_layer=False))
 
     expected_rules = result.n_variables + result.n_contradictions + result.n_compositions
     assert result.n_rules == expected_rules, (
