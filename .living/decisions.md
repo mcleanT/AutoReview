@@ -1308,3 +1308,7 @@ Added `--version-prefix` CLI arg to `optimize_extraction_prompt.py` (default `v7
 - Storing exact alpha/beta in score_all_edges() (deferred: requires schema change, noted as future improvement)
 
 **Consequences**: bayesian_confidence, bayesian_ci_low, bayesian_ci_high, bayesian_bimodal written as edge attributes. New optional dependency group: jax, jaxlib, numpyro, arviz, diptest.
+
+### 2026-03-30 — v0.4.0 docs: README, CHANGELOG, ARCHITECTURE
+- **Decision**: Updated all three docs to reflect the finding layer and other v0.3→v0.4 additions (Bayesian inference, normalization, weight learning)
+- **Why**: The finding layer is a major architectural addition that changes how contradictions are detected and resolved. Users and contributors need to understand the hierarchy.

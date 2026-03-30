@@ -1425,3 +1425,6 @@ Review papers and abstract-only papers yield qualitatively different KG extracti
 - Always cast arviz summary columns to float before numeric comparisons — object dtype is a silent failure mode
 - When two backends share conceptual logic (BFS chain discovery), document the coupling explicitly; a shared utility should be extracted in a future refactor
 - For [0,1]-bounded probabilistic variables, JAX float32 is adequate; reserve float64 overrides for numerical analysis tasks requiring high precision
+
+### 2026-03-30 — Incremental solve must include ALL variable types in prior_solution
+- When `score_graph_mrf()` filters finding variables out of `posteriors`, those values are lost for `update_graph_mrf()`. The incremental solver falls back to init values instead of warm-starting. Always merge all variable types back into the prior_solution dict before calling `solve_incremental()`.
