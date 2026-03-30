@@ -188,11 +188,11 @@ def laplace_approximate(
     # Hessian of neg-log-posterior at MAP (float32 — JAX default)
     # ------------------------------------------------------------------
     hessian_fn = jax.hessian(neg_log_post)
-    H = hessian_fn(map_est)
+    hess = hessian_fn(map_est)
 
     # Regularise and invert
-    H_reg = H + 1e-6 * jnp.eye(n)
-    cov = jnp.linalg.inv(H_reg)
+    hess_reg = hess + 1e-6 * jnp.eye(n)
+    cov = jnp.linalg.inv(hess_reg)
     variances = jnp.maximum(jnp.diag(cov), 1e-10)
     stds = jnp.sqrt(variances)
 
