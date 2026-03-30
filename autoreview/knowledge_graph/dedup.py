@@ -661,3 +661,135 @@ class ModelSystemRegistry:
         self._buckets.append(normalized)
         self._canonical[normalized] = normalized
         return normalized
+
+
+def merge_assertions_v2(assertions: list[dict[str, Any]]) -> MergeResult:
+    """Merge assertions sharing the same (subject_id, predicate, object_id, condition_signature).
+
+    Condition-aware variant of merge_assertions. Claims with the same (S,P,O)
+    but different experimental contexts (organism, in_vitro, model_system) become
+    separate edges. Scoring-modifier conditions (cell_type, treatment, stage)
+    are accumulated across merged claims.
+
+    Args:
+        assertions: List of raw assertion dicts. Each must have subject_id,
+            object_id, predicate, and may have organism, model_system, in_vitro,
+            conditions.
+
+    Returns:
+        MergeResult with merged assertions (each with condition_signature and
+        condition_context) and audit merge_log.
+    """
+    ms_registry = ModelSystemRegistry()
+
+    # Compute condition signature for each assertion
+    for assertion in assertions:
+        ms_class = ms_registry.normalize(assertion.get("model_system"))
+        assertion["_model_system_class"] = ms_class
+        assertion["_condition_signature"] = compute_condition_signature(
+            assertion.get("organism"),
+            assertion.get("in_vitro"),
+            ms_class,
+        )
+
+    groups: dict[tuple[str, str, str, str], list[dict[str, Any]]] = defaultdict(list)
+    for assertion in assertions:
+        key = (
+            assertion["subject_id"],
+            assertion["predicate"],
+            assertion["object_id"],
+            assertion["_condition_signature"],
+        )
+        groups[key].append(assertion)
+
+    result = MergeResult()
+
+    for (subject_id, predicate, object_id, cond_sig), group in groups.items():
+        draft_ids = [a["draft_id"] for a in group]
+        paper_ids = [a["paper_id"] for a in group]
+
+        # Accumulate evidence_unit_ids (flatten + deduplicate)
+        all_evidence: list[str] = []
+        for a in group:
+            all_evidence.extend(a.get("evidence_unit_ids") or [])
+        unique_evidence = list(dict.fromkeys(all_evidence))
+
+        # Direction: unanimous → keep; conflict → None
+        directions = {a.get("direction") for a in group}
+        if len(directions) == 1:
+            direction = directions.pop()
+            direction_conflict = False
+        else:
+            direction = None
+            direction_conflict = True
+
+        # Assertion type: majority vote
+        type_counts: dict[str, int] = defaultdict(int)
+        for a in group:
+            type_counts[a.get("assertion_type", "mechanistic_causal")] += 1
+        assertion_type = max(type_counts, key=lambda t: type_counts[t])
+
+        # Publication date: earliest
+        dates = [a["publication_date"] for a in group if a.get("publication_date")]
+        earliest_date = min(dates) if dates else None
+
+        # Accumulate scoring-modifier conditions
+        all_cell_types: list[str] = []
+        all_treatments: list[str] = []
+        all_stages: list[str] = []
+        for a in group:
+            conds = a.get("conditions") or {}
+            for ct in conds.get("cell_type") or []:
+                if ct not in all_cell_types:
+                    all_cell_types.append(ct)
+            for tr in conds.get("treatment") or []:
+                if tr not in all_treatments:
+                    all_treatments.append(tr)
+            stage = conds.get("developmental_stage")
+            if stage and stage not in all_stages:
+                all_stages.append(stage)
+
+        # Build condition context dict
+        first = group[0]
+        condition_context = {
+            "organism": first.get("organism"),
+            "model_system_class": first.get("_model_system_class", ""),
+            "in_vitro": first.get("in_vitro"),
+            "cell_types": all_cell_types,
+            "treatments": all_treatments,
+            "stages": all_stages,
+        }
+
+        merged = {
+            "subject_id": subject_id,
+            "predicate": predicate,
+            "object_id": object_id,
+            "direction": direction,
+            "direction_conflict": direction_conflict,
+            "assertion_type": assertion_type,
+            "evidence_unit_ids": unique_evidence,
+            "source_assertions": draft_ids,
+            "publication_date": earliest_date,
+            "condition_signature": cond_sig,
+            "condition_context": condition_context,
+        }
+        result.assertions.append(merged)
+
+        if len(group) > 1:
+            result.merge_log.append(
+                {
+                    "merged_draft_ids": draft_ids,
+                    "papers": paper_ids,
+                    "direction_conflict": direction_conflict,
+                    "triple": (subject_id, predicate, object_id),
+                    "condition_signature": cond_sig,
+                }
+            )
+
+    logger.info(
+        "assertion_merge_v2_complete",
+        input_count=len(assertions),
+        output_count=len(result.assertions),
+        merges=len(result.merge_log),
+    )
+    return result

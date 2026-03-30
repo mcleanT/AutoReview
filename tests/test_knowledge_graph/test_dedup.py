@@ -498,3 +498,167 @@ class TestModelSystemNormalization:
         cls1 = reg.normalize("Mouse Embryo")
         cls2 = reg.normalize("mouse embryo")
         assert cls1 == cls2
+
+
+class TestMergeAssertionsV2:
+    """Test condition-aware assertion merging."""
+
+    def _make_assertion(
+        self,
+        subject_id: str = "ent1",
+        object_id: str = "ent2",
+        predicate: str = "induces",
+        direction: str = "positive",
+        draft_id: str = "a_001",
+        paper_id: str = "p1",
+        organism: str | None = "Mus musculus",
+        model_system: str | None = "mouse ESC gastruloids",
+        in_vitro: bool | None = True,
+        conditions: dict | None = None,
+    ) -> dict:
+        return {
+            "subject_id": subject_id,
+            "object_id": object_id,
+            "predicate": predicate,
+            "direction": direction,
+            "assertion_type": "mechanistic_causal",
+            "draft_id": draft_id,
+            "evidence_unit_ids": [f"e_{draft_id}"],
+            "paper_id": paper_id,
+            "publication_date": "2023-01-15",
+            "organism": organism,
+            "model_system": model_system,
+            "in_vitro": in_vitro,
+            "conditions": conditions or {},
+            "certainty": "high",
+            "section_source": "primary_empirical",
+        }
+
+    def test_same_spo_same_conditions_merge(self):
+        from autoreview.knowledge_graph.dedup import merge_assertions_v2
+
+        assertions = [
+            self._make_assertion(draft_id="a_001", paper_id="p1"),
+            self._make_assertion(draft_id="a_002", paper_id="p2"),
+        ]
+        result = merge_assertions_v2(assertions)
+        assert len(result.assertions) == 1
+        assert len(result.assertions[0]["source_assertions"]) == 2
+
+    def test_same_spo_different_organism_separate(self):
+        from autoreview.knowledge_graph.dedup import merge_assertions_v2
+
+        assertions = [
+            self._make_assertion(draft_id="a_001", paper_id="p1", organism="Mus musculus"),
+            self._make_assertion(
+                draft_id="a_002",
+                paper_id="p2",
+                organism="Homo sapiens",
+                model_system="human iPSC organoids",
+            ),
+        ]
+        result = merge_assertions_v2(assertions)
+        assert len(result.assertions) == 2
+
+    def test_same_spo_different_in_vitro_separate(self):
+        from autoreview.knowledge_graph.dedup import merge_assertions_v2
+
+        assertions = [
+            self._make_assertion(draft_id="a_001", paper_id="p1", in_vitro=True),
+            self._make_assertion(
+                draft_id="a_002",
+                paper_id="p2",
+                in_vitro=False,
+                model_system="mouse embryo",
+            ),
+        ]
+        result = merge_assertions_v2(assertions)
+        assert len(result.assertions) == 2
+
+    def test_condition_signature_on_merged(self):
+        from autoreview.knowledge_graph.dedup import merge_assertions_v2
+
+        assertions = [
+            self._make_assertion(draft_id="a_001", paper_id="p1"),
+        ]
+        result = merge_assertions_v2(assertions)
+        assert result.assertions[0].get("condition_signature") is not None
+        assert len(result.assertions[0]["condition_signature"]) == 12
+
+    def test_condition_context_accumulated(self):
+        from autoreview.knowledge_graph.dedup import merge_assertions_v2
+
+        assertions = [
+            self._make_assertion(
+                draft_id="a_001",
+                paper_id="p1",
+                conditions={"cell_type": ["mESC"], "treatment": ["10 ng/mL BMP4"]},
+            ),
+            self._make_assertion(
+                draft_id="a_002",
+                paper_id="p2",
+                conditions={
+                    "cell_type": ["E14Tg2a"],
+                    "treatment": ["3 µM CHIR99021"],
+                },
+            ),
+        ]
+        result = merge_assertions_v2(assertions)
+        assert len(result.assertions) == 1
+        ctx = result.assertions[0]["condition_context"]
+        assert "mESC" in ctx["cell_types"]
+        assert "E14Tg2a" in ctx["cell_types"]
+        assert "10 ng/mL BMP4" in ctx["treatments"]
+        assert "3 µM CHIR99021" in ctx["treatments"]
+
+    def test_direction_conflict_within_context(self):
+        from autoreview.knowledge_graph.dedup import merge_assertions_v2
+
+        assertions = [
+            self._make_assertion(draft_id="a_001", paper_id="p1", direction="positive"),
+            self._make_assertion(draft_id="a_002", paper_id="p2", direction="negative"),
+        ]
+        result = merge_assertions_v2(assertions)
+        assert len(result.assertions) == 1
+        assert result.assertions[0]["direction_conflict"] is True
+
+    def test_v4_data_without_conditions(self):
+        from autoreview.knowledge_graph.dedup import merge_assertions_v2
+
+        assertions = [
+            self._make_assertion(
+                draft_id="a_001",
+                paper_id="p1",
+                organism=None,
+                model_system=None,
+                in_vitro=None,
+            ),
+            self._make_assertion(
+                draft_id="a_002",
+                paper_id="p2",
+                organism=None,
+                model_system=None,
+                in_vitro=None,
+            ),
+        ]
+        result = merge_assertions_v2(assertions)
+        assert len(result.assertions) == 1
+
+    def test_v1_merge_still_works(self):
+        from autoreview.knowledge_graph.dedup import merge_assertions
+
+        assertions = [
+            {
+                "subject_id": "ent1",
+                "object_id": "ent2",
+                "predicate": "induces",
+                "direction": "positive",
+                "assertion_type": "mechanistic_causal",
+                "draft_id": "a_001",
+                "evidence_unit_ids": ["e_001"],
+                "paper_id": "p1",
+                "publication_date": "2023-01-15",
+            },
+        ]
+        result = merge_assertions(assertions)
+        assert len(result.assertions) == 1
