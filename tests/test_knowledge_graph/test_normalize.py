@@ -124,3 +124,84 @@ class TestPredicateCleaning:
         from autoreview.knowledge_graph.normalize import clean_predicate
 
         assert clean_predicate("some_unknown_pred") == "some_unknown_pred"
+
+
+class TestCompoundDecomposition:
+    """Tests for rule-based compound object decomposition."""
+
+    def test_conjunction_with_head_noun(self):
+        from autoreview.knowledge_graph.normalize import decompose_object
+
+        result = decompose_object("endoderm and mesoderm differentiation")
+        assert len(result) == 2
+        assert "endoderm differentiation" in result
+        assert "mesoderm differentiation" in result
+
+    def test_comma_and_list_with_head_noun(self):
+        from autoreview.knowledge_graph.normalize import decompose_object
+
+        result = decompose_object("T, Sox2, and Nanog expression levels")
+        assert len(result) == 3
+        assert any("T" in r and "expression" in r for r in result)
+        assert any("Sox2" in r and "expression" in r for r in result)
+        assert any("Nanog" in r and "expression" in r for r in result)
+
+    def test_slash_split_with_tail(self):
+        from autoreview.knowledge_graph.normalize import decompose_object
+
+        result = decompose_object("BMP4/WNT signaling in gastruloids")
+        assert len(result) == 2
+        assert any("BMP4" in r for r in result)
+        assert any("WNT" in r for r in result)
+
+    def test_prepositional_compound(self):
+        from autoreview.knowledge_graph.normalize import decompose_object
+
+        result = decompose_object("self-organization into endoderm and mesoderm")
+        assert len(result) == 2
+        assert "endoderm" in result
+        assert "mesoderm" in result
+
+    def test_short_object_not_decomposed(self):
+        from autoreview.knowledge_graph.normalize import decompose_object
+
+        result = decompose_object("mesoderm differentiation")
+        assert result == ["mesoderm differentiation"]
+
+    def test_three_word_object_not_decomposed(self):
+        from autoreview.knowledge_graph.normalize import decompose_object
+
+        result = decompose_object("lateral plate mesoderm")
+        assert result == ["lateral plate mesoderm"]
+
+    def test_no_pattern_match_returns_original(self):
+        from autoreview.knowledge_graph.normalize import decompose_object
+
+        result = decompose_object("mesoderm differentiation in mouse gastruloids")
+        assert result == ["mesoderm differentiation in mouse gastruloids"]
+
+    def test_conjunction_without_head_noun(self):
+        from autoreview.knowledge_graph.normalize import decompose_object
+
+        result = decompose_object("lateral mesoderm and neural crest")
+        assert len(result) == 2
+        assert "lateral mesoderm" in result
+        assert "neural crest" in result
+
+    def test_flag_for_llm(self):
+        from autoreview.knowledge_graph.normalize import flag_for_llm_decomposition
+
+        assert (
+            flag_for_llm_decomposition(
+                "self-organization of human gastruloids into homogenous subpopulations of endoderm and mesoderm"
+            )
+            is True
+        )
+        assert flag_for_llm_decomposition("mesoderm differentiation") is False
+
+    def test_slash_not_in_units(self):
+        from autoreview.knowledge_graph.normalize import decompose_object
+
+        # "ng/mL" should not be split
+        result = decompose_object("10 ng/mL BMP4 treatment effect")
+        assert len(result) == 1
