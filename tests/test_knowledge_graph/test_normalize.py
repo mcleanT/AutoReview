@@ -516,3 +516,47 @@ class TestClaimNormalizer:
         assert report.claims_produced == 0
         assert report.quant_backfilled == 0
         assert report.llm_calls == 0
+
+
+class TestPipelineIntegration:
+    """Integration tests for normalization in the build_graph pipeline."""
+
+    def test_normalize_false_unchanged(self, sample_v5_extraction_dir):
+        """Regression: normalize=False produces identical output to current code."""
+        from autoreview.knowledge_graph import build_graph
+
+        graph_without = build_graph(sample_v5_extraction_dir, version=2)
+        graph_with = build_graph(sample_v5_extraction_dir, version=2, normalize=False)
+        assert graph_without.number_of_edges() == graph_with.number_of_edges()
+        assert graph_without.number_of_nodes() == graph_with.number_of_nodes()
+
+    def test_normalize_true_accepted(self, sample_v5_extraction_dir):
+        """normalize=True runs without error and produces a valid graph."""
+        from autoreview.knowledge_graph import build_graph
+
+        graph = build_graph(
+            sample_v5_extraction_dir, version=2, normalize=True, llm_decompose=False
+        )
+        assert graph.number_of_nodes() > 0
+        assert graph.number_of_edges() > 0
+
+    def test_normalization_report_on_graph(self, sample_v5_extraction_dir):
+        """NormalizationReport is stored on the graph object."""
+        from autoreview.knowledge_graph import build_graph
+
+        graph = build_graph(
+            sample_v5_extraction_dir, version=2, normalize=True, llm_decompose=False
+        )
+        report = graph.graph.get("normalization_report")
+        assert report is not None
+        assert hasattr(report, "text_cleaned")
+        assert hasattr(report, "quant_backfilled")
+
+    def test_normalize_with_v1_version(self, sample_v5_extraction_dir):
+        """Normalization works with v1 merge strategy too."""
+        from autoreview.knowledge_graph import build_graph
+
+        graph = build_graph(
+            sample_v5_extraction_dir, version=1, normalize=True, llm_decompose=False
+        )
+        assert graph.number_of_nodes() > 0

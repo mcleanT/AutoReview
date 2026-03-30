@@ -8,6 +8,7 @@ from pathlib import Path
 import networkx as nx
 import structlog
 
+from autoreview.knowledge_graph.analysis import score_contradiction_centrality
 from autoreview.knowledge_graph.confidence import score_all_edges
 from autoreview.knowledge_graph.dedup import (
     EntityRegistry,
@@ -36,12 +37,17 @@ from autoreview.knowledge_graph.models import (
     QuantitativeContext,
     SectionSource,
 )
-from autoreview.knowledge_graph.mrf_scoring import MRFConfig
+from autoreview.knowledge_graph.mrf_scoring import MRFConfig, update_graph_mrf
+from autoreview.knowledge_graph.mrf_weight_learning import (
+    WeightLearningConfig,
+    learn_weights,
+)
 from autoreview.knowledge_graph.nli import (
     NLIConfig,
     classify_cross_claims,
     diagnose_evidence_directions,
 )
+from autoreview.knowledge_graph.normalize import ClaimNormalizer, NormalizationReport
 
 log = structlog.get_logger(__name__)
 
@@ -56,6 +62,10 @@ __all__ = [
     "Certainty",
     "QuantitativeContext",
     "MRFConfig",
+    "update_graph_mrf",
+    "WeightLearningConfig",
+    "learn_weights",
+    "score_contradiction_centrality",
 ]
 
 
@@ -121,6 +131,8 @@ def build_graph(
     use_mrf: bool = False,
     mrf_config: MRFConfig | None = None,
     version: int = 1,
+    normalize: bool = False,
+    llm_decompose: bool = True,
 ) -> nx.MultiDiGraph:
     """Full pipeline: ingest → dedup → graph → confidence.
 
@@ -150,6 +162,12 @@ def build_graph(
             condition-agnostic merging. ``2`` uses condition-aware merging
             (``merge_assertions_v2``) which creates separate edges for claims
             with distinct experimental contexts (organism, in_vitro, model_system).
+        normalize: If ``True``, run post-extraction normalization (text cleaning,
+            predicate cleaning, compound decomposition, quantitative backfill)
+            to improve cross-paper claim matching. Default ``False``.
+        llm_decompose: If ``True`` and ``normalize=True``, use LLM fallback
+            for compound objects that rule-based patterns can't handle.
+            Default ``True``.
 
     Returns:
         A scored NetworkX MultiDiGraph ready for analysis and serialization.
@@ -167,6 +185,26 @@ def build_graph(
         assertions=len(corpus.all_assertions),
         evidence_units=len(corpus.all_evidence_units),
     )
+
+    # ------------------------------------------------------------------
+    # Step 1b: Pre-dedup normalization (text cleaning + decomposition)
+    # ------------------------------------------------------------------
+    pre_dedup_report = None
+    if normalize:
+        import asyncio
+
+        normalizer = ClaimNormalizer(llm_decompose=llm_decompose)
+        corpus.all_entities, corpus.all_assertions, pre_dedup_report = (
+            asyncio.get_event_loop().run_until_complete(
+                normalizer.pre_dedup(corpus.all_entities, corpus.all_assertions)
+            )
+        )
+        log.info(
+            "kg.pipeline.pre_dedup_normalize",
+            text_cleaned=pre_dedup_report.text_cleaned,
+            predicates_cleaned=pre_dedup_report.predicates_cleaned,
+            claims_decomposed=pre_dedup_report.claims_decomposed,
+        )
 
     # ------------------------------------------------------------------
     # Step 2: Entity deduplication
@@ -215,6 +253,22 @@ def build_graph(
         normalized=len(normalized_assertions),
         skipped=skipped,
     )
+
+    # ------------------------------------------------------------------
+    # Step 3b: Post-dedup normalization (quantitative backfill)
+    # ------------------------------------------------------------------
+    post_dedup_report = None
+    if normalize:
+        import asyncio
+
+        normalizer = ClaimNormalizer(llm_decompose=False)
+        normalized_assertions, post_dedup_report = asyncio.get_event_loop().run_until_complete(
+            normalizer.post_dedup(normalized_assertions)
+        )
+        log.info(
+            "kg.pipeline.post_dedup_normalize",
+            quant_backfilled=post_dedup_report.quant_backfilled,
+        )
 
     # ------------------------------------------------------------------
     # Step 5: Assertion merging
@@ -369,6 +423,18 @@ def build_graph(
     # Step 7: Build NetworkX graph
     # ------------------------------------------------------------------
     graph = build_nx_graph(registry.entities, kg_edges)
+
+    # Store normalization audit trail on graph
+    if normalize:
+        combined_report = NormalizationReport(
+            text_cleaned=pre_dedup_report.text_cleaned if pre_dedup_report else 0,
+            predicates_cleaned=pre_dedup_report.predicates_cleaned if pre_dedup_report else 0,
+            claims_decomposed=pre_dedup_report.claims_decomposed if pre_dedup_report else 0,
+            claims_produced=pre_dedup_report.claims_produced if pre_dedup_report else 0,
+            quant_backfilled=post_dedup_report.quant_backfilled if post_dedup_report else 0,
+            llm_calls=pre_dedup_report.llm_calls if pre_dedup_report else 0,
+        )
+        graph.graph["normalization_report"] = combined_report
 
     # ------------------------------------------------------------------
     # Step 8: Score confidence
