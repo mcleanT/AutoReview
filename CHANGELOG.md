@@ -13,11 +13,17 @@
 - **Toggle**: `MRFConfig.enable_finding_layer` (default True) for backward-compatible A/B comparison
 - New module: `autoreview/knowledge_graph/cluster.py` (541 lines)
 
-### Bayesian Inference Upgrade
-- NumPyro probabilistic model as alternative to HL-MRF: JAX-compatible Beta priors, softplus contradiction factors, per-chain composition loops
-- `BayesianConfig` with MCMC/VI sampler selection, `score_graph_bayesian()` orchestration
-- Laplace approximation and NUTS sampling with subgraph extraction for large graphs
-- `build_graph(bayesian=True)` integration flag
+### Bayesian Inference (Phase 1)
+- **New `bayesian/` package** (6 modules) — parallel inference path producing full posterior distributions instead of MAP point estimates
+- **NumPyro factor graph model** (`kg_flat_model`): Beta priors from Tier 1 scoring, vectorized softplus contradiction factors, per-chain composition factors with weakest-link semantics
+- **Laplace approximation**: scipy L-BFGS-B MAP optimization + JAX Hessian inversion for fast full-graph credible intervals (~1s for 2000 edges)
+- **NUTS MCMC sampling**: NumPyro NUTS on targeted hotspot subgraphs identified via `score_contradiction_centrality()`, with ArviZ diagnostics (R-hat, ESS, divergences)
+- **Bimodality detection**: Hartigan's dip test per edge — flags genuine scientific controversy vs. insufficient data
+- **`score_graph_bayesian(graph, config)`**: hybrid Laplace + targeted NUTS orchestration
+- **`update_graph_bayesian()`**: incremental updates via subgraph extraction + NUTS on changed neighborhoods
+- **`build_graph(bayesian=True)`**: writes `bayesian_confidence`, `bayesian_ci_low`, `bayesian_ci_high`, `bayesian_bimodal` edge attributes
+- **New optional dependencies**: `jax`, `jaxlib`, `numpyro`, `arviz`, `diptest` (install via `pip install autoreview[bayesian]`)
+- HL-MRF system unchanged — serves as baseline for Phase 2 model comparison
 
 ### Knowledge Graph Improvements
 - MRF weight learning via grid search or gradient descent (`learn_weights()`)

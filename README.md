@@ -13,6 +13,7 @@ Fully autonomous pipeline for generating publication-ready scientific review pap
 - **Review depth control** — three depth levels (low/medium/deep) with evidence-weighted word allocation for concise summaries to exhaustive reviews
 - **Knowledge graph extraction** — structured claim extraction with 34-predicate vocabulary, evidence linking, and graph construction
 - **Finding-level contradiction detection** — hierarchical clustering (TopicCluster → Finding) with HL-MRF inference resolves cross-paper scientific disagreements
+- **Bayesian inference** — NumPyro/JAX posterior distributions with Laplace + targeted NUTS, bimodality detection for genuine scientific controversy
 - **Crash recovery** — pipeline state saved after every stage; resume from any snapshot
 
 ## Architecture
@@ -60,6 +61,40 @@ ANTHROPIC_API_KEY=sk-... python batch_extract_kg.py
 ```
 
 The `autoreview/knowledge_graph/` package exposes a public API for integrating KG results into downstream analysis.
+
+### Bayesian Confidence Scoring
+
+For richer uncertainty quantification, enable the Bayesian inference path (requires `pip install autoreview[bayesian]`):
+
+```python
+from autoreview.knowledge_graph import build_graph
+from autoreview.knowledge_graph.bayesian import BayesianConfig
+
+# Build graph with Bayesian posteriors
+graph = build_graph("extractions/", bayesian=True, bayesian_config=BayesianConfig(
+    hotspot_top_k=10,   # NUTS sampling on top-10 contradiction hotspots
+    n_samples=1000,      # posterior samples per chain
+))
+
+# Access per-edge results
+for u, v, key, data in graph.edges(data=True, keys=True):
+    print(data.get("bayesian_confidence"))   # posterior mean
+    print(data.get("bayesian_ci_low"))       # 95% CI lower bound
+    print(data.get("bayesian_ci_high"))      # 95% CI upper bound
+    print(data.get("bayesian_bimodal"))      # True = genuine controversy
+```
+
+Or use the scoring API directly for programmatic access to full posterior samples:
+
+```python
+from autoreview.knowledge_graph.bayesian import score_graph_bayesian, BayesianConfig
+
+result = score_graph_bayesian(graph, config=BayesianConfig())
+result.posteriors["edge_id"]           # float, posterior mean
+result.credible_intervals["edge_id"]   # (low, high) 95% CI
+result.posterior_samples["edge_id"]    # ndarray, raw MCMC samples
+result.bimodality_flags["edge_id"]     # bool, Hartigan's dip test
+```
 
 ## Quick Start
 
