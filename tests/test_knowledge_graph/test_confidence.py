@@ -10,10 +10,10 @@ class TestEvidenceWeights:
         from autoreview.knowledge_graph.confidence import EVIDENCE_WEIGHTS
 
         assert EVIDENCE_WEIGHTS["direct_experimental"] == 1.0
-        assert EVIDENCE_WEIGHTS["observational_controlled"] == 0.7
-        assert EVIDENCE_WEIGHTS["observational_uncontrolled"] == 0.4
-        assert EVIDENCE_WEIGHTS["computational_prediction"] == 0.3
-        assert EVIDENCE_WEIGHTS["expert_opinion"] == 0.2
+        assert EVIDENCE_WEIGHTS["indirect_experimental"] == 0.8
+        assert EVIDENCE_WEIGHTS["observational"] == 0.5
+        assert EVIDENCE_WEIGHTS["computational"] == 0.3
+        assert EVIDENCE_WEIGHTS["review_citation"] == 0.15
 
 
 class TestScoreEdge:
@@ -62,7 +62,7 @@ class TestScoreEdge:
             },
             {
                 "evidence_direction": "contradicts",
-                "evidence_strength": "observational_controlled",
+                "evidence_strength": "observational",
                 "paper_id": "p2",
                 "first_author": "Lee",
                 "last_author": "Park",
@@ -70,7 +70,7 @@ class TestScoreEdge:
         ]
         posterior = score_edge(evidence)
         assert posterior.alpha == pytest.approx(2.0)  # 1.0 + 1.0
-        assert posterior.beta_param == pytest.approx(1.7)  # 1.0 + 0.7
+        assert posterior.beta_param == pytest.approx(1.5)  # 1.0 + 0.5
 
 
 class TestIndependenceWeighting:

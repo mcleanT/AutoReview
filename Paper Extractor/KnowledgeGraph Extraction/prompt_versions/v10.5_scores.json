@@ -1,0 +1,27 @@
+{
+  "version": "v10.5",
+  "composite": 0.720718,
+  "metrics": {
+    "quant_context": 0.210041,
+    "conditions_coverage": 0.847619,
+    "density": 0.8,
+    "predicate_diversity": 0.859085,
+    "causal_type_coverage": 0.960784,
+    "entity_consistency": 1.0,
+    "no_perturb_subject": 1.0,
+    "evidence_linkage": 0.940476,
+    "evidence_depth": 0.0,
+    "evidence_completeness": 0.550794,
+    "evidence_density": 0.855556,
+    "evidence_strength_valid": 1.0,
+    "field_certainty": 1.0,
+    "doi_coverage": 0.333333,
+    "citation_contexts": 0.635,
+    "field_section_source": 1.0,
+    "predicate_valid": 0.954762,
+    "claim_type_valid": 1.0,
+    "field_model_system": 0.911801,
+    "field_organism": 0.847619
+  },
+  "timestamp": "2026-03-29T20:38:58.061313+00:00"
+}

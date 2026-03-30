@@ -400,3 +400,23 @@
 | 2026-03-27 | 2026-03-27-006 | autoreview | main | 8m | 14 | interactive.py | | complete | | [log](2026-03-27-006-autoreview.md) |
 | 2026-03-27 | 2026-03-27-007 | autoreview | main | 1m | 14 | interactive.py,generate_5tab_viz.py | | complete | | [log](2026-03-27-007-autoreview.md) |
 | 2026-03-27 | 2026-03-27-008 | autoreview | main | 1m | 14 | interactive.py,generate_5tab_viz.py | | complete | | [log](2026-03-27-008-autoreview.md) |
+| 2026-03-27 | 2026-03-27-009 | autoreview | main | 1m | 4 |  | | complete | | [log](2026-03-27-009-autoreview.md) |
+| 2026-03-27 | 2026-03-27-010 | autoreview | main | 30m | 4 | extraction_improvements_update.md,bayesian_contradiction_detection_plan.md | extraction_improvements_update.pdf,bayesian_contradiction_detection_plan.pdf | complete | kg,docs | [log](2026-03-27-010-kg-docs.md) |
+| 2026-03-27 | 2026-03-27-011 | autoreview | main | 2m | 8 | bayesian_contradiction_detection_plan.md,extraction_improvements_update.md,batch_extract_kg.py (+1 more) | | complete | | [log](2026-03-27-011-autoreview.md) |
+| 2026-03-27 | 2026-03-27-012 | autoreview | main | 2m | 5 |  | | complete | | [log](2026-03-27-012-autoreview.md) |
+| 2026-03-28 | 2026-03-28-001 | autoreview | main | 1m | 17 |  | | complete | | [log](2026-03-28-001-autoreview.md) |
+| 2026-03-28 | 2026-03-28-002 | autoreview | main | 2m | 17 | kg_extraction_prompt.md | | complete | | [log](2026-03-28-002-autoreview.md) |
+| 2026-03-28 | 2026-03-28-003 | autoreview | main | 3m | 19 | kg_extraction_prompt.md | | complete | | [log](2026-03-28-003-autoreview.md) |
+| 2026-03-28 | 2026-03-28-004 | autoreview | main | 1m | 21 |  | | complete | | [log](2026-03-28-004-autoreview.md) |
+| 2026-03-28 | 2026-03-28-005 | autoreview | main | 5m | 25 | optimize_extraction_prompt.py,experiment_runner.py,program.md (+1 more) | | complete | | [log](2026-03-28-005-autoreview.md) |
+| 2026-03-28 | 2026-03-28-006 | autoreview | main | 1m | 25 | experiment_runner.py | | complete | | [log](2026-03-28-006-autoreview.md) |
+| 2026-03-28 | 2026-03-28-007 | autoreview | main | 0m | 25 |  | | complete | | [log](2026-03-28-007-autoreview.md) |
+| 2026-03-29 | 2026-03-28-008 | autoreview | main | 2m | 25 |  | | complete | | [log](2026-03-28-008-autoreview.md) |
+| 2026-03-29 | 2026-03-29-001 | autoreview | main | 39m | 25 | optimize_extraction_prompt.py,experiment_runner.py,program.md | | complete | | [log](2026-03-29-001-autoreview.md) |
+| 2026-03-29 | 2026-03-29-002 | autoreview | main | 12m | 25 | optimize_extraction_prompt.py,experiment_runner.py | | complete | | [log](2026-03-29-002-autoreview.md) |
+| 2026-03-29 | 2026-03-29-003 | autoreview | main | 1m | 26 | optimize_extraction_prompt.py | | complete | | [log](2026-03-29-003-autoreview.md) |
+| 2026-03-29 | 2026-03-29-004 | autoreview | main | 6m | 26 | optimize_extraction_prompt.py | | complete | | [log](2026-03-29-004-autoreview.md) |
+| 2026-03-29 | 2026-03-29-005 | autoreview | main | 1m | 26 |  | | complete | | [log](2026-03-29-005-autoreview.md) |
+| 2026-03-29 | 2026-03-29-006 | autoreview | main | 1m | 26 | optimize_extraction_prompt.py,scoring.py | | complete | | [log](2026-03-29-006-autoreview.md) |
+| 2026-03-29 | 2026-03-29-007 | autoreview | main | 1m | 26 | optimize_extraction_prompt.py | | complete | | [log](2026-03-29-007-autoreview.md) |
+| 2026-03-29 | 2026-03-29-008 | autoreview | main | 1m | 26 |  | | complete | | [log](2026-03-29-008-autoreview.md) |

@@ -200,16 +200,66 @@ _RELEVANCE_KEYWORDS = re.compile(
 
 # ---------------------------------------------------------------------------
 # Review filter — exclude non-primary research
+# Three-layer approach: OpenAlex API type → title regex → abstract regex → journal regex
 # ---------------------------------------------------------------------------
+
+_OPENALEX_REVIEW_TYPES = {
+    "review",
+    "editorial",
+    "letter",
+    "erratum",
+    "commentary",
+    "retraction",
+    "book-chapter",
+}
+_OPENALEX_EMAIL = "mst36@psu.edu"
+_OPENALEX_BATCH_SIZE = 50
 
 _REVIEW_KEYWORDS = re.compile(
     r"\breview\b|\bmeta.analysis\b|\bsystematic review\b|\bperspective\b|"
     r"\beditorial\b|\bcommentary\b|\bopinion\b|\bmini.review\b|"
-    r"\boverview\b|\bstate of the art\b",
+    r"\boverview\b|\bstate of the art\b|\brecent advances\b|"
+    r"\bdecision letter\b|\bauthor response\b|\beditor.s evaluation\b",
     re.IGNORECASE,
 )
 
-_REVIEW_JOURNAL_RE = re.compile(r"\breview\b", re.IGNORECASE)
+_REVIEW_ABSTRACT_RE = re.compile(
+    r"\bin this review\b|\bwe review\b|\bhere.{0,5}we review\b|\bthis review\b|"
+    r"\bwe summarize\b|\bwe discuss recent\b|"
+    r"\bcomprehensive overview\b|\bwe survey\b|"
+    r"\bwe provide an overview\b|\bthis perspective\b",
+    re.IGNORECASE,
+)
+
+_REVIEW_JOURNAL_RE = re.compile(
+    r"\bcurrent opinion\b|\btrends in\b|\bannual review\b|\breviews and reports\b",
+    re.IGNORECASE,
+)
+
+
+def _openalex_batch_type_lookup(dois: list[str]) -> dict[str, str]:
+    """Look up publication types for a batch of DOIs via OpenAlex API."""
+    import requests
+
+    results: dict[str, str] = {}
+    doi_filter = "|".join(f"https://doi.org/{d}" for d in dois)
+    url = (
+        f"https://api.openalex.org/works"
+        f"?filter=doi:{quote(doi_filter, safe='|:/')}"
+        f"&select=doi,type"
+        f"&per_page={len(dois)}"
+        f"&mailto={_OPENALEX_EMAIL}"
+    )
+    try:
+        resp = requests.get(url, timeout=30)
+        resp.raise_for_status()
+        for work in resp.json().get("results", []):
+            doi = (work.get("doi") or "").replace("https://doi.org/", "").lower()
+            if doi:
+                results[doi] = work.get("type", "unknown")
+    except Exception as e:
+        logger.warning("openalex.batch_error", error=str(e)[:100])
+    return results
 
 
 def _is_gastruloid_relevant(paper: CandidatePaper) -> bool:
@@ -218,21 +268,71 @@ def _is_gastruloid_relevant(paper: CandidatePaper) -> bool:
     return bool(_RELEVANCE_KEYWORDS.search(text))
 
 
-def _is_likely_review(paper: CandidatePaper) -> bool:
-    """Heuristic: flag papers whose title suggests they are reviews.
-
-    Only checks the title — abstracts of original research may discuss
-    "review of literature" in their introductions.
-    Also checks if the journal name indicates a review journal.
-    """
+def _is_likely_review_heuristic(paper: CandidatePaper) -> bool:
+    """Heuristic fallback: flag papers by title, abstract, or journal patterns."""
     title = paper.title or ""
     if _REVIEW_KEYWORDS.search(title):
         return True
-    # Check journal field for review journals (e.g. "Nature Reviews")
+    abstract = paper.abstract or ""
+    if _REVIEW_ABSTRACT_RE.search(abstract):
+        return True
     journal = paper.journal or ""
     if _REVIEW_JOURNAL_RE.search(journal):
         return True
     return False
+
+
+def _filter_reviews_openalex(
+    papers: list[CandidatePaper],
+) -> tuple[list[CandidatePaper], list[CandidatePaper], dict[str, int]]:
+    """Filter reviews using OpenAlex publication type API + heuristic fallback.
+
+    Returns (primary_papers, review_papers, type_distribution).
+    """
+    # Batch DOI lookup via OpenAlex
+    doi_map: dict[str, str] = {}
+    dois_to_lookup = [(p.doi or "").lower().strip() for p in papers if p.doi]
+    unique_dois = list(set(d for d in dois_to_lookup if d))
+
+    logger.info("review_filter.openalex_start", dois=len(unique_dois))
+    openalex_types: dict[str, str] = {}
+    for i in range(0, len(unique_dois), _OPENALEX_BATCH_SIZE):
+        batch = unique_dois[i : i + _OPENALEX_BATCH_SIZE]
+        results = _openalex_batch_type_lookup(batch)
+        openalex_types.update(results)
+        if i + _OPENALEX_BATCH_SIZE < len(unique_dois):
+            time.sleep(0.2)
+
+    logger.info(
+        "review_filter.openalex_done",
+        found=len(openalex_types),
+        total=len(unique_dois),
+    )
+
+    primary = []
+    reviews = []
+    type_dist: dict[str, int] = {}
+
+    for p in papers:
+        doi = (p.doi or "").lower().strip()
+        oa_type = openalex_types.get(doi)
+
+        if oa_type:
+            type_dist[oa_type] = type_dist.get(oa_type, 0) + 1
+            if oa_type in _OPENALEX_REVIEW_TYPES:
+                reviews.append(p)
+                continue
+            if oa_type == "article" and _is_likely_review_heuristic(p):
+                reviews.append(p)
+                continue
+            primary.append(p)
+        else:
+            if _is_likely_review_heuristic(p):
+                reviews.append(p)
+            else:
+                primary.append(p)
+
+    return primary, reviews, type_dist
 
 
 # ---------------------------------------------------------------------------
@@ -260,12 +360,14 @@ async def search_papers() -> tuple[list[CandidatePaper], dict[str, Any]]:
     total_raw = len(papers)
     logger.info("search.raw_results", count=total_raw)
 
-    # Filter: reviews first
-    reviews = [p for p in papers if _is_likely_review(p)]
-    non_reviews = [p for p in papers if not _is_likely_review(p)]
+    # Filter: reviews via OpenAlex API + heuristic fallback
+    non_reviews, reviews, type_dist = _filter_reviews_openalex(papers)
     reviews_filtered = len(reviews)
     logger.info(
-        "search.review_filter", reviews_removed=reviews_filtered, remaining=len(non_reviews)
+        "search.review_filter",
+        reviews_removed=reviews_filtered,
+        remaining=len(non_reviews),
+        openalex_types=type_dist,
     )
 
     # Filter: relevance
@@ -541,10 +643,28 @@ async def main(*, search_only: bool = False, fulltext_only: bool = False) -> Non
     logger.info("phase.fulltext_start", paper_count=len(papers))
     screened = await get_full_texts(papers, FULL_TEXT_CACHE_DIR)
 
-    # Update paper objects with full text data
-    resolved_papers = [s.paper for s in screened]
+    # Update paper objects with full text data — exclude abstract-only and no-text papers
+    full_text_papers = [s.paper for s in screened if s.paper.full_text]
+    abstract_only = [s.paper for s in screened if not s.paper.full_text and s.paper.abstract]
+    no_text = [s.paper for s in screened if not s.paper.full_text and not s.paper.abstract]
 
-    # Re-save papers.json with full text populated
+    logger.info(
+        "phase.fulltext_filter",
+        full_text=len(full_text_papers),
+        abstract_only=len(abstract_only),
+        no_text=len(no_text),
+    )
+
+    # Archive abstract-only and no-text papers separately
+    if abstract_only or no_text:
+        archived = [p.model_dump() for p in abstract_only + no_text]
+        archived_path = OUTPUT_DIR / "papers_archived.json"
+        archived_path.write_text(json.dumps(archived, indent=2, ensure_ascii=False))
+        logger.info("phase.archived", count=len(archived), path=str(archived_path))
+
+    resolved_papers = full_text_papers
+
+    # Re-save papers.json with only full-text papers
     _write_papers_json(resolved_papers, papers_cache)
 
     # ---- Outputs ----

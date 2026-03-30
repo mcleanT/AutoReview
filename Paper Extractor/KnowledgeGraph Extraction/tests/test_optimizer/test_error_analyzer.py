@@ -22,23 +22,37 @@ def _make_claim(**overrides) -> dict:
         "certainty": "high",
         "section_source": "Results",
         "quantitative_context": {"value": "2-fold", "p_value": "0.01"},
+        "conditions": {"species": ["Mus musculus"], "cell_type": ["mESC"]},
+        "evidence_links": [{"evidence_id": "e_001", "direction": "supports"}],
     }
     base.update(overrides)
     return base
 
 
-def _make_extraction(claims: list[dict], title: str = "Test Paper") -> dict:
-    """Wrap claims into an extraction dict."""
-    return {"title": title, "claims": claims}
+def _make_extraction(
+    claims: list[dict], title: str = "Test Paper", evidence: list[dict] | None = None
+) -> dict:
+    """Wrap claims into an extraction dict with sufficient evidence."""
+    if evidence is None:
+        evidence = [
+            {
+                "evidence_id": f"e_{i:03d}",
+                "result_summary": f"Result {i}",
+                "readout": "qPCR",
+                "key_figure": f"Fig {i}",
+            }
+            for i in range(10)
+        ]
+    return {"title": title, "claims": claims, "evidence": evidence}
 
 
 # ---------------------------------------------------------------------------
-# Tests
+# Tests — existing patterns
 # ---------------------------------------------------------------------------
 
 
 def test_no_errors_clean_extraction():
-    """25 claims with 5 diverse valid predicates → no critical errors (severity > 0.5)."""
+    """25 claims with diverse valid predicates, evidence + links → no critical errors (severity > 0.5)."""
     predicates = ["induces", "inhibits", "is_required_for", "regulates", "correlates_with"]
     claims = [_make_claim(predicate=predicates[i % len(predicates)]) for i in range(25)]
     extraction = _make_extraction(claims)
@@ -139,3 +153,140 @@ def test_errors_sorted_by_impact():
     assert len(patterns) >= 2, "Need at least 2 patterns to check sort order"
     impacts = [p.severity * p.frequency for p in patterns]
     assert impacts == sorted(impacts, reverse=True), f"Patterns not sorted by impact: {impacts}"
+
+
+# ---------------------------------------------------------------------------
+# Tests — new patterns (patterns 10-15)
+# ---------------------------------------------------------------------------
+
+
+def test_missing_evidence_links():
+    """Claims without evidence_links trigger missing_evidence_links pattern."""
+    extractions = [
+        {
+            "claims": [
+                {"predicate": "induces", "subject": {"name": "X"}, "object": {"name": "Y"}},
+                {
+                    "predicate": "inhibits",
+                    "subject": {"name": "A"},
+                    "object": {"name": "B"},
+                    "evidence_links": [{"evidence_id": "e_001"}],
+                },
+            ],
+            "evidence": [
+                {
+                    "evidence_id": "e_001",
+                    "result_summary": "x",
+                    "readout": "y",
+                    "key_figure": "Fig 1",
+                }
+            ],
+        }
+    ]
+    patterns = analyze_errors(extractions)
+    cats = [p.category for p in patterns]
+    assert "missing_evidence_links" in cats
+
+
+def test_missing_doi():
+    """attributed_prior claims without source_doi trigger missing_doi pattern."""
+    extractions = [
+        {
+            "claims": [
+                {
+                    "predicate": "induces",
+                    "section_source": "attributed_prior",
+                    "subject": {"name": "X"},
+                    "object": {"name": "Y"},
+                },
+                {
+                    "predicate": "inhibits",
+                    "section_source": "attributed_prior",
+                    "source_doi": "10.1234/abc",
+                    "subject": {"name": "A"},
+                    "object": {"name": "B"},
+                },
+            ],
+            "evidence": [],
+        }
+    ]
+    patterns = analyze_errors(extractions)
+    cats = [p.category for p in patterns]
+    assert "missing_doi" in cats
+
+
+def test_low_evidence_density():
+    """Fewer than 5 evidence units per extraction triggers low_evidence_density."""
+    extractions = [
+        {
+            "claims": [{"predicate": "induces", "subject": {"name": "X"}, "object": {"name": "Y"}}],
+            "evidence": [{"evidence_id": "e_001"}],
+        }
+    ]
+    patterns = analyze_errors(extractions)
+    cats = [p.category for p in patterns]
+    assert "low_evidence_density" in cats
+
+
+def test_incomplete_evidence():
+    """Evidence missing required fields (result_summary, readout, key_figure) triggers incomplete_evidence."""
+    extractions = [
+        {
+            "claims": [{"predicate": "induces", "subject": {"name": "X"}, "object": {"name": "Y"}}],
+            "evidence": [
+                {
+                    "evidence_id": "e_001",
+                    "description": "test",
+                    "result_summary": "",
+                    "readout": "qPCR",
+                    "key_figure": "",
+                }
+            ],
+        }
+    ]
+    patterns = analyze_errors(extractions)
+    cats = [p.category for p in patterns]
+    assert "incomplete_evidence" in cats
+
+
+def test_sparse_conditions():
+    """Claims with fewer than 2 conditions fields trigger sparse_conditions."""
+    extractions = [
+        {
+            "claims": [
+                {
+                    "predicate": "induces",
+                    "conditions": {},
+                    "subject": {"name": "X"},
+                    "object": {"name": "Y"},
+                }
+            ]
+            * 5
+        }
+    ]
+    patterns = analyze_errors(extractions)
+    cats = [p.category for p in patterns]
+    assert "sparse_conditions" in cats
+
+
+def test_entity_name_fragmentation():
+    """Same entity referenced with different casing triggers entity_name_fragmentation."""
+    extractions = [
+        {
+            "claims": [
+                {
+                    "predicate": "induces",
+                    "subject": {"name": "BMP4"},
+                    "object": {"name": "mesoderm"},
+                },
+                {
+                    "predicate": "inhibits",
+                    "subject": {"name": "Bmp4"},
+                    "object": {"name": "mesoderm"},
+                },
+            ]
+        }
+    ]
+    patterns = analyze_errors(extractions)
+    cats = [p.category for p in patterns]
+    assert "entity_name_fragmentation" in cats

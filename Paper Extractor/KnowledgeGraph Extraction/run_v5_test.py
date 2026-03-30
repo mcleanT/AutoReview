@@ -53,7 +53,7 @@ result = subprocess.run(
         "--output-format",
         "text",
         "--max-turns",
-        "2",
+        "3",
         "--system-prompt",
         system_prompt,
     ],
@@ -73,14 +73,15 @@ if result.returncode != 0:
 raw_output = result.stdout.strip()
 print(f"Raw output: {len(raw_output)} chars")
 
-# Extract JSON from output
+# Extract JSON from output — handle raw JSON, markdown fences, or embedded JSON
 try:
     data = json.loads(raw_output)
 except json.JSONDecodeError:
-    # Try markdown fence
-    fence_match = re.search(r"```(?:json)?\s*\n?(.*?)```", raw_output, re.DOTALL)
-    if fence_match:
-        data = json.loads(fence_match.group(1).strip())
+    # Try markdown fences — take the longest match if multiple
+    fence_matches = list(re.finditer(r"```(?:json)?\s*\n?(.*?)```", raw_output, re.DOTALL))
+    if fence_matches:
+        best = max(fence_matches, key=lambda m: len(m.group(1)))
+        data = json.loads(best.group(1).strip())
     else:
         # Try first { to last }
         first = raw_output.find("{")

@@ -404,6 +404,7 @@ class PredicateNormalizer:
         "is_essential_for": "is_required_for",
         "is_critical_for": "is_required_for",
         "is_needed_for": "is_required_for",
+        "enables": "is_required_for",
         # induces
         "activates": "induces",
         "triggers": "induces",
@@ -411,6 +412,7 @@ class PredicateNormalizer:
         "promotes": "induces",
         "stimulates": "induces",
         "upregulates": "induces",
+        "enhances": "induces",
         # inhibits
         "suppresses": "inhibits",
         "blocks": "inhibits",
@@ -418,6 +420,7 @@ class PredicateNormalizer:
         "downregulates": "inhibits",
         "prevents": "inhibits",
         "attenuates": "inhibits",
+        "reduces": "inhibits",
         # expresses
         "produces": "expresses",
         "encodes": "expresses",

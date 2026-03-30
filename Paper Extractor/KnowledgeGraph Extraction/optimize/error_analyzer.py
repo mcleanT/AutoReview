@@ -6,7 +6,7 @@ them sorted by impact (severity × frequency) descending.
 
 from __future__ import annotations
 
-from collections import Counter
+from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 
 from optimize.scoring import (
@@ -305,6 +305,154 @@ def analyze_errors(extractions: list[dict]) -> list[ErrorPattern]:
                     examples=[],
                 )
             )
+
+    # ------------------------------------------------------------------
+    # 10. missing_evidence_links
+    # ------------------------------------------------------------------
+    unlinked = [c for c in all_claims if not c.get("evidence_links")]
+    if unlinked:
+        ratio = len(unlinked) / total
+        patterns.append(
+            ErrorPattern(
+                category="missing_evidence_links",
+                description=(
+                    f"{len(unlinked)} claim(s) ({ratio:.0%}) have no evidence_links"
+                    " — ungrounded in the graph."
+                ),
+                severity=0.9,
+                frequency=len(unlinked),
+                examples=[_get_nl(c) for c in unlinked[:3]],
+            )
+        )
+
+    # ------------------------------------------------------------------
+    # 11. missing_doi
+    # ------------------------------------------------------------------
+    prior_claims = [c for c in all_claims if c.get("section_source") == "attributed_prior"]
+    missing_doi = [c for c in prior_claims if not c.get("source_doi")]
+    if missing_doi:
+        ratio = len(missing_doi) / max(len(prior_claims), 1)
+        patterns.append(
+            ErrorPattern(
+                category="missing_doi",
+                description=(
+                    f"{len(missing_doi)}/{len(prior_claims)} attributed_prior claim(s)"
+                    " missing source_doi."
+                ),
+                severity=0.8,
+                frequency=len(missing_doi),
+                examples=[_get_nl(c) for c in missing_doi[:3]],
+            )
+        )
+
+    # ------------------------------------------------------------------
+    # 12. low_evidence_density (per-extraction)
+    # ------------------------------------------------------------------
+    for ex in extractions:
+        evidence = ex.get("evidence") or []
+        if len(evidence) < 5:
+            paper_id = ex.get("_paper_id") or "unknown"
+            patterns.append(
+                ErrorPattern(
+                    category="low_evidence_density",
+                    description=(
+                        f"Only {len(evidence)} evidence unit(s) from '{paper_id}'"
+                        " (minimum recommended: 5)."
+                    ),
+                    severity=0.7,
+                    frequency=1,
+                    examples=[],
+                )
+            )
+
+    # ------------------------------------------------------------------
+    # 13. incomplete_evidence
+    # ------------------------------------------------------------------
+    all_evidence: list[dict] = []
+    for ex in extractions:
+        all_evidence.extend(ex.get("evidence") or [])
+    if all_evidence:
+        incomplete = [
+            ev
+            for ev in all_evidence
+            if not all(ev.get(f) for f in ("result_summary", "readout", "key_figure"))
+        ]
+        if incomplete:
+            missing_fields: list[str] = []
+            for f in ("result_summary", "readout", "key_figure"):
+                n_missing = sum(1 for ev in all_evidence if not ev.get(f))
+                if n_missing:
+                    missing_fields.append(f"{f}: {n_missing}/{len(all_evidence)}")
+            patterns.append(
+                ErrorPattern(
+                    category="incomplete_evidence",
+                    description=(
+                        f"{len(incomplete)}/{len(all_evidence)} evidence unit(s) incomplete."
+                        f" Missing: {', '.join(missing_fields)}."
+                    ),
+                    severity=0.6,
+                    frequency=len(incomplete),
+                    examples=[ev.get("description", "")[:80] for ev in incomplete[:3]],
+                )
+            )
+
+    # ------------------------------------------------------------------
+    # 14. sparse_conditions
+    # ------------------------------------------------------------------
+    sparse = []
+    for c in all_claims:
+        conds = c.get("conditions") or {}
+        count = 0
+        for lf in ("species", "cell_type", "tissue", "treatment"):
+            if conds.get(lf):
+                count += 1
+        if conds.get("developmental_stage") is not None:
+            count += 1
+        if conds.get("in_vitro") is not None:
+            count += 1
+        if count < 2:
+            sparse.append(c)
+    if sparse:
+        ratio = len(sparse) / total
+        patterns.append(
+            ErrorPattern(
+                category="sparse_conditions",
+                description=(
+                    f"{len(sparse)} claim(s) ({ratio:.0%}) have fewer than 2"
+                    " conditions fields populated."
+                ),
+                severity=0.5,
+                frequency=len(sparse),
+                examples=[_get_nl(c) for c in sparse[:3]],
+            )
+        )
+
+    # ------------------------------------------------------------------
+    # 15. entity_name_fragmentation
+    # ------------------------------------------------------------------
+    name_groups: dict[str, set[str]] = defaultdict(set)
+    for c in all_claims:
+        for key in ("subject", "object"):
+            ent = c.get(key) or {}
+            name = ent.get("name") or ""
+            if name:
+                name_groups[name.lower()].add(name)
+    fragmented = {k: v for k, v in name_groups.items() if len(v) > 1}
+    if fragmented:
+        examples = [
+            f"'{k}' appears as: {', '.join(sorted(v))}" for k, v in list(fragmented.items())[:3]
+        ]
+        patterns.append(
+            ErrorPattern(
+                category="entity_name_fragmentation",
+                description=(
+                    f"{len(fragmented)} entity name(s) have inconsistent casing/formatting."
+                ),
+                severity=0.5,
+                frequency=len(fragmented),
+                examples=examples,
+            )
+        )
 
     # ------------------------------------------------------------------
     # Sort by severity × frequency descending

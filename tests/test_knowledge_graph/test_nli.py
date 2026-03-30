@@ -547,7 +547,7 @@ class TestUpdateGraphPosteriors:
         g.add_node("B", canonical_name="ProteinB")
 
         kg_edge_a = _make_kg_edge("A", "B", "activates", ["direct_experimental"])  # weight = 1.0
-        kg_edge_b = _make_kg_edge("A", "B", "inhibits", ["expert_opinion"])  # weight = 0.2
+        kg_edge_b = _make_kg_edge("A", "B", "inhibits", ["observational"])  # weight = 0.5
 
         g.add_edge("A", "B", predicate="activates", _kg_edge=kg_edge_a)
         g.add_edge("A", "B", predicate="inhibits", _kg_edge=kg_edge_b)
@@ -659,8 +659,8 @@ class TestUpdateGraphPosteriors:
             "A", "B", "activates", ["direct_experimental", "direct_experimental"]
         )
         g.add_edge("A", "B", predicate="activates", _kg_edge=kg_edge_a)
-        # Claim B: one observational_controlled evidence link (weight 0.7)
-        kg_edge_b = _make_kg_edge("A", "B", "inhibits", ["observational_controlled"])
+        # Claim B: one observational evidence link (weight 0.5)
+        kg_edge_b = _make_kg_edge("A", "B", "inhibits", ["observational"])
         g.add_edge("A", "B", predicate="inhibits", _kg_edge=kg_edge_b)
 
         from autoreview.knowledge_graph.nli import _build_claims
@@ -680,12 +680,12 @@ class TestUpdateGraphPosteriors:
         }
         _update_graph_posteriors(g, nli_results, claims, contradiction_threshold=0.3)
 
-        # claim_a cross_beta: B's ev3 contributes p_contra * 0.7
+        # claim_a cross_beta: B's ev3 contributes p_contra * 0.5
         claim_a_meta = claims[key_a]
         u_a, v_a, k_a = claim_a_meta["subj_id"], claim_a_meta["obj_id"], claim_a_meta["key"]
         data_a = g[u_a][v_a][k_a]
         if "confidence_mean" in data_a:
-            expected_cross_beta_a = p_contra * 0.7  # one ev from B
+            expected_cross_beta_a = p_contra * 0.5  # one ev from B (observational)
             assert data_a["_nli_cross_beta"] == pytest.approx(expected_cross_beta_a, rel=1e-4)
 
         # claim_b cross_beta: A's ev1 + ev2 contribute p_contra * (1.0 + 1.0)

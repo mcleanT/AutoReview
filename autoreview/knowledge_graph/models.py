@@ -64,10 +64,8 @@ class Certainty(StrEnum):
 class EvidenceStrength(StrEnum):
     direct_experimental = "direct_experimental"
     indirect_experimental = "indirect_experimental"
-    observational_controlled = "observational_controlled"
-    observational_uncontrolled = "observational_uncontrolled"
-    computational_prediction = "computational_prediction"
-    expert_opinion = "expert_opinion"
+    observational = "observational"
+    computational = "computational"
     review_citation = "review_citation"
 
 

@@ -19,11 +19,17 @@ logger = structlog.get_logger(__name__)
 _VALID_EVIDENCE_STRENGTHS = {
     "direct_experimental",
     "indirect_experimental",
-    "observational_controlled",
-    "observational_uncontrolled",
-    "computational_prediction",
-    "expert_opinion",
+    "observational",
+    "computational",
     "review_citation",
+}
+
+# Backwards-compatibility mapping for v4/v5 data with old evidence strength values.
+_EVIDENCE_STRENGTH_MAP = {
+    "observational_controlled": "observational",
+    "observational_uncontrolled": "observational",
+    "computational_prediction": "computational",
+    "expert_opinion": "observational",  # closest match
 }
 
 
@@ -147,6 +153,7 @@ def _parse_evidence_unit(ev: dict, paper_hash: str, publication_date: str | None
     v5 format: flat top-level fields (description, result_summary, model_system, etc.).
     """
     strength = ev.get("evidence_strength", "")
+    strength = _EVIDENCE_STRENGTH_MAP.get(strength, strength)  # normalize legacy values
     if strength not in _VALID_EVIDENCE_STRENGTHS:
         logger.warning(
             "unknown_evidence_strength_replaced",
@@ -154,7 +161,7 @@ def _parse_evidence_unit(ev: dict, paper_hash: str, publication_date: str | None
             evidence_id=ev.get("evidence_id"),
             paper_hash=paper_hash,
         )
-        strength = "expert_opinion"
+        strength = "observational"
 
     # --- Build experiment_summary from v4 nested OR v5 flat format ---
     experiment = ev.get("experiment") or {}

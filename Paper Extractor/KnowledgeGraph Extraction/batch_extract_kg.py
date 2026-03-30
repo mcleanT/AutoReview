@@ -19,7 +19,6 @@ import sys
 import time
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 
 # ---------------------------------------------------------------------------
 # Path setup
@@ -34,6 +33,7 @@ sys.path.insert(0, str(_SCRIPT_DIR))
 
 import anthropic
 import structlog
+from kg_coerce import coerce_kg_dict
 from kg_schema import KGExtraction
 
 from autoreview.config.models import SectionTruncationConfig
@@ -51,7 +51,7 @@ logger = structlog.get_logger()
 # Configuration
 # ---------------------------------------------------------------------------
 MODEL = "claude-haiku-4-5-20251001"
-MAX_OUTPUT_TOKENS = 16384
+MAX_OUTPUT_TOKENS = 64000
 OUTPUT_DIR = _SCRIPT_DIR / "gastruloid_run"
 EXTRACTION_CACHE_DIR = OUTPUT_DIR / "extractions_kg"
 
@@ -65,14 +65,14 @@ TRUNCATION_CONFIG = SectionTruncationConfig(
         "methods",
         "discussion",
         "introduction",
+        "references",
+        "conclusion",
     ],
     drop_sections=[
-        "references",
         "acknowledgments",
         "acknowledgements",
         "supplementary",
         "abstract",
-        "conclusion",
         "funding",
         "conflict of interest",
         "data availability",
@@ -110,12 +110,15 @@ _MARKDOWN_FENCE_RE = re.compile(r"```(?:json)?\s*\n?(.*?)```", re.DOTALL)
 
 
 def _extract_json_str(raw: str) -> str:
+    """Extract valid JSON from LLM output with 4-tier fallback including truncation repair."""
     raw = raw.strip()
+    # Tier 1: direct parse
     try:
         json.loads(raw)
         return raw
     except json.JSONDecodeError:
         pass
+    # Tier 2: markdown fence extraction
     fence_match = _MARKDOWN_FENCE_RE.search(raw)
     if fence_match:
         candidate = fence_match.group(1).strip()
@@ -124,6 +127,7 @@ def _extract_json_str(raw: str) -> str:
             return candidate
         except json.JSONDecodeError:
             pass
+    # Tier 3: brace-slice
     first_brace = raw.find("{")
     last_brace = raw.rfind("}")
     if first_brace != -1 and last_brace > first_brace:
@@ -133,316 +137,63 @@ def _extract_json_str(raw: str) -> str:
             return candidate
         except json.JSONDecodeError:
             pass
+    # Tier 4: truncation repair — close unclosed brackets/braces
+    try:
+        repaired = _repair_truncated_json(raw)
+        json.loads(repaired)
+        logger.info("json.repaired_truncation", original_len=len(raw), repaired_len=len(repaired))
+        return repaired
+    except (json.JSONDecodeError, Exception):
+        pass
     msg = f"No valid JSON found in response ({len(raw)} chars)"
     raise json.JSONDecodeError(msg, raw[:200], 0)
 
 
-# ---------------------------------------------------------------------------
-# Enum coercion maps
-# ---------------------------------------------------------------------------
+def _repair_truncated_json(raw: str) -> str:
+    """Attempt to repair JSON truncated mid-output by closing unclosed structures."""
+    start = raw.find("{")
+    if start == -1:
+        raise json.JSONDecodeError("No JSON object found", raw[:200], 0)
 
-_VALID_CLAIM_TYPES = {
-    "mechanistic_causal",
-    "correlational",
-    "comparative",
-    "existence",
-    "absence",
-    "conditional",
-    "methodological",
-}
-_CLAIM_TYPE_MAP: dict[str, str] = {
-    "causal": "mechanistic_causal",
-    "observational": "correlational",
-}
+    text = raw[start:]
+    in_string = False
+    escape_next = False
+    stack: list[str] = []
 
-_VALID_EVIDENCE_STRENGTHS = {
-    "direct_experimental",
-    "indirect_experimental",
-    "observational",
-    "computational",
-    "review_citation",
-}
-_EVIDENCE_STRENGTH_MAP: dict[str, str] = {
-    "systematic_review_meta_analysis": "review_citation",
-    "randomized_controlled_trial": "direct_experimental",
-    "observational_controlled": "observational",
-    "observational_uncontrolled": "observational",
-    "computational_prediction": "computational",
-    "case_report": "observational",
-    "expert_opinion": "review_citation",
-}
-
-_VALID_ENTITY_TYPES = {
-    "protein",
-    "gene",
-    "rna",
-    "small_molecule",
-    "pathway",
-    "biological_process",
-    "phenotype",
-    "cellular_compartment",
-    "organism",
-    "cell_type",
-    "disease",
-    "tissue",
-    "method",
-    "other",
-}
-
-_VALID_APPROACHES = {
-    "biochemical_assay",
-    "cell_biology",
-    "genetics",
-    "omics",
-    "imaging",
-    "computational",
-    "clinical",
-    "animal_model",
-    "in_vitro_model",
-    "structural_biology",
-    "pharmacology",
-}
-
-_VALID_SECTION_SOURCES = {
-    "primary_empirical",
-    "interpretive",
-    "attributed_prior",
-    "methodological",
-}
-_SECTION_SOURCE_MAP: dict[str, str] = {
-    "results": "primary_empirical",
-    "novel_finding": "primary_empirical",
-    "discussion": "interpretive",
-    "interpretation": "interpretive",
-    "hypothesis": "interpretive",
-    "background": "attributed_prior",
-    "introduction": "attributed_prior",
-    "methods": "methodological",
-    "methodological_note": "methodological",
-}
-
-_VALID_RESULT_DIRECTIONS = {"positive", "negative", "null", "not_reported"}
-
-_VALID_EVIDENCE_DIRECTIONS = {"supports", "refutes", "mixed", "not_applicable"}
-
-_VALID_CERTAINTIES = {"high", "medium", "low"}
-
-_VALID_DIRECTIONS = {"positive", "negative"}
-
-_VALID_PREDICATES = {
-    "activates",
-    "inhibits",
-    "binds_to",
-    "localizes_to",
-    "is_required_for",
-    "promotes",
-    "regulates",
-    "colocalizes_with",
-    "phosphorylates",
-    "is_expressed_in",
-    "interacts_with",
-    "suppresses",
-    "induces",
-    "differentiates_into",
-    "is_marker_of",
-    "correlates_with",
-    "is_sufficient_for",
-    "is_necessary_for",
-    "upregulates",
-    "downregulates",
-    "is_component_of",
-    "degrades",
-    "stabilizes",
-    "transports",
-    "modifies",
-    "converts",
-    "mediates",
-    "blocks",
-    "enhances",
-    "reduces",
-    "maintains",
-    "disrupts",
-    "enables",
-    "prevents",
-}
-
-# Maps invalid predicates Haiku commonly generates to valid ones.
-# Entries with a tuple value (predicate, direction) also override direction.
-# Entries with a plain string value only remap the predicate.
-_PREDICATE_COERCION_MAP: dict[str, str | tuple[str, str]] = {
-    # "lacks" → X does not maintain Y; direction flipped to negative
-    "lacks": ("maintains", "negative"),
-    "forms": "induces",
-    "contains": "is_component_of",
-    "generates": "induces",
-    "expresses": "is_expressed_in",
-    "represses": "suppresses",
-    "models": "correlates_with",
-    "recapitulates": "correlates_with",
-    "is_active": "is_expressed_in",
-    "is_active_in": "is_expressed_in",
-    # v4 regressions
-    "develops": "induces",
-    "exhibits": "maintains",
-    "differs": "correlates_with",
-    "provides": "enables",
-    "controls": "regulates",
-}
-
-_VALID_CAUSAL_TYPES = {
-    "necessary",
-    "sufficient",
-    "necessary_and_sufficient",
-    "contributory",
-    "modulatory",
-}
-
-
-# ---------------------------------------------------------------------------
-# Coercion function
-# ---------------------------------------------------------------------------
-
-
-def _coerce_kg_dict(d: dict[str, Any]) -> dict[str, Any]:
-    """Pre-process LLM JSON to match KGExtraction schema."""
-    # Ensure top-level required strings
-    for key in ("doi", "title", "journal", "publication_date"):
-        if key not in d or d[key] is None:
-            d[key] = ""
-
-    # Ensure lists
-    d.setdefault("claims", [])
-    d.setdefault("evidence", [])
-
-    # Coerce evidence units
-    for ev in d.get("evidence", []):
-        if not isinstance(ev, dict):
+    for ch in text:
+        if escape_next:
+            escape_next = False
             continue
-        ev.setdefault("evidence_id", "e_000")
-        ev.setdefault("description", "")
-        ev.setdefault("result_summary", "")
-        ev.setdefault("model_system", "")
-        ev.setdefault("organism", "")
-        ev.setdefault("readout", "")
-        ev.setdefault("assay_types", [])
-
-        # Coerce result_direction
-        rd = ev.get("result_direction", "not_reported")
-        if rd not in _VALID_RESULT_DIRECTIONS:
-            ev["result_direction"] = "not_reported"
-
-        # Coerce approach
-        approach = ev.get("approach", "cell_biology")
-        if approach not in _VALID_APPROACHES:
-            ev["approach"] = "cell_biology"  # safe default
-
-    # Coerce claims
-    for claim in d.get("claims", []):
-        if not isinstance(claim, dict):
+        if ch == "\\" and in_string:
+            escape_next = True
             continue
-        claim.setdefault("claim_id", "c_000")
-        claim.setdefault("natural_language", "")
-        claim.setdefault("predicate", "unknown")
+        if ch == '"':
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if ch in ("{", "["):
+            stack.append(ch)
+        elif ch == "}" and stack and stack[-1] == "{" or ch == "]" and stack and stack[-1] == "[":
+            stack.pop()
 
-        # evidence_ids → evidence_links migration
-        if "evidence_ids" in claim and "evidence_links" not in claim:
-            claim["evidence_links"] = [
-                {"evidence_id": eid, "direction": "supports"} for eid in claim.pop("evidence_ids")
-            ]
-        elif "evidence_ids" in claim and "evidence_links" in claim:
-            claim.pop("evidence_ids")  # prefer evidence_links if both present
+    if not stack:
+        return text  # Already balanced
 
-        claim.setdefault("evidence_links", [])
+    result = text
+    if in_string:
+        result += '"'
 
-        # Coerce each evidence_link object
-        coerced_links = []
-        for link in claim["evidence_links"]:
-            if isinstance(link, str):
-                # bare string → object
-                link = {"evidence_id": link, "direction": "supports"}
-            if link.get("direction") not in _VALID_EVIDENCE_DIRECTIONS:
-                link["direction"] = "supports"  # safe default
-            coerced_links.append(link)
-        claim["evidence_links"] = coerced_links
+    # Strip trailing incomplete tokens
+    result = result.rstrip()
+    while result and result[-1] in (",", ":", " ", "\n", "\r", "\t"):
+        result = result[:-1]
 
-        # Post-processing: auto-set "refutes" for absence claims
-        # If a claim is typed as "absence", the evidence demonstrates that
-        # something does NOT hold — it refutes the positive form.
-        # Note: direction="negative" alone is NOT sufficient — a negative
-        # correlation (anti-correlation) is a real finding that evidence
-        # supports, not refutes.
-        claim_ct = claim.get("claim_type", "existence")
-        if claim_ct == "absence":
-            for link in claim["evidence_links"]:
-                if link.get("direction") == "supports":
-                    link["direction"] = "refutes"
+    # Close all open brackets/braces in reverse order
+    for bracket in reversed(stack):
+        result += "}" if bracket == "{" else "]"
 
-        # Coerce direction
-        direction = claim.get("direction", "positive")
-        if direction not in _VALID_DIRECTIONS:
-            claim["direction"] = "positive"
-
-        # Coerce predicate — map invalid values to nearest valid predicate
-        predicate = claim.get("predicate", "maintains")
-        if predicate not in _VALID_PREDICATES:
-            coercion = _PREDICATE_COERCION_MAP.get(predicate)
-            if isinstance(coercion, tuple):
-                claim["predicate"], claim["direction"] = coercion
-            elif isinstance(coercion, str):
-                claim["predicate"] = coercion
-            # Unknown invalid predicate: leave as-is (schema will reject if truly invalid)
-
-        # Coerce claim_type
-        ct = claim.get("claim_type", "existence")
-        if ct not in _VALID_CLAIM_TYPES:
-            claim["claim_type"] = _CLAIM_TYPE_MAP.get(ct, "existence")
-
-        # Coerce causal_type
-        ctype = claim.get("causal_type")
-        if ctype is not None and ctype not in _VALID_CAUSAL_TYPES:
-            claim["causal_type"] = None
-
-        # Coerce evidence_strength
-        es = claim.get("evidence_strength", "direct_experimental")
-        if es not in _VALID_EVIDENCE_STRENGTHS:
-            claim["evidence_strength"] = _EVIDENCE_STRENGTH_MAP.get(es, "direct_experimental")
-
-        # Coerce certainty
-        cert = claim.get("certainty", "medium")
-        if cert not in _VALID_CERTAINTIES:
-            claim["certainty"] = "medium"
-
-        # Coerce section_source
-        ss = claim.get("section_source", "primary_empirical")
-        if ss not in _VALID_SECTION_SOURCES:
-            claim["section_source"] = _SECTION_SOURCE_MAP.get(ss, "primary_empirical")
-
-        # Coerce entities
-        for entity_key in ("subject", "object"):
-            ent = claim.get(entity_key)
-            if ent is None:
-                claim[entity_key] = {"name": "unknown", "type": "other", "ontology_id": None}
-            elif isinstance(ent, dict):
-                ent.setdefault("name", "unknown")
-                ent.setdefault("type", "other")
-                etype = ent.get("type", "other")
-                if etype not in _VALID_ENTITY_TYPES:
-                    ent["type"] = "other"
-
-        # Coerce conditions
-        conds = claim.get("conditions")
-        if conds is None:
-            claim["conditions"] = {}
-        elif isinstance(conds, dict):
-            # Ensure list fields
-            for list_key in ("species", "cell_type", "tissue", "treatment"):
-                val = conds.get(list_key)
-                if val is None:
-                    conds[list_key] = []
-                elif isinstance(val, str):
-                    conds[list_key] = [val]
-
-    return d
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -510,7 +261,10 @@ def submit_batch(api_key: str) -> str:
                             "cache_control": {"type": "ephemeral"},
                         }
                     ],
-                    "messages": [{"role": "user", "content": text}],
+                    "messages": [
+                        {"role": "user", "content": text},
+                        {"role": "assistant", "content": "{"},
+                    ],
                 },
             }
         )
@@ -587,6 +341,9 @@ def poll_batch(api_key: str, batch_id: str) -> None:
         if result.result.type == "succeeded":
             message = result.result.message
             content = message.content[0].text if message.content else ""
+            # Prepend the assistant prefill character that the API consumed
+            if content and not content.lstrip().startswith("{"):
+                content = "{" + content
 
             total_input_tokens += message.usage.input_tokens
             total_output_tokens += message.usage.output_tokens
@@ -594,7 +351,7 @@ def poll_batch(api_key: str, batch_id: str) -> None:
             try:
                 json_str = _extract_json_str(content)
                 raw_dict = json.loads(json_str)
-                coerced = _coerce_kg_dict(raw_dict)
+                coerced = coerce_kg_dict(raw_dict)
                 validated = KGExtraction.model_validate(coerced)
 
                 # Save to cache
@@ -691,6 +448,75 @@ def poll_batch(api_key: str, batch_id: str) -> None:
     print(f"\n  Run log: {log_path}")
 
 
+def retry_failures(api_key: str) -> None:
+    """Resubmit papers that failed parsing in the last batch run."""
+    raw_files = sorted(EXTRACTION_CACHE_DIR.glob("*_raw.txt"))
+    failed_hashes = {f.stem.replace("_raw", "") for f in raw_files}
+    if not failed_hashes:
+        logger.info("retry.no_failures")
+        return
+
+    logger.info("retry.found_failures", count=len(failed_hashes))
+
+    papers_path = OUTPUT_DIR / "papers.json"
+    with open(papers_path) as f:
+        papers = json.load(f)
+
+    system_prompt = _load_system_prompt()
+    client = anthropic.Anthropic(api_key=api_key)
+    requests = []
+
+    for paper in papers:
+        doi = paper.get("doi")
+        title = paper.get("title")
+        phash = _paper_hash(doi, title)
+
+        if phash not in failed_hashes:
+            continue
+
+        # Remove stale cache and raw file
+        (EXTRACTION_CACHE_DIR / f"{phash}.json").unlink(missing_ok=True)
+        (EXTRACTION_CACHE_DIR / f"{phash}_raw.txt").unlink(missing_ok=True)
+
+        text = paper.get("full_text", "")
+        if not text:
+            continue
+
+        if len(text) > 5000:
+            text = section_aware_truncate(text, 100_000, TRUNCATION_CONFIG)
+
+        requests.append(
+            {
+                "custom_id": phash,
+                "params": {
+                    "model": MODEL,
+                    "max_tokens": MAX_OUTPUT_TOKENS,
+                    "temperature": 0.0,
+                    "system": [
+                        {
+                            "type": "text",
+                            "text": system_prompt,
+                            "cache_control": {"type": "ephemeral"},
+                        }
+                    ],
+                    "messages": [
+                        {"role": "user", "content": text},
+                        {"role": "assistant", "content": "{"},
+                    ],
+                },
+            }
+        )
+
+    if not requests:
+        logger.info("retry.nothing_to_submit")
+        return
+
+    logger.info("retry.submitting", count=len(requests))
+    batch = client.messages.batches.create(requests=requests)
+    logger.info("retry.submitted", batch_id=batch.id)
+    poll_batch(api_key, batch.id)
+
+
 def main() -> None:
     import os
 
@@ -698,6 +524,11 @@ def main() -> None:
         description="Batch KG Extraction via Anthropic Batches API (KGExtraction schema)"
     )
     parser.add_argument("--poll", type=str, help="Resume polling for an existing batch ID")
+    parser.add_argument(
+        "--retry-failures",
+        action="store_true",
+        help="Resubmit papers that failed parsing in the last run",
+    )
     args = parser.parse_args()
 
     api_key = os.environ.get("ANTHROPIC_API_KEY", "")
@@ -705,7 +536,9 @@ def main() -> None:
         print("ERROR: Set ANTHROPIC_API_KEY environment variable")
         sys.exit(1)
 
-    if args.poll:
+    if args.retry_failures:
+        retry_failures(api_key)
+    elif args.poll:
         poll_batch(api_key, args.poll)
     else:
         batch_id = submit_batch(api_key)

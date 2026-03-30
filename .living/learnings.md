@@ -1031,3 +1031,262 @@ The `retrieve_corpus.py` review filter uses `\breview\b` regex on titles and jou
 - **Context**: Phase 2 MRF implementation: predicate_algebra, condition_compat, hlmrf, structural_contradictions, mrf_scoring, __init__ integration, code review
 - **Learning**: Dispatching 7 independent tasks across 4 dependency batches (parallel where possible) allows an entire subsystem to be built and tested in one session without context blowout. Subagents made beneficial deviations from the written spec — frozenset opposition lookup (O(1) vs O(n)), principled species grouping, unified gradient computation — that improved the final implementation. Code review identified these as non-blocking improvements rather than spec violations.
 - **Impact**: Multi-module implementation plans with clear dependency layers should always use subagent batching. Write specs with enough detail for correct implementation but allow subagents latitude on data structure choices within stated complexity constraints.
+
+### L024 — Evidence weight zero-default bug pattern
+- **Date**: 2026-03-28
+- **Learning**: When using .get(key, 0.0) with a weight dict, any key not in the dict silently contributes zero weight. confidence.py EVIDENCE_WEIGHTS was missing indirect_experimental and review_citation. Always verify enum value sets match across schema, validation, and weight lookup.
+
+### L025 — Smaller predicate vocabulary produces cleaner graphs
+- **Date**: 2026-03-28
+- **Learning**: A 31-predicate synonym-rich vocabulary caused fragmentation (same relationships got different labels across papers). A 12+7 canonical set with explicit synonym mapping produces 97% canonical output vs 74%. The LLM can still understand relationships through "Use when" descriptions.
+
+### L026 — Perturbation-as-subject is a common LLM extraction error
+- **Date**: 2026-03-28
+- **Learning**: Without explicit guidance, LLMs model loss-of-function experiments as "(X depletion, inhibits, Y)" instead of "(X, is_required_for, Y)". Adding a perturbation modeling rule to the prompt eliminated this completely in v6.1.
+
+## L027 — Autoresearch Pattern Maps Perfectly to Prompt Optimization (2026-03-28)
+
+The Karpathy autoresearch 3-file pattern (program.md + artifact + runner) maps cleanly onto prompt optimization: replace `train.py` with `optimize_extraction_prompt.py`, `val_bpb` with composite score, and GPU training with API calls. The program.md serves as the optimizer's system prompt encoding strategy (fix invalid values first, then missing fields, then behavioral issues, then density). This abstraction generalizes: any artifact that can be scored can be optimized this way.
+
+## L028 — Review/Abstract Filtering Critical for Extraction Optimization (2026-03-28)
+
+Review papers and abstract-only papers yield qualitatively different KG extractions that confuse the optimizer. Review papers produce extractions with many general claims and weak evidence; abstract-only papers produce sparse, low-density extractions. Including them in the optimization corpus obscures real signal and causes the optimizer to chase noise. Always filter to primary research papers with full text before running the optimizer.
+
+### L029 — Python stdout buffering breaks background process monitoring
+- **When**: Running long-lived Python scripts via subprocess with output redirected to file
+- **Fix**: Always set `PYTHONUNBUFFERED=1` env var or use `flush=True` on print calls
+- **Why**: Default Python buffering delays output to file, making progress invisible
+
+### L030 — Subprocess error messages include full CLI args
+- **When**: `subprocess.run()` raises `TimeoutExpired` or other errors with `claude -p --system-prompt <23K chars>`
+- **Fix**: Truncate `str(exc)[:200]` before logging/printing
+- **Why**: System prompt embedded in CLI args makes error output unreadable
+
+### L031 — claude -p needs --max-turns 5+ for KG extraction
+- **When**: Running `claude -p` for large structured JSON extraction (23K system prompt + 60-100K paper text)
+- **Fix**: Use `--max-turns 5` (not 1 or 3). Claude CLI consumes turns on internal tool calls even for pure text generation tasks. `--bare` flag breaks OAuth auth.
+- **Why**: With --max-turns 1-3, extraction hits "Reached max turns" error. With 5, it reliably completes.
+
+### L032 — LLMs cannot faithfully reproduce large prompts; use structured edits
+- **When**: Asking an LLM optimizer to output a "complete modified prompt" (23K+ chars)
+- **Fix**: Have the optimizer output structured find/replace edits (JSON) instead. Apply edits programmatically.
+- **Why**: Sonnet truncates/rewrites the prompt, producing 66-88% change ratios even for 2-3 targeted fixes. Structured edits are cheaper, auditable, and naturally bounded.
+
+### L033 — Positional line-diff is useless for measuring prompt edit size
+- **When**: Using line-by-line comparison to measure change ratio after inserting new lines
+- **Fix**: Either use difflib.SequenceMatcher or remove the guard entirely when edits are structurally bounded (1-3 find/replace per iteration)
+- **Why**: Inserting 5 lines shifts all subsequent lines, registering as 88% "changed" even though only 5 lines are new
+
+### L034 — Optimizer/production mismatch: score what production sees
+- **When**: Optimizer scores improve but production extractions still have coercion-fixable issues
+- **Fix**: Apply the production coercion pipeline (`kg_coerce.py`) before computing optimizer scores
+- **Why**: Without coercion, the optimizer spends iterations fixing predicate remapping, field normalization, and enum canonicalization that the production pipeline already handles — masking real extraction quality problems
+
+### L035 — References section required for KG DOI resolution
+- **When**: `source_doi` on `attributed_prior` claims is empty / DOI coverage metric stays near zero
+- **Fix**: Ensure References section is NOT dropped in batch extraction truncation config
+- **Why**: DOIs are extracted from the References section. `source_doi` enables cross-paper graph edges — it's the primary mechanism for linking attributed_prior claims to their source papers in the graph
+
+### L036 — Evidence units were completely unscored despite being 40% of extraction output
+- **When**: Optimizer converges on predicate/field metrics but evidence quality remains poor
+- **Fix**: Add evidence_linkage, evidence_density, evidence_completeness metrics to the scorer
+- **Why**: Evidence units (result_summary, readout, key_figure, value) and evidence_links were not scored at all. Adding graph-utility metrics revealed evidence quality is likely very poor — the optimizer had no signal to improve it
+
+## L037 — Skip list in micro_sample.json was unnecessarily restrictive (2026-03-28)
+`_SKIP_INDICES = {0,1,3,4,5,9}` in `experiment_runner.py` was dropping papers that have ample text (indices 1,3,4,5 have 20K–85K chars) and good domain diversity. The original skip list was likely added during early debugging when those papers caused errors, but the underlying issues are now resolved. Removing it expanded the usable corpus from 3 to 10 papers (before adding extra_corpus_path).
+- **Implication**: Always audit skip lists before optimizer runs — silent exclusions degrade corpus diversity without warning
+
+## L038 — 0-claim papers in optimizer runs indicate JSON parse failures (2026-03-28)
+**Observation**: micro_3 (52K chars) and micro_4 (72K chars) returned 0 claims during the v7 optimizer baseline run.
+**Likely cause**: JSON parse failures or max-token exhaustion on longer texts. The experiment_runner does not apply section-aware truncation, but the production pipeline does.
+**Action needed**: Investigate whether `experiment_runner.py` should apply the same truncation logic as the production KG extraction path, to avoid systematic underperformance on longer papers that would not reflect real pipeline behavior.
+
+## L039 — Claude CLI --output-format text silently truncates large outputs
+**Date:** 2026-03-28
+**Context:** KG extraction optimizer (experiment_runner.py) was losing output for papers producing >10K chars of JSON.
+**Learning:** `--output-format text` silently truncates large model responses. For JSON extraction producing >10K chars, use `--output-format json` which wraps the full response in `{"result": "..."}` and preserves complete content.
+**Impact:** Switched experiment_runner.py to `--output-format json` + wrapper parsing; extraction failures eliminated.
+
+## L040 — Claude CLI --max-turns >1 with --tools "" loses beginning of JSON
+**Date:** 2026-03-28
+**Context:** experiment_runner.py used --max-turns 5 or 2 with --tools "", causing multi-turn splits.
+**Learning:** `--max-turns >1` with `--tools ""` causes the CLI to split output across turns and return only the last turn's text, losing the beginning of the JSON. Always use `--max-turns 1` when tools are disabled and complete single-response output is required.
+**Impact:** Reverted to --max-turns 1; no more truncated/partial JSON from multi-turn splits.
+
+## L041 — Optimizer experiment_runner must match production batch_extract_kg.py behavior exactly
+**Date:** 2026-03-28
+**Context:** Optimizer was optimizing prompts against a different input distribution than production.
+**Learning:** experiment_runner.py must replicate production preprocessing: section-aware truncation at 100K chars, same keep/drop sections, same intro/methods caps as batch_extract_kg.py. Any mismatch causes the optimizer to tune for inputs that production never sees.
+**Impact:** Added matching section-aware truncation to experiment_runner; optimizer now trains on the same input distribution as production.
+
+### KG Extraction Output Size Reality (2026-03-28)
+- Production KG extractions average ~54K chars output (~13,500 tokens), not the 8K tokens previously assumed
+- Large papers hit 70K chars (~17,500 tokens) — over 2x the assumed budget
+- Batch API + prompt caching for 25 papers costs ~$0.92 total
+- Section-aware truncation at 100K chars input is needed to match production behavior
+- "Maximum 50 claims" cap in user prompt is required to bound output size
+
+### Optimizer Experiment Runner CLI Flags (2026-03-28)
+- `--output-format json` required to prevent CLI output truncation (text mode truncates long extractions)
+- `--max-turns 1 --tools ""` combination ensures reliable single-turn extraction without tool use noise
+- `--extra-papers` and `--version-prefix` args added to optimizer_extraction_prompt.py for flexible corpus and version management
+- Expanded to 25-paper corpus: rai14 + 9 micro_sample + 15 extra research papers
+- Removed skip indices — all papers are now eligible for optimizer corpus
+
+### Anthropic streaming API required for large-output extractions (2026-03-28)
+- **Tags**: [llm-api, streaming, cost-analysis, kg-extraction]
+- **What happened**: Switched `experiment_runner.py` from `subprocess.run(["claude", "-p", ...])` CLI to `anthropic.Anthropic().messages.stream()` direct API. Non-streaming API raised "Streaming is required for operations that may take longer than 10 minutes" when using max_tokens=64000 with large paper inputs.
+- **Lesson**: When max_tokens is large (≥32K) or inputs are large, the Anthropic API requires streaming mode. Use `client.messages.stream()` context manager. Token usage is available from `response.usage` on the stream result object. Real output tokens (33K–54K for KG extraction) are 4–7x higher than character-based estimates suggested (~8K assumption was wrong).
+- **Cost reality check**: At actual token volumes, single-paper extraction costs ~$0.15 (regular) or ~$0.07 (batch). 25-paper baseline ~$3.75 regular API. Always measure actual usage before budgeting batch runs.
+
+## 2026-03-29 — CLI output token limits and JSON parsing
+- `claude -p` CLI caps Haiku at 32K max output tokens (vs 64K via API); discovered via `--output-format json` which exposes `maxOutputTokens` field
+- 32K is sufficient for typical extractions: tested 53 claims/44 evidence on a 36K char paper without truncation
+- First overnight optimizer run (PID 70048) hung for 3+ hours on first extraction; subprocess timeout of 600s did not fire because the OS process stayed alive without completing
+- `micro_1` paper has insufficient full text — model always refuses to extract; fails whenever sampled but error handling catches it gracefully
+- JSON truncation repair function handles most truncated outputs but fails when output starts mid-JSON without an opening brace
+
+## 2026-03-29 — Optimizer Score Filtering Fix
+
+- **score_all() must filter failed extractions**: Averaging `_error` extractions as 0.0 poisons composite scores and prevents the optimizer from accepting any iteration. Always filter keys containing `_error` before computing aggregate scores.
+- **Rate limiting from rapid sequential `claude -p` calls**: After ~20 rapid calls, exit code 1 appears within 1-3s. A `time.sleep(2)` delay between extractions prevents this. Watch for it in any loop driving CLI extraction.
+- **ruff PostToolUse hook removes `import subprocess`**: If the hook does not see `subprocess` used at edit time (e.g., because usage is in a different function not yet written), it strips the import. Use `# noqa: F401` to protect imports that will be used later.
+- **API vs CLI tradeoff**: Anthropic API key with no credits cannot fall back to CLI silently — the hybrid approach must check credits before switching modes. Always verify API credits before planning an API-based optimization run.
+
+## score_all() must filter failed extractions before averaging
+- **Date**: 2026-03-29
+- **Context**: KG optimizer v8, overnight run produced 0 accepted iterations despite metric improvements
+- **Learning**: Failed extractions returned `_error` keys and scored 0.0; averaging them into the composite made *every* iteration appear to regress even when actual metrics improved. Fix: filter out any paper whose extraction dict contains `_error` before computing per-metric averages in `score_all()`.
+- **Impact**: Without this fix, optimizer is blind — all iterations reject regardless of prompt quality
+
+## PYTHONUNBUFFERED=1 required for nohup log visibility
+- **Date**: 2026-03-29
+- **Context**: Running optimizer under `nohup` produced empty or delayed log output
+- **Learning**: Python buffers stdout by default when not connected to a TTY. `PYTHONUNBUFFERED=1` (or `python -u`) disables this, making `nohup` log files update in real time.
+
+## Parallel subprocess execution via ThreadPoolExecutor for CLI-based extraction
+- **Date**: 2026-03-29
+- **Context**: KG optimizer extraction step was sequential; each iteration took ~18-24 min for 3 papers
+- **Learning**: `ThreadPoolExecutor(max_workers=3)` with `executor.map()` provides natural rate-limit spacing for concurrent `claude -p` subprocess calls, cutting per-iteration time to ~6-8 min (~3x speedup). Each subprocess is I/O-bound waiting on the CLI, so GIL is not a constraint.
+
+## 2026-03-29 — KG Optimizer: Per-Metric Guards Stifle Optimization
+
+**Learning**: Per-metric regression guards can stifle optimization when metrics are correlated or trade off against each other. In the v8 optimizer, a 0.12 regression floor on any individual metric blocked iterations that improved the composite score to ~0.88 — because a gain in one metric (e.g., relation extraction) slightly depressed another (e.g., doi_coverage). The composite score (weighted sum) is a better single objective than per-metric floors: it already encodes the relative importance of each metric, so additional per-metric constraints are over-constraining the search space.
+
+**Learning**: Tracking high-water marks (HWM) across all iterations — not just accepted ones — captures serendipitous improvements that would otherwise be silently lost. In a hill-climbing optimizer with noisy acceptance decisions, the globally best prompt may appear in a nominally "rejected" iteration. Without HWM tracking, that prompt is discarded even though it represents the best observed quality. Maintaining a parallel HWM tracker and using the HWM prompt for final evaluation is a low-cost, high-value addition to any iterative prompt optimizer.
+
+## 2026-03-29 — LLM Optimizers Need Explicit Diversity Pressure
+
+**Learning**: LLM-based prompt optimizers are prone to local optima and will cycle through the same surface-level edits indefinitely without explicit countermeasures. Three mechanisms work together to prevent this:
+
+1. **Rotating strategy lenses**: Assign a specific technique (e.g., structural_rewrite, counter_example, negative_space) to each iteration by index. This forces the optimizer to attempt different approaches rather than always defaulting to its highest-prior strategy.
+
+2. **Optimizer summary in history**: Store a brief summary of what the optimizer tried in each history entry. Without this, the optimizer has no memory of past attempts and will re-try the same strategy even after it failed multiple times.
+
+3. **Escalating failure warnings**: After N consecutive rejects (e.g., 5), explicitly list the failed approach summaries and instruct the optimizer that these approaches are not working and it must try something fundamentally different. The escalation threshold and warning text both matter — passive hints are insufficient.
+
+**Context**: Observed in v8 KG extraction prompt optimizer. 10+ consecutive rejects all used variants of quant_context rules, evidence_depth checklists, or predicate tightening. The optimizer had no visibility into its own history of failures.
+
+**Applies to**: Any iterative LLM-in-the-loop optimization system (prompt optimization, hyperparameter search via LLM, code refinement loops).
+
+## 2026-03-29 — Claude CLI auth sessions expire during long overnight runs
+
+**Learning**: Claude CLI auth tokens expire mid-run, killing long optimization processes silently. The v9 optimizer (PID 5192) burned 23/25 iterations on auth failures before being detected and restarted as PID 12180.
+
+**Impact**: Nearly all optimization budget wasted. v9 iteration budget is 25; only ~2 real scored iterations were recoverable.
+
+**Mitigation needed**: Add auth failure detection (catch specific auth error codes/messages) before burning the full iteration budget. Consider pre-flight auth check at startup, or a persistent session token mechanism. For overnight runs, schedule a re-auth step or use a service account with longer-lived credentials.
+
+**Source**: v9 KG extraction prompt optimizer, `optimize_extraction_prompt.py`
+
+## micro_sample.json text length is not "micro" — 2026-03-29
+- **Context**: v9 optimizer uses `micro_sample.json` as the evaluation sample pool for prompt iteration scoring
+- **Finding**: Papers in micro_sample.json average **81K chars** — identical to the full corpus average. The "micro" label refers only to paper count (fewer papers), not text length.
+- **Impact**: Per-iteration Haiku extraction cost (~$0.09) and speed are dominated by input token volume, not paper count. Reducing N from 173 to 6 papers helped, but each paper is still full-length.
+- **Fix**: Curate sample pool by **text length** (≤ ~20K chars), not just paper count. Pair with aggressive section truncation (Results + Methods + References only, ~15–20K char cap) reusing `autoreview.extraction.truncation` with an optimizer-mode config.
+- **Expected gain**: ~3x cost reduction per iteration ($0.09 → $0.03), proportional speed-up.
+
+## 2026-03-29 — KG Optimizer v10: Rapid Mode and Permanent Corpus Skips
+
+### Rapid mode infrastructure (`_truncate_paper_rapid()`)
+- **Date**: 2026-03-29
+- **Learning**: Section-aware truncation with aggressive cuts (Results + Methods + References only, 20K char hard cap) is the correct approach for fast optimizer iterations. Full-paper input gives diminishing signal per dollar when scoring extraction quality — the core claims appear in Methods and Results.
+- **How it works**: `_truncate_paper_rapid()` in `experiment_runner.py` runs before extraction; `--rapid` flag threads through `optimize_extraction_prompt.py`, `experiment_runner.py`, and `batch_extract_kg.py`.
+- **Max text length filter**: `max_text_length=80_000` used when selecting the sample pool in rapid mode — excludes the few very long papers that would dominate extraction time.
+- **Expected gain**: ~3x per-iteration speedup and cost reduction vs full-text extraction.
+
+### Permanent corpus skips vs dynamic skip lists
+- **Date**: 2026-03-29
+- **Learning**: Reviews and abstract-only papers should be permanently excluded from the optimizer corpus via `_SKIP_INDICES` and `_SKIP_CORPUS_IDS` constants, not via dynamic skip lists passed at runtime. Constants are always applied regardless of flags; they prevent categories of papers that consistently cause failures (reviews producing attributed_prior-only extractions, abstract-only papers with no content to extract).
+- **Current skips**: `_SKIP_INDICES = {0, 1, 9}`, `_SKIP_CORPUS_IDS = {"corpus_0"}`. Pool: 10 papers after exclusions.
+
+### micro_4 "Reached max turns (1)" pattern
+- **Date**: 2026-03-29
+- **Learning**: Some papers trigger CLI parsing issues that cause `claude -p --max-turns 1` to fail with "Reached max turns (1)" without completing extraction. This is not a prompt quality signal — it is a paper-specific CLI interaction issue. The optimizer handles it gracefully (paper counted as failed, excluded from scoring). Do not adjust `--max-turns` upward to fix this; use the paper skip list instead if failures are systematic.
+- **Source**: micro_4 extraction during v10 optimizer run (PID 30011)
+
+### Prompt bloat accumulation during optimization
+- **Date**: 2026-03-29
+- **Learning**: Iterative prompt optimization naturally inflates prompt length. v6.1 baseline was 23K chars; v8.7 (best composite 0.8484) grew to 25K chars (~9 0rowth from 50+ iterations). This growth is a known cost driver for production batch extraction. Bloat reduction is planned as a separate Phase 2 objective — do not conflate quality optimization (Phase 1) with cost reduction (Phase 2); mixing them in the same optimizer run introduces conflicting objectives.
+- **Phase 2 plan**: After Phase 1 convergence, run a compression pass: identify redundant sections, consolidate examples, apply structural simplification. Measure composite score impact of each reduction.
+
+## Rapid truncation section removal creates uncomputable metrics
+**Date:** 2026-03-29
+**Project:** AutoReview / KG Extraction optimizer
+**Finding:** When section-aware truncation removes Discussion/Intro/Conclusion to keep only Results+Methods+References, any metric depending on content from those removed sections scores 0.0 regardless of extraction quality. `doi_coverage` needs References (sometimes truncated) and `citation_contexts` needs Discussion. This is an apples-to-oranges artifact, not a real quality regression.
+**Fix:** Exclude such metrics from the composite and renormalize weights (`RAPID_EXCLUDE = frozenset({"doi_coverage", "citation_contexts"})`). Also recalculate rapid-aware baseline on `--skip-baseline` path so the optimizer compares fairly.
+**Baseline impact:** Full-text baseline recalculated from 0.8484 → 0.8241 (rapid-aware).
+**Watch out for:** Any new metric that depends on sections stripped by rapid mode — add it to `RAPID_EXCLUDE` in `optimize/scoring.py`.
+
+## High rejection rates signal insufficient exploration, not bad optimization (2026-03-29)
+
+**Context**: KG extraction prompt optimizer (v10), tournament selection refactor.
+
+**Learning**: When an optimizer shows 5+ consecutive rejections, the instinct is to fix the optimizer logic or add constraints. But consecutive rejections often mean the search space is being explored too narrowly — one strategy per iteration can fix one metric while breaking 2-3 others, making net-positive edits rare by chance alone.
+
+**Solution pattern**: Tournament selection vs hill climbing. Generate N candidates in parallel with varied lenses/strategies, screen cheaply on 1 paper, validate only the winner on multiple papers. This is a standard evolutionary/tournament selection pattern that dramatically improves exploration per wall-clock-time unit.
+
+**Key detail**: The screen paper must be excluded from the validation set to prevent overfitting — if the same paper is used for both screening and validation, the tournament winner is optimized for that specific paper rather than generalizing.
+
+**Generalization**: Any iterative LLM prompt optimizer running single-candidate iterations will hit this ceiling. Consider tournament selection as a default architecture when the rejection rate exceeds ~60% for 5+ consecutive iterations.
+
+**Source file**: `Paper Extractor/KnowledgeGraph Extraction/optimize_extraction_prompt.py`
+
+## Positional argument ordering pitfall with bool/int confusion (2026-03-29)
+
+**Tags**: [python, bugs, api-design]
+
+**What happened:** In `run_all_extractions(prompt, papers, timeout, max_workers, rapid)`, a call was written as `run_all_extractions(prompt, [paper], 600, rapid)` where `rapid=True`. Python silently accepted `True` as `max_workers` (evaluates to 1, then later treated as truthy for worker count logic — effectively wrong). The rapid mode flag was never set for the extraction calls, making rapid-mode screening ineffective.
+
+**Lesson:** Always use keyword arguments for optional parameters that come after required ones, especially when bool values can silently fill int parameters. `run_all_extractions(prompt, [paper], 600, rapid=rapid)` or `run_all_extractions(prompt, [paper], 600, None, rapid)` are both safer. Python's permissive positional-arg passing makes `True`/`False` particularly dangerous in numeric slots — they coerce silently to 1/0 with no type error.
+
+**Generalization:** Any function signature `f(a, b, count: int = N, flag: bool = False)` should be called with keyword args for `count` and `flag` at all call sites. Consider using `*` to force keyword-only after required positionals in new code.
+
+## Tournament selection as general optimizer pattern (2026-03-29)
+
+**Tags**: [optimization, prompt-engineering, algorithm-design]
+
+**Context:** KG extraction prompt optimizer; prior entry covered the design rationale. This entry captures the generalization.
+
+**Lesson:** When iterative hill-climbing shows sustained high rejection rates (>60% for 5+ iterations), the problem is almost always insufficient exploration density, not the optimizer logic itself. Tournament selection — generate N candidates with diverse strategies, screen cheaply, validate winner thoroughly — is a widely applicable pattern. Key implementation details that matter:
+1. Use genuinely diverse generation strategies (different lenses/angles), not just re-sampling with temperature.
+2. Screen paper must be excluded from validation set; otherwise the winner is paper-specific, not generalizing.
+3. The cost increase is ~N× per iteration in optimizer calls, but the effective exploration per accepted iteration increases dramatically — acceptable trade when rejection rate was already high.
+
+**Prior art:** Evolutionary algorithms, bandit algorithms (UCB), population-based training all use this structure. The specific adaptation here (cheap screen → expensive validate) mirrors early/late filtering in ML hyperparameter search (Hyperband/successive halving).
+
+## Python stdout buffering when piped to file
+- **Date**: 2026-03-29
+- **Context**: Long-running optimizer script (`optimize_extraction_prompt.py`) writing logs via stdout redirect (`> log.txt`). Log file was not updating in real-time, making progress monitoring impossible.
+- **Root cause**: Python block-buffers stdout when it is not a TTY (e.g., when piped or redirected to a file). `print()` calls accumulate in a buffer and only flush when the buffer fills or the process exits.
+- **Fix**: Set `os.environ["PYTHONUNBUFFERED"] = "1"` and override `print` with `functools.partial(print, flush=True)` at the top of the script. Alternatively, launch with `python -u script.py` or set the env var before invoking Python.
+- **When useful**: Any long-running background process where you redirect stdout to a log file and want real-time monitoring (`tail -f`). Common gotcha with optimizers, batch jobs, and pipeline runners.
+
+### v8.7 prompt causes severe under-extraction with Haiku (2026-03-29)
+- Opus deep audit of rai14 paper vs v8.7 extraction revealed only 10 claims extracted (vs 34 with v5/v6 prompts)
+- Model plans ~52 claims (citation contexts reference c_052) but only writes 10, leaving 70% of evidence orphaned and all citation contexts broken
+- Root cause likely compound: (1) richer per-claim fields in v8.7 consume more output tokens, (2) Haiku may shift to depth-over-breadth under output pressure, (3) possible model capability limit for long structured JSON
+- The 0.98 effective composite score from optimizer measured quality-per-claim but masked the completeness collapse
+- Per-claim quality is good: 7/10 factual accuracy, evidence descriptions accurate with correct effect sizes/p-values
+- One ontology error: P04637 (p53) assigned to Invariant chain instead of P04233
+- Claude CLI does not expose --max-tokens flag; unclear if this is purely a token limit issue

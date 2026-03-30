@@ -43,6 +43,9 @@ _CANONICAL_MAP: dict[str, str] = {
     "is_necessary_for": "is_required_for",
     "is_essential_for": "is_required_for",
     "is_critical_for": "is_required_for",
+    "enhances": "induces",
+    "reduces": "inhibits",
+    "enables": "is_required_for",
     "localizes_to": "is_located_in",
     "is_expressed_in": "is_located_in",
     "binds_to": "interacts_with",
@@ -80,6 +83,7 @@ OPPOSITION_PAIRS: list[tuple[str, str]] = [
     ("is_located_in", "is_not_located_in"),
     ("correlates_with", "does_not_correlate_with"),
     ("interacts_with", "does_not_interact_with"),
+    ("degrades", "stabilizes"),
 ]
 
 # Build bidirectional lookup: (a, b) and (b, a) → True

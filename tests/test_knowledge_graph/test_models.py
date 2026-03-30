@@ -36,10 +36,8 @@ class TestEvidenceStrength:
         expected = {
             "direct_experimental",
             "indirect_experimental",
-            "observational_controlled",
-            "observational_uncontrolled",
-            "computational_prediction",
-            "expert_opinion",
+            "observational",
+            "computational",
             "review_citation",
         }
         assert set(EvidenceStrength) == expected

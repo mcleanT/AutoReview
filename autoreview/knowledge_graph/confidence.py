@@ -15,10 +15,10 @@ log = structlog.get_logger(__name__)
 # Maps EvidenceStrength string values to numeric weights.
 EVIDENCE_WEIGHTS: dict[str, float] = {
     "direct_experimental": 1.0,
-    "observational_controlled": 0.7,
-    "observational_uncontrolled": 0.4,
-    "computational_prediction": 0.3,
-    "expert_opinion": 0.2,
+    "indirect_experimental": 0.8,
+    "observational": 0.5,
+    "computational": 0.3,
+    "review_citation": 0.15,
 }
 
 # Independence discount factor: each additional paper from the same (first, last) author

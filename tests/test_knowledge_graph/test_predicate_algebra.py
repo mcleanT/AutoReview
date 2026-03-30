@@ -75,6 +75,15 @@ class TestCanonicalization:
         for syn in synonyms:
             assert get_canonical_predicate(syn) == "inhibits", f"Failed for {syn!r}"
 
+    def test_enhances_maps_to_induces(self) -> None:
+        assert get_canonical_predicate("enhances") == "induces"
+
+    def test_reduces_maps_to_inhibits(self) -> None:
+        assert get_canonical_predicate("reduces") == "inhibits"
+
+    def test_enables_maps_to_is_required_for(self) -> None:
+        assert get_canonical_predicate("enables") == "is_required_for"
+
 
 # ---------------------------------------------------------------------------
 # Opposition
@@ -139,6 +148,21 @@ class TestOpposition:
 
     def test_unknown_predicates_not_opposing(self) -> None:
         assert are_opposing("foo_predicate", "bar_predicate") is False
+
+    def test_degrades_opposes_stabilizes(self) -> None:
+        assert are_opposing("degrades", "stabilizes") is True
+
+    def test_stabilizes_opposes_degrades(self) -> None:
+        # Symmetry
+        assert are_opposing("stabilizes", "degrades") is True
+
+    def test_enhances_opposes_inhibits_via_canonicalization(self) -> None:
+        # "enhances" → "induces"; "inhibits" stays "inhibits"
+        assert are_opposing("enhances", "inhibits") is True
+
+    def test_reduces_opposes_induces_via_canonicalization(self) -> None:
+        # "reduces" → "inhibits"; "induces" stays "induces"
+        assert are_opposing("reduces", "induces") is True
 
 
 # ---------------------------------------------------------------------------

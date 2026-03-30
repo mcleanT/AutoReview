@@ -1,0 +1,19 @@
+{
+  "version": "v6.2",
+  "composite": 0.902779,
+  "metrics": {
+    "density": 0.92,
+    "predicate_valid": 1.0,
+    "predicate_diversity": 0.845309,
+    "evidence_strength_valid": 0.988889,
+    "field_model_system": 1.0,
+    "field_organism": 1.0,
+    "field_certainty": 1.0,
+    "field_section_source": 1.0,
+    "quant_context": 0.313596,
+    "causal_type_coverage": 1.0,
+    "no_perturb_subject": 1.0,
+    "claim_type_valid": 1.0
+  },
+  "timestamp": "2026-03-28T18:29:43.260859+00:00"
+}

@@ -62,12 +62,27 @@ class TestIngestSingleExtraction:
         ent = result.entities[0]
         assert ent["ontology_source"] == "GO"  # First source after normalization
 
-    def test_unknown_evidence_strength_maps_to_expert_opinion(self, sample_extraction_json: dict):
+    def test_unknown_evidence_strength_maps_to_observational(self, sample_extraction_json: dict):
         from autoreview.knowledge_graph.ingest import ingest_extraction
 
         sample_extraction_json["evidence_units"][0]["evidence_strength"] = "anecdotal"
         result = ingest_extraction(sample_extraction_json, paper_hash="aaa111")
-        assert result.evidence_units[0]["evidence_strength"] == "expert_opinion"
+        assert result.evidence_units[0]["evidence_strength"] == "observational"
+
+    def test_legacy_evidence_strength_normalized(self, sample_extraction_json: dict):
+        from autoreview.knowledge_graph.ingest import ingest_extraction
+
+        for legacy, expected in [
+            ("observational_controlled", "observational"),
+            ("observational_uncontrolled", "observational"),
+            ("computational_prediction", "computational"),
+            ("expert_opinion", "observational"),
+        ]:
+            sample_extraction_json["evidence_units"][0]["evidence_strength"] = legacy
+            result = ingest_extraction(sample_extraction_json, paper_hash="aaa111")
+            assert result.evidence_units[0]["evidence_strength"] == expected, (
+                f"expected {legacy!r} → {expected!r}"
+            )
 
 
 class TestIngestDirectory:

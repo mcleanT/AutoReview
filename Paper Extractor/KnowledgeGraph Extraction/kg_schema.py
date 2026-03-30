@@ -14,7 +14,7 @@ Design priorities:
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -75,7 +75,7 @@ class KGClaim(BaseModel):
     subject: KGEntity
     predicate: str = Field(
         ...,
-        description="Controlled vocabulary predicate (e.g., 'activates', 'inhibits', 'is_required_for')",
+        description="Controlled vocabulary predicate (e.g., 'induces', 'inhibits', 'is_required_for')",
     )
     object: KGEntity
     direction: Literal["positive", "negative"] = Field(
@@ -128,6 +128,14 @@ class KGClaim(BaseModel):
     source_doi: str | None = Field(
         None, description="For attributed_prior claims: DOI of the cited work"
     )
+    model_system: str | None = Field(
+        None, description="e.g., 'mouse ESC gastruloids' — required by prompt for all claims"
+    )
+    organism: str | None = Field(None, description="Latin binomial, e.g., 'Mus musculus'")
+    quantitative_context: dict[str, Any] | None = Field(
+        None,
+        description="Dose/time context: {concentration, timepoint, dose} — required for mechanistic/comparative claims",
+    )
     evidence_links: list[KGEvidenceLink] = Field(
         default_factory=list,
         description="Links to evidence units with directional qualifiers (supports/refutes/mixed)",
@@ -169,10 +177,27 @@ class KGEvidence(BaseModel):
         "in_vitro_model",
         "structural_biology",
         "pharmacology",
+        "citation_reference",
     ] = Field(..., description="Methodological category")
     assay_types: list[str] = Field(
         default_factory=list,
         description="Specific assays, e.g., ['qRT-PCR', 'Western_blot']",
+    )
+    evidence_strength: (
+        Literal[
+            "direct_experimental",
+            "indirect_experimental",
+            "observational",
+            "computational",
+            "review_citation",
+        ]
+        | None
+    ) = Field(None, description="Strength tier for this evidence unit (used by citation stubs)")
+    citing_sentence: str | None = Field(
+        None, description="Verbatim sentence from paper citing this evidence"
+    )
+    source_doi: str | None = Field(
+        None, description="DOI of the cited work (for attributed_prior evidence)"
     )
 
 
@@ -185,5 +210,9 @@ class KGExtraction(BaseModel):
     publication_date: str = Field(..., description="YYYY-MM-DD format")
     claims: list[KGClaim] = Field(default_factory=list, description="All extracted claims")
     evidence: list[KGEvidence] = Field(default_factory=list, description="All evidence units")
+    citation_contexts: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Cross-paper citation relationships extracted from the paper",
+    )
     extraction_model: str = Field(default="", description="Model ID used for extraction")
     extraction_timestamp: str = Field(default="", description="ISO 8601 UTC timestamp")

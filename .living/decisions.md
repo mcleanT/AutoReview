@@ -874,3 +874,287 @@ The clustering stage produced 11 themes; these were consolidated into 5 body sec
 - **Context**: Phase 2 contradiction detection originally planned to use NLI models (e.g. DeBERTa) on claim text. KG extraction now produces structured triples with controlled predicates and explicit direction fields.
 - **Decision**: Drop NLI; implement structural contradiction detection via predicate opposition table + direction comparison + condition disambiguation.
 - **Rationale**: Structured triples make contradictions detectable from graph structure alone. NLI was designed for unstructured text and adds ~800ms/pair latency with no accuracy gain on controlled-vocabulary predicates. Structural detection covers ~950f cases; condition metadata handles the boundary-vs-contradiction disambiguation that NLI cannot reliably perform anyway.
+
+### D019 — Extraction v6: two-tier predicate vocabulary
+- **Date**: 2026-03-28
+- **Decision**: Replaced flat 31-predicate vocabulary with two-tier system: 12 canonical (always preferred) + 7 specific (biochemically precise). Removed all synonym predicates from allowed set — LLM must use canonical forms.
+- **Rationale**: Reduces predicate fragmentation, improves entity resolution, enables structural contradiction detection and composition rules. Downstream normalization handles any remaining synonyms.
+- **Alternatives**: Keep full vocabulary (rejected: too many synonyms cause inconsistent triples)
+
+### D020 — Evidence strength: 5-value standardized set
+- **Date**: 2026-03-28
+- **Decision**: Standardized evidence_strength to 5 values across all modules: direct_experimental (1.0), indirect_experimental (0.8), observational (0.5), computational (0.3), review_citation (0.15). Merged observational_controlled/uncontrolled, computational_prediction. Dropped expert_opinion.
+- **Rationale**: Previous 7-value set had mismatches across schema/ingest/confidence modules. indirect_experimental and review_citation had zero weight (bug). Simpler set is easier for LLMs to apply consistently.
+
+### D019 — Extraction v6: two-tier predicate vocabulary
+- **Date**: 2026-03-28
+- **Decision**: Replaced flat 31-predicate vocabulary with two-tier system: 12 canonical (always preferred) + 7 specific (biochemically precise). Removed all synonym predicates from allowed set.
+- **Rationale**: Reduces predicate fragmentation, improves structural contradiction detection and composition rules. v6.1 test: 97% canonical predicates vs 74% in v5.
+
+### D020 — Evidence strength: 5-value standardized set
+- **Date**: 2026-03-28
+- **Decision**: Standardized evidence_strength to 5 values: direct_experimental (1.0), indirect_experimental (0.8), observational (0.5), computational (0.3), review_citation (0.15). Fixed zero-weight bug for indirect_experimental and review_citation.
+
+## D021 — Autoresearch-Inspired Prompt Optimization Loop (2026-03-28)
+
+Built a fully autonomous prompt optimization loop at `Paper Extractor/KnowledgeGraph Extraction/optimize/`. Architecture: Haiku runs extractions, Sonnet acts as optimizer agent guided by `program.md`. 12-metric composite scorer (density, predicate validity/diversity, evidence strength, field coverage, causal_type, perturbation detection, claim type validity). Regression guard rejects changes that drop any metric >5
+## D021 — Autoresearch-Inspired Prompt Optimization Loop (2026-03-28)
+
+Built a fully autonomous prompt optimization loop at `Paper Extractor/KnowledgeGraph Extraction/optimize/`. Architecture: Haiku runs extractions, Sonnet acts as optimizer agent guided by `program.md`. 12-metric composite scorer (density, predicate validity/diversity, evidence strength, field coverage, causal_type, perturbation detection, claim type validity). Regression guard rejects changes that drop any metric >5%. Convergence detection stops at <0.5% improvement. Prompt versions saved for audit trail. Inspired by Karpathy autoresearch 3-file pattern: program.md + artifact + runner.
+
+### D022 — Scoring rebalanced toward graph utility (2026-03-28)
+- **Decision**: Shifted optimizer scoring weights from format validation (~65
+### D022 — Scoring rebalanced toward graph utility (2026-03-28)
+- **Decision**: Shifted optimizer scoring weights from format validation (~65%) toward graph-utility metrics. New split: Graph structure 46%, Extraction quality 30%, Format validity 24%. Added 7 new metrics: evidence_linkage (10%), evidence_density (7%), evidence_completeness (6%), doi_coverage (8%), conditions_coverage (6%), entity_consistency (5%), citation_contexts (2%). Total metrics: 19 (was 12).
+- **Rationale**: Format validation is largely handled by the production coercion pipeline; the optimizer should focus on what actually makes the knowledge graph useful — evidence linkage, DOI traceability, and conditions coverage for cross-paper edge construction.
+
+### D023 — Keep References section in batch extraction truncation (2026-03-28)
+- **Decision**: Updated `batch_extract_kg.py` truncation config to preserve References and Conclusion sections. Only non-informative end-matter (Acknowledgements, Author Contributions, Funding) is dropped.
+- **Rationale**: `source_doi` on `attributed_prior` claims is the key to cross-paper graph edges. Dropping References made DOI resolution impossible. The old truncation config was designed for ExtractionResult schema (which had no DOI field), not the KG schema.
+
+### D024 — Apply production coercion pipeline before optimizer scoring (2026-03-28)
+- **Decision**: `experiment_runner.py` now applies the full `kg_coerce.py` pipeline before computing scores, matching production behavior.
+- **Rationale**: Without coercion, the optimizer wasted iterations fixing predicate remapping and field normalization that the production pipeline already handles automatically. Coercion is extracted into shared `kg_coerce.py` for reuse by both batch extraction and the optimizer.
+
+## D025 — Expanded optimizer test corpus (2026-03-28)
+Removed `_SKIP_INDICES` skip list from `experiment_runner.py` (was {0,1,3,4,5,9}) and added `extra_corpus_path` parameter to `load_test_papers()`. Selected 3 diverse review papers (cardiac, neurogenesis, vertebrate organogenesis) from `papers_reviews.json` for `optimize/extra_test_papers.json`. Expanded corpus from 3 to 13 papers for better domain diversity during optimization runs.
+- **Files**: `experiment_runner.py`, `optimize_extraction_prompt.py`, `optimize/extra_test_papers.json` (new)
+- **Rationale**: Broader corpus catches prompt regressions across domains; removed skip list after confirming indices 1,3,4,5 have 20K–85K chars of usable text
+
+## D026 — Configurable version prefix for optimizer (2026-03-28)
+Added `--version-prefix` CLI arg to `optimize_extraction_prompt.py` (default `v7`) to avoid overwriting existing `v6.x` versioned outputs. Also added `--extra-papers` arg for extra corpus path and configurable baseline/version labels.
+- **Rationale**: Without this, re-running the optimizer would silently overwrite prior version outputs; explicit prefix makes run provenance clear
+
+## D027 — Expanded optimizer corpus to 25 papers (2026-03-28)
+**Decision**: Replaced 3 review papers in `optimize/extra_test_papers.json` with 15 real research papers, bringing the total optimizer corpus to 25 papers (rai14 + 9 micro_sample + 15 corpus papers).
+**Why**: Review papers have different extraction characteristics than research papers (broader claims, less experimental detail, fewer methods/results triples). The optimizer should calibrate prompt quality on research paper extraction, not reviews.
+**Filter criteria**: Papers from `papers.json` with DOI required, 15K–150K chars, excluding reviews/editorials/protocols.
+
+## D028 — experiment_runner: switched to --output-format json + single-turn extraction
+**Date:** 2026-03-28
+**Context:** experiment_runner.py was using `--output-format text` + `--max-turns 5`, causing large JSON outputs to be silently truncated and multi-turn splits to lose the JSON prefix.
+**Decision:** Switched to `--output-format json` (full response preserved in wrapper) + `--tools "" --max-turns 1` (single turn, no tool calls, no concatenation artifacts). Added section-aware truncation matching production batch_extract_kg.py (100K char limit, same keep/drop sections). Added "Maximum 50 claims" instruction to keep output within CLI token budget. Brace-slice JSON parsing handles markdown fences the model may add.
+**Alternatives considered:** Direct API via ANTHROPIC_API_KEY — would allow explicit max_tokens=64K control matching production, but requires additional auth wiring. Deferred as future improvement; CLI fix is sufficient for optimizer runs.
+**Outcome:** Previously failing papers (micro_3: 45c/45e, micro_4: 20c/20e) now succeed with complete extraction.
+
+### Use CLI (claude -p) for Optimizer Extractions (2026-03-28)
+- **Decision**: Use `claude -p` CLI for KG extraction in the prompt optimizer, not direct Anthropic API
+- **Context**: User preference; CLI is already integrated in the experiment runner and works consistently with `--output-format json --max-turns 1 --tools ""`
+- **Alternatives**: Direct Anthropic API via SDK (more reliable, no subprocess overhead, better error handling) — rejected by user preference
+
+### Expanded Optimizer Corpus to 25 Papers (2026-03-28)
+- **Decision**: Expand optimizer corpus from 10 to 25 papers (rai14 + 9 micro_sample + 15 extra research papers)
+- **Context**: Larger corpus improves signal quality for prompt optimization; `--extra-papers` arg allows flexible corpus extension without code changes
+- **Alternatives**: Smaller corpus (faster, cheaper) — rejected to get better coverage of paper types and edge cases
+
+### experiment_runner.py: CLI subprocess to Anthropic streaming API (2026-03-28)
+- **Decision**: Replace `subprocess.run(["claude", "-p", ...])` with `anthropic.Anthropic().messages.stream()` in `experiment_runner.py`
+- **Context**: Non-streaming Anthropic API raises "Streaming is required for operations that may take longer than 10 minutes" when max_tokens=64000 with large paper inputs. CLI invocation was also fragile (output truncation, JSON parsing issues from prior session).
+- **Alternatives**: Keep CLI with reduced max_tokens (would truncate large extractions); use non-streaming API with lower token budget (loses completeness for large papers); use async streaming (more complex, no benefit for single sequential runs)
+- **Consequences**: Requires `ANTHROPIC_API_KEY` env var. Model pinned to `claude-haiku-4-5-20251001`. Real token usage reported from `response.usage` instead of character-based estimates. Output tokens confirmed at 33K–54K per paper (4–7x prior estimates), raising per-paper cost from ~$0.02 estimated to ~$0.15 actual.
+
+## 2026-03-28 — KG Extraction Optimizer: Remove Claim Cap
+
+**Decision**: Removed the "Maximum 50 claims" hard cap from the optimizer user prompt in `Paper Extractor/KnowledgeGraph Extraction/optimize/experiment_runner.py`.
+
+**Rationale**: 7/10 papers in pilot runs were hitting the 50-claim ceiling, artificially suppressing extraction density for dense papers. The v6.2 prompt retains soft "25-50 claims" density guidance. Without the hard cap, dense papers are estimated to yield 80-150 claims, bounded by the 64K output token budget (~200 claims theoretical max). This change applies only to the optimizer; production `batch_extract_kg.py` is unchanged.
+
+## 2026-03-28 — KG Extraction Optimizer: Disable Input Truncation
+
+**Decision**: Disabled input truncation in the optimizer (`_TRUNCATION_LIMIT = 0`) in `experiment_runner.py`.
+
+**Rationale**: Haiku 4.5 has a 200K token context window. Only 3/25 baseline papers exceeded 100K characters, and truncation was minimal (1-10
+## 2026-03-28 — KG Extraction Optimizer: Remove Hard Claim Cap
+
+**Decision**: Removed the "Maximum 50 claims" hard cap from the optimizer user prompt in `Paper Extractor/KnowledgeGraph Extraction/optimize/experiment_runner.py`.
+
+**Rationale**: 7/10 papers in pilot runs were hitting the 50-claim ceiling, artificially suppressing extraction density for dense papers. The v6.2 prompt retains soft "25-50 claims" density guidance. Without the hard cap, dense papers are estimated to yield 80-150 claims, bounded by the 64K output token budget (~200 claims theoretical max). This change applies only to the optimizer; production `batch_extract_kg.py` is unchanged.
+
+## 2026-03-28 — KG Extraction Optimizer: Disable Input Truncation
+
+**Decision**: Disabled input truncation in the optimizer (`_TRUNCATION_LIMIT = 0`) in `experiment_runner.py`.
+
+**Rationale**: Haiku 4.5 has a 200K token context window. Only 3/25 baseline papers exceeded 100K characters, and truncation was minimal (1-10%). Feeding full paper text improves extraction completeness for optimizer runs. Production `batch_extract_kg.py` retains its own truncation logic unchanged.
+
+## 2026-03-28 — Evidence Depth Metric & Optimizer Improvements
+
+### evidence_depth metric design (optimize/scoring.py)
+- Added `evidence_depth` metric with weight 0.06, taken from `evidence_linkage` (dropped 0.08 → 0.04)
+- Scoring: 1 link = 0.0 (floor, not partial credit — 1 is the minimum acceptable), 2 links = 0.5, 3+ links = 1.0
+- Unlinked claims get penalty of -0.5 (they are noise, not partial progress)
+- `attributed_prior` claims are excluded — their evidence lives in the cited paper, not locally
+- Rationale: binary evidence_linkage gave no signal for multi-evidence quality; capping at 3+ links avoids incentivizing spurious links
+- Total evidence weight category increased from 25
+## 2026-03-28 — Evidence Depth Metric & Optimizer Improvements
+
+### evidence_depth metric design (optimize/scoring.py)
+- Added `evidence_depth` metric with weight 0.06, taken from `evidence_linkage` (dropped 0.08 → 0.04)
+- Scoring: 1 link = 0.0 (floor, not partial credit — 1 is the minimum acceptable), 2 links = 0.5, 3+ links = 1.0
+- Unlinked claims get penalty of -0.5 (they are noise, not partial progress)
+- `attributed_prior` claims are excluded — their evidence lives in the cited paper, not locally
+- Rationale: binary evidence_linkage gave no signal for multi-evidence quality; capping at 3+ links avoids incentivizing spurious links
+- Total evidence weight category increased from 25% to 27%
+
+### Truncation removal (optimize/experiment_runner.py)
+- Removed "Maximum 50 claims" hard cap from user prompt
+- Disabled input truncation (_TRUNCATION_LIMIT=0): Haiku 4.5 200K context fits all papers
+- Rationale: 7/10 papers hit the 50-claim cap, meaning dense papers were silently truncated
+
+### Optimizer prompt update (optimize/program.md)
+- Updated agent prompt to include evidence_depth metric so optimizer knows to target multi-evidence linking
+
+## 2026-03-29 — Accept 32K CLI output token limit for KG optimization
+- **Decision**: Use `claude -p` CLI output (32K max tokens for Haiku) as the extraction backend for the prompt optimizer rather than the API
+- **Rationale**: 32K is sufficient for typical paper extractions (tested: 53 claims/44 evidence on a 36K char paper); switching to the API would require significant refactoring for marginal gain
+- **Trade-off**: Occasional truncation on very long papers, but random sampling across 3 papers/iteration provides enough signal; error handling catches failures gracefully
+
+## 2026-03-29 — Do not filter problematic papers from optimizer sample pool
+- **Decision**: Keep all papers in the optimizer sample pool (including micro_1 with no full text)
+- **Rationale**: Random sampling already dilutes impact of any single bad paper; filtering adds maintenance overhead; error handling manages failures
+
+## 2026-03-29 — Optimizer CLI Approach + Scoring Fix
+
+- **CLI-only optimizer**: Continue using `claude -p` CLI for extractions rather than Anthropic API. API key has no credits; CLI requires no credentials and the 32K output limit is acceptable as an optimization signal.
+- **Filter failed extractions from scoring**: `score_all()` must skip entries whose key contains `_error` before computing composite scores. Including failures as 0.0 makes the baseline artificially low and prevents any candidate prompt from being accepted.
+- **Rate-limit delay**: Add `time.sleep(2)` between sequential `claude -p` calls in `run_all_extractions()`. Without it, ~20+ rapid calls trigger CLI rate limiting (exit code 1, 1-3s response time).
+- **Parallelize per-iteration extractions**: The 3 extractions per optimizer iteration (2 test + 1 full baseline) are independent and should be run with `concurrent.futures.ThreadPoolExecutor` for ~3x speedup. Not yet implemented — planned for next session.
+
+## KG optimizer v8: CLI-only extraction (no API)
+- **Date**: 2026-03-29
+- **Decision**: Use `claude -p` CLI for both Haiku extractions and Sonnet optimizer agent calls
+- **Rationale**: API key has zero credits; Claude subscription provides unlimited CLI usage. Hybrid API+CLI approach was attempted and reverted.
+- **Tradeoff**: CLI adds subprocess overhead (~1-2s per call) but is functionally equivalent for batch optimization work
+
+## KG optimizer v8: 3-worker parallel extraction per iteration
+- **Date**: 2026-03-29
+- **Decision**: Use `ThreadPoolExecutor(max_workers=3)` to parallelize per-paper extractions within each optimizer iteration
+- **Rationale**: Each `claude -p` call is an independent subprocess (no shared state); 3 workers gives ~3x speedup (6-8 min vs 18-24 min per iteration) without overwhelming the CLI rate limits
+- **Workers=3 chosen**: Conservative — avoids triggering rate limiting while still providing meaningful speedup
+
+## 2026-03-29 — KG Optimizer: Composite-Only Acceptance
+
+**Decision**: Removed per-metric regression guard from `optimize_extraction_prompt.py`. The optimizer now accepts a candidate prompt purely on composite score improvement, with no per-metric floor checks.
+
+**Why**: v8 got stuck at 10 consecutive rejects. Iterations reaching composite ~0.88 were blocked by single-metric regressions (e.g., doi_coverage, citation_contexts) even when the overall weighted score improved. The composite score already weights metrics appropriately — enforcing per-metric floors is double-counting and over-constrains the search.
+
+**Decision**: Added high-water mark (HWM) tracking to the optimizer. The optimizer now records the best composite score and corresponding prompt across ALL iterations (accepted and rejected), and uses the HWM prompt for final evaluation.
+
+**Why**: The best-ever composite may appear in a "rejected" iteration (e.g., composite improved but was followed by a worse iteration that got accepted). Without HWM tracking, that best prompt would be silently discarded. HWM ensures the final evaluation always uses the globally best observed prompt.
+
+**Related**: `QUALITY_REGRESSION_THRESHOLD` kept in code but marked legacy/unused. `MAX_CONSECUTIVE_REJECTS` bumped 10 → 25 for overnight patience.
+
+## 2026-03-29 — Optimizer Diversity Rotation
+
+**Decision**: Added strategy diversity rotation and failed-approach memory to the KG extraction prompt optimizer loop (`optimize_extraction_prompt.py`).
+
+**Why**: The v8 optimizer got stuck repeating the same 3 strategies (quant_context rules, evidence_depth checklists, predicate tightening) across 10+ consecutive rejects. The optimizer had no memory of what it had tried before and no pressure to try different approaches. Without diversity pressure, LLM optimizers converge to a local optimum and cycle through the same surface-level edits.
+
+**What changed**:
+- Added `DIVERSITY_STRATEGIES` list of 10 techniques that rotate each iteration: structural_rewrite, example_driven, counter_example, constraint_tightening, checklist_approach, negative_space, cross_metric_synergy, simplification, workflow_reframing, weakest_link_focus
+- `call_optimizer()` now injects the current strategy as an "Optimization Lens" hint into the user message
+- After 5+ consecutive rejects, the optimizer receives an escalating warning that lists all recently failed approach summaries and explicitly instructs it to try something fundamentally different
+- All history entries now include `optimizer_summary` so the optimizer has memory of what strategies were attempted
+- `optimize/program.md` updated to tell the optimizer to read `optimizer_summary` in history and honor the lens
+
+## 2026-03-29 — Save all optimizer iterations to disk
+
+**Decision**: Save every scored iteration prompt to `prompt_versions/`, not just accepted ones.
+
+**Why**: During v8 optimization, prompts reaching ~0.88 composite were rejected by the HWM guard and lost permanently. These sub-accepted prompts may contain valuable intermediate improvements or serve as recovery points if later iterations regress.
+
+**Implementation**: `optimize_extraction_prompt.py` now saves a `prompt_versions/vN.M.md` file for every iteration immediately after scoring, before the accept/reject decision. Removed the duplicate `save_version` call in the accept path to avoid double-writes.
+
+## 2026-03-29 — KG Optimizer v10: Rapid Mode Infrastructure
+
+### D029 — Rapid mode for optimizer: aggressive section truncation + short-paper pool
+- **Date**: 2026-03-29
+- **Decision**: Added `--rapid` mode to the KG extraction prompt optimizer with two components: (1) `_truncate_paper_rapid()` in `experiment_runner.py` that keeps only Results + Methods + References sections with a 20K char hard cap, and (2) `max_text_length=80_000` filter for sample pool selection.
+- **Rationale**: Full-paper input (avg 81K chars) costs ~$0.09/iteration and is slow. Rapid mode targets ~$0.03/iteration with ~3x speedup. Quality signal remains high because extraction-relevant content concentrates in Results + Methods.
+- **Files**: `experiment_runner.py`, `optimize_extraction_prompt.py`, `batch_extract_kg.py`
+- **Alternative considered**: Short-paper curation (`micro_sample_short.json`) — superseded by on-the-fly truncation, which is more flexible.
+
+### D030 — Permanent corpus exclusion constants: `_SKIP_INDICES` and `_SKIP_CORPUS_IDS`
+- **Date**: 2026-03-29
+- **Decision**: Reviews and abstract-only papers permanently excluded from the optimizer corpus via module-level constants `_SKIP_INDICES = {0, 1, 9}` and `_SKIP_CORPUS_IDS = {"corpus_0"}` in `experiment_runner.py`.
+- **Rationale**: These papers cause systematic failures or produce non-representative extractions (review papers: all attributed_prior, no primary empirical signal; abstract-only: too sparse for quality scoring). Permanent exclusion via constants is safer than per-run flags — exclusions always apply regardless of CLI args.
+- **Pool size after exclusions**: 10 papers from 173 micro_sample.json candidates.
+
+### D031 — v8.7 as baseline for v10 optimizer (composite 0.8484)
+- **Date**: 2026-03-29
+- **Decision**: Used `--skip-baseline v8.7_scores.json` (composite 0.8484, 25,146 chars) as the starting baseline for v10, skipping expensive re-evaluation of the known-best prompt.
+- **Rationale**: Re-evaluating the baseline on 10 papers would cost ~$0.90 and ~40 min with no new information. The v8.7 scores are stable (3-paper sample, same corpus). `--skip-baseline` flag reads pre-computed scores from disk and uses them directly.
+- **Note**: v8.7 is the result of 50+ iterations since the v6.1 baseline (23K chars). Prompt grew by ~9
+## 2026-03-29 — KG Optimizer v10: Rapid Mode Infrastructure
+
+### D029 — Rapid mode for optimizer: aggressive section truncation + short-paper pool
+- **Date**: 2026-03-29
+- **Decision**: Added `--rapid` mode to the KG extraction prompt optimizer with two components: (1) `_truncate_paper_rapid()` in `experiment_runner.py` that keeps only Results + Methods + References sections with a 20K char hard cap, and (2) `max_text_length=80_000` filter for sample pool selection.
+- **Rationale**: Full-paper input (avg 81K chars) costs ~$0.09/iteration and is slow. Rapid mode targets ~$0.03/iteration with ~3x speedup. Quality signal remains high because extraction-relevant content concentrates in Results + Methods.
+- **Files**: `experiment_runner.py`, `optimize_extraction_prompt.py`, `batch_extract_kg.py`
+- **Alternative considered**: Short-paper curation (micro_sample_short.json) — superseded by on-the-fly truncation, which is more flexible.
+
+### D030 — Permanent corpus exclusion constants: _SKIP_INDICES and _SKIP_CORPUS_IDS
+- **Date**: 2026-03-29
+- **Decision**: Reviews and abstract-only papers permanently excluded from the optimizer corpus via module-level constants _SKIP_INDICES = {0, 1, 9} and _SKIP_CORPUS_IDS = {"corpus_0"} in `experiment_runner.py`.
+- **Rationale**: These papers cause systematic failures or produce non-representative extractions (review papers: all attributed_prior, no primary empirical signal; abstract-only: too sparse for quality scoring). Permanent exclusion via constants is safer than per-run flags — exclusions always apply regardless of CLI args.
+- **Pool size after exclusions**: 10 papers from 173 micro_sample.json candidates.
+
+### D031 — v8.7 as baseline for v10 optimizer (composite 0.8484)
+- **Date**: 2026-03-29
+- **Decision**: Used --skip-baseline v8.7_scores.json (composite 0.8484, 25,146 chars) as the starting baseline for v10, skipping expensive re-evaluation of the known-best prompt.
+- **Rationale**: Re-evaluating the baseline on 10 papers would cost ~$0.90 and ~40 min with no new information. The v8.7 scores are stable (3-paper sample, same corpus). --skip-baseline flag reads pre-computed scores from disk and uses them directly.
+- **Note**: v8.7 is the result of 50+ iterations since the v6.1 baseline (23K chars). Prompt grew by ~9% (to 25K chars) — bloat reduction is deferred to Phase 2.
+
+## D032 — Exclude doi_coverage and citation_contexts from rapid mode composite scoring
+**Date:** 2026-03-29
+**Context:** v10 optimizer running with --rapid mode; first 5 iterations (v10.1–v10.5) all rejected because doi_coverage cratered from 1.0 to 0.0
+**Decision:** Exclude `doi_coverage` and `citation_contexts` from rapid mode composite scoring. Rapid section-aware truncation removes Discussion (source of attributed_prior claims) and may truncate References (DOI source). These metrics hit 0.0 not because extraction quality is bad but because the input lacks the relevant sections. Weights are renormalized so composite stays in [0,1]. Metrics are still computed and returned — just excluded from the weighted composite.
+**Alternatives considered:** Adding the sections back (defeats the purpose of rapid mode); penalizing the score (unfair to the optimizer).
+**Files:** `Paper Extractor/KnowledgeGraph Extraction/optimize/scoring.py`, `Paper Extractor/KnowledgeGraph Extraction/optimize_extraction_prompt.py`
+
+## D033 — Tournament selection for prompt optimizer (2026-03-29)
+
+**Context**: The v10 optimizer had 5+ consecutive rejections because each iteration tested only 1 optimizer candidate on 3 papers. The single optimizer would fix one metric but break 2-3 others, leading to ~80
+## D033 — Tournament selection for prompt optimizer (2026-03-29)
+
+**Context**: The v10 optimizer had 5+ consecutive rejections because each iteration tested only 1 optimizer candidate on 3 papers. The single optimizer would fix one metric but break 2-3 others, leading to ~80% rejection rate.
+
+**Decision**: Replace single-candidate hill climbing with parallel tournament selection. Run N optimizer calls (default 5) with different lenses in parallel, screen all N on 1 (screen) paper cheaply, then validate the best on 3 different (validation) papers. Screen paper is excluded from validation set to prevent overfitting.
+
+**Implementation**: New `run_optimizer_tournament()` function using `ThreadPoolExecutor`; `call_optimizer()` gains `strategy_index: int | None` param; main loop restructured to shuffle papers -> pick 1 screen + 3 validation (non-overlapping) -> tournament -> screen -> validate winner. Added `--candidates N` CLI arg (default 5).
+
+**Trade-offs**: Wall time per iteration increases ~2 min (5->7 min) but exploration increases 5x. Net expected improvement: dramatically higher probability of finding a net-positive edit per iteration.
+
+**File**: `Paper Extractor/KnowledgeGraph Extraction/optimize_extraction_prompt.py` (1147 -> 1332 lines)
+
+## D034 — Tournament selection replaces single-candidate hill climbing (confirmed implementation)
+**Date:** 2026-03-29
+**Context:** Prior D033 entry described the design; this entry confirms the implementation was completed and the optimizer relaunched.
+**Decision:** `run_optimizer_tournament()` is the active code path. The main loop runs N=5 parallel Sonnet optimizer calls, each with a different strategy lens (strategy_index 0-4). All 5 candidates are screened on 1 paper; the best is validated on 3 different papers (non-overlapping with screen paper). Positional argument bug fixed (`run_all_extractions(prompt, [paper], 600, None, rapid)` — `rapid` is now passed as the 5th keyword-style positional arg, not as `max_workers`). Optimizer relaunched as PID 43233.
+**Files:** `Paper Extractor/KnowledgeGraph Extraction/optimize_extraction_prompt.py`
+
+## D035 — PENDING: Consolidate 5 Sonnet optimizer calls into 1 multi-candidate call
+**Date:** 2026-03-29
+**Status:** PENDING — discussed but not yet implemented
+**Context:** Each tournament iteration makes 5 separate Sonnet CLI calls (one per lens/strategy). Each call is independent and uses the same context window.
+**Proposed decision:** Replace 5 calls with 1 Sonnet call that returns 5 distinct candidate edit sets in a single structured response. Estimated API cost reduction: ~80
+## D034 — Tournament selection confirmed implementation + positional arg bug fix
+**Date:** 2026-03-29
+**Context:** D033 described the tournament selection design. This entry records the confirmed implementation details and a critical bug found during execution.
+**Bug fixed:** `run_all_extractions(prompt, [paper], 600, rapid, ...)` was passing `rapid=True` as the 4th positional arg (`max_workers`), causing 5 parallel extraction workers instead of 1. Fixed to `run_all_extractions(prompt, [paper], 600, None, rapid)`. Optimizer relaunched as PID 43233 with correct argument order.
+**Decision confirmed:** `run_optimizer_tournament()` is the active code path. N=5 parallel Sonnet optimizer calls, each with a distinct strategy_index (0-4). Screen on 1 paper, validate winner on 3 non-overlapping papers.
+**Files:** `Paper Extractor/KnowledgeGraph Extraction/optimize_extraction_prompt.py`
+
+## D035 — PENDING: Consolidate 5 Sonnet optimizer calls into 1 multi-candidate call
+**Date:** 2026-03-29
+**Status:** PENDING — discussed but not yet implemented
+**Context:** Each tournament iteration makes 5 separate Sonnet CLI calls (one per lens/strategy). Each call is independent and uses the same base context.
+**Proposed decision:** Replace 5 calls with 1 Sonnet call that returns 5 distinct candidate edit sets in a single structured response. Estimated API cost reduction: ~80% per iteration (5 calls -> 1 call with comparable total tokens).
+**Concerns:** Single-call diversity may be lower — the model may anchor on its first candidate when generating subsequent ones. Needs empirical validation before committing.
+**Trigger for implementation:** When tournament convergence rate is measured and optimizer API cost is confirmed as the primary bottleneck.
+**Files:** `Paper Extractor/KnowledgeGraph Extraction/optimize_extraction_prompt.py`
+
+### v8.7 prompt validated for quality but blocked on completeness (2026-03-29)
+- DECISION: v8.7 prompt produces accurate, detailed claims but catastrophically under-extracts (10 vs 34 claims). Cannot use for production until resolved.
+- Need to determine if this is a token limit issue, prompt verbosity issue, or Haiku capability issue before choosing fix path
+- Audit report at /tmp/rai14_extraction_audit.md
