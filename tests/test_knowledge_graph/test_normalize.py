@@ -373,3 +373,146 @@ class TestQuantitativeBackfill:
         changed = backfill_quantitative_context(assertion)
         assert changed is True
         assert assertion["quantitative_context"]["timepoint"] == "5d"
+
+
+class TestClaimNormalizer:
+    """Tests for the ClaimNormalizer orchestrator."""
+
+    def _make_entity(
+        self, name: str, entity_type: str = "biological_process", paper_id: str = "p1"
+    ) -> dict:
+        return {
+            "canonical_name": name,
+            "entity_type": entity_type,
+            "ontology_id": None,
+            "ontology_source": None,
+            "aliases": [],
+            "paper_ids": [paper_id],
+        }
+
+    def _make_assertion(
+        self,
+        subject: str,
+        obj: str,
+        predicate: str = "induces",
+        draft_id: str = "a_001",
+        natural_language: str = "",
+    ) -> dict:
+        return {
+            "draft_id": draft_id,
+            "subject_canonical_name": subject,
+            "object_canonical_name": obj,
+            "predicate": predicate,
+            "direction": "positive",
+            "assertion_type": "mechanistic_causal",
+            "evidence_unit_ids": ["e_001"],
+            "paper_id": "p1",
+            "publication_date": "2023-01-15",
+            "natural_language": natural_language,
+            "quantitative_context": None,
+            "conditions": None,
+            "model_system": None,
+            "organism": None,
+            "in_vitro": None,
+        }
+
+    def test_pre_dedup_text_cleaning(self):
+        from autoreview.knowledge_graph.normalize import ClaimNormalizer
+
+        normalizer = ClaimNormalizer(llm_decompose=False)
+        entities = [self._make_entity("the Wnt signaling pathway")]
+        assertions = [self._make_assertion("BMP4", "the Wnt signaling pathway")]
+        new_ents, new_asserts, report = asyncio.get_event_loop().run_until_complete(
+            normalizer.pre_dedup(entities, assertions)
+        )
+        assert new_ents[0]["canonical_name"] == "Wnt signaling"
+        assert new_asserts[0]["object_canonical_name"] == "Wnt signaling"
+        assert report.text_cleaned >= 1
+
+    def test_pre_dedup_predicate_cleaning(self):
+        from autoreview.knowledge_graph.normalize import ClaimNormalizer
+
+        normalizer = ClaimNormalizer(llm_decompose=False)
+        entities = [
+            self._make_entity("BMP4", "protein"),
+            self._make_entity("mesoderm differentiation"),
+        ]
+        assertions = [
+            self._make_assertion("BMP4", "mesoderm differentiation", predicate="promoted.")
+        ]
+        _, new_asserts, report = asyncio.get_event_loop().run_until_complete(
+            normalizer.pre_dedup(entities, assertions)
+        )
+        assert new_asserts[0]["predicate"] == "promotes"
+        assert report.predicates_cleaned == 1
+
+    def test_pre_dedup_decomposition(self):
+        from autoreview.knowledge_graph.normalize import ClaimNormalizer
+
+        normalizer = ClaimNormalizer(llm_decompose=False)
+        entities = [
+            self._make_entity("BMP4", "protein"),
+            self._make_entity("endoderm and mesoderm differentiation"),
+        ]
+        assertions = [
+            self._make_assertion("BMP4", "endoderm and mesoderm differentiation", draft_id="a_001"),
+        ]
+        new_ents, new_asserts, report = asyncio.get_event_loop().run_until_complete(
+            normalizer.pre_dedup(entities, assertions)
+        )
+        assert len(new_asserts) == 2
+        obj_names = {a["object_canonical_name"] for a in new_asserts}
+        assert "endoderm differentiation" in obj_names
+        assert "mesoderm differentiation" in obj_names
+        ent_names = {e["canonical_name"] for e in new_ents}
+        assert "endoderm differentiation" in ent_names
+        assert "mesoderm differentiation" in ent_names
+        assert report.claims_decomposed == 1
+        assert report.claims_produced == 2
+
+    def test_pre_dedup_decomposed_claim_audit_trail(self):
+        from autoreview.knowledge_graph.normalize import ClaimNormalizer
+
+        normalizer = ClaimNormalizer(llm_decompose=False)
+        entities = [
+            self._make_entity("BMP4", "protein"),
+            self._make_entity("endoderm and mesoderm differentiation"),
+        ]
+        assertions = [
+            self._make_assertion("BMP4", "endoderm and mesoderm differentiation", draft_id="a_001"),
+        ]
+        _, new_asserts, _ = asyncio.get_event_loop().run_until_complete(
+            normalizer.pre_dedup(entities, assertions)
+        )
+        for a in new_asserts:
+            assert a["_decomposed_from"] == "a_001"
+            assert a["draft_id"].startswith("a_001_d")
+
+    def test_post_dedup_quantitative_backfill(self):
+        from autoreview.knowledge_graph.normalize import ClaimNormalizer
+
+        normalizer = ClaimNormalizer(llm_decompose=False)
+        assertions = [
+            self._make_assertion(
+                "BMP4",
+                "mesoderm differentiation",
+                natural_language="BMP4 at 10 ng/mL induces mesoderm at 48h",
+            ),
+        ]
+        new_asserts, report = asyncio.get_event_loop().run_until_complete(
+            normalizer.post_dedup(assertions)
+        )
+        assert new_asserts[0]["quantitative_context"]["concentration"] == "10 ng/mL"
+        assert new_asserts[0]["quantitative_context"]["timepoint"] == "48h"
+        assert report.quant_backfilled == 1
+
+    def test_normalization_report_fields(self):
+        from autoreview.knowledge_graph.normalize import NormalizationReport
+
+        report = NormalizationReport()
+        assert report.text_cleaned == 0
+        assert report.predicates_cleaned == 0
+        assert report.claims_decomposed == 0
+        assert report.claims_produced == 0
+        assert report.quant_backfilled == 0
+        assert report.llm_calls == 0

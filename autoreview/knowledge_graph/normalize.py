@@ -2,8 +2,14 @@
 
 from __future__ import annotations
 
+import copy
 import re
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
+
+import structlog
+
+log = structlog.get_logger()
 
 _PARENTHETICAL_RE = re.compile(r"\s*\([^)]*\)")
 
@@ -336,9 +342,7 @@ async def llm_decompose_objects(
     return await llm_fn(objects)
 
 
-_CONCENTRATION_RE = re.compile(
-    r"(\d+\.?\d*)\s*(ng/mL|µM|nM|mM|µg/mL|μM|μg/mL)", re.IGNORECASE
-)
+_CONCENTRATION_RE = re.compile(r"(\d+\.?\d*)\s*(ng/mL|µM|nM|mM|µg/mL|μM|μg/mL)", re.IGNORECASE)
 _TIMEPOINT_RE = re.compile(
     r"(?:at\s+)?(\d+\.?\d*)\s*(h|hr|hrs|hours|d|days|min|minutes)\b", re.IGNORECASE
 )
@@ -397,9 +401,7 @@ def backfill_quantitative_context(assertion: dict) -> bool:
 
     if qc is not None and isinstance(qc, dict):
         # Existing qc — only backfill null fields
-        has_any_value = any(
-            qc.get(k) is not None for k in ("concentration", "timepoint", "dose")
-        )
+        has_any_value = any(qc.get(k) is not None for k in ("concentration", "timepoint", "dose"))
         if has_any_value:
             changed = False
             if qc.get("concentration") is None:
@@ -433,3 +435,161 @@ def backfill_quantitative_context(assertion: dict) -> bool:
         "dose": dose,
     }
     return True
+
+
+@dataclass
+class NormalizationReport:
+    """Audit summary of normalization transforms applied."""
+
+    text_cleaned: int = 0
+    predicates_cleaned: int = 0
+    claims_decomposed: int = 0
+    claims_produced: int = 0
+    quant_backfilled: int = 0
+    llm_calls: int = 0
+
+
+class ClaimNormalizer:
+    """Post-extraction normalization for improved cross-paper claim matching.
+
+    Two entry points:
+    - pre_dedup: text cleaning + compound decomposition (before entity dedup)
+    - post_dedup: quantitative backfill (after entity dedup, before merge)
+    """
+
+    def __init__(
+        self,
+        llm_decompose: bool = True,
+        llm_fn: LLMDecomposeFn | None = None,
+    ) -> None:
+        self._llm_decompose = llm_decompose
+        self._llm_fn = llm_fn
+
+    async def pre_dedup(
+        self,
+        entities: list[dict],
+        assertions: list[dict],
+    ) -> tuple[list[dict], list[dict], NormalizationReport]:
+        """Run before entity dedup: text cleaning, predicate cleaning, decomposition."""
+        report = NormalizationReport()
+
+        # Phase 1: Text cleaning on entity names
+        for entity in entities:
+            old_name = entity["canonical_name"]
+            new_name, aliases = clean_entity_name(old_name)
+            if new_name != old_name:
+                entity["canonical_name"] = new_name
+                entity["_original_name"] = old_name
+                existing_aliases = entity.get("aliases", [])
+                entity["aliases"] = list(dict.fromkeys(existing_aliases + aliases))
+                report.text_cleaned += 1
+
+        # Phase 1b: Text cleaning on assertion entity names (stay in sync)
+        for assertion in assertions:
+            for field_name in ("subject_canonical_name", "object_canonical_name"):
+                old_name = assertion[field_name]
+                new_name, _ = clean_entity_name(old_name)
+                if new_name != old_name:
+                    assertion[f"_original_{field_name}"] = old_name
+                    assertion[field_name] = new_name
+
+        # Phase 2: Predicate cleaning
+        for assertion in assertions:
+            old_pred = assertion["predicate"]
+            new_pred = clean_predicate(old_pred)
+            if new_pred != old_pred:
+                assertion["predicate"] = new_pred
+                report.predicates_cleaned += 1
+
+        # Phase 3: Compound object decomposition (rule-based)
+        new_assertions: list[dict] = []
+        to_remove: set[int] = set()
+        llm_candidates: list[tuple[int, str]] = []
+
+        for i, assertion in enumerate(assertions):
+            obj_name = assertion["object_canonical_name"]
+            parts = decompose_object(obj_name)
+            if len(parts) > 1:
+                to_remove.add(i)
+                report.claims_decomposed += 1
+                for j, part in enumerate(parts):
+                    new_a = copy.deepcopy(assertion)
+                    new_a["object_canonical_name"] = part
+                    new_a["draft_id"] = f"{assertion['draft_id']}_d{j + 1}"
+                    new_a["_decomposed_from"] = assertion["draft_id"]
+                    new_assertions.append(new_a)
+                    entities.append(
+                        {
+                            "canonical_name": part,
+                            "entity_type": self._find_entity_type(entities, obj_name),
+                            "ontology_id": None,
+                            "ontology_source": None,
+                            "aliases": [],
+                            "paper_ids": [assertion.get("paper_id", "")],
+                        }
+                    )
+                report.claims_produced += len(parts)
+            elif flag_for_llm_decomposition(obj_name) and self._llm_decompose:
+                llm_candidates.append((i, obj_name))
+
+        # Phase 3b: LLM fallback
+        if llm_candidates and self._llm_decompose:
+            objects_to_decompose = [obj for _, obj in llm_candidates]
+            decompositions = await llm_decompose_objects(objects_to_decompose, self._llm_fn)
+            report.llm_calls += 1 if self._llm_fn else 0
+            for (idx, _orig_obj), parts in zip(llm_candidates, decompositions):
+                if len(parts) > 1:
+                    to_remove.add(idx)
+                    assertion = assertions[idx]
+                    report.claims_decomposed += 1
+                    for j, part in enumerate(parts):
+                        new_a = copy.deepcopy(assertion)
+                        new_a["object_canonical_name"] = part
+                        new_a["draft_id"] = f"{assertion['draft_id']}_d{j + 1}"
+                        new_a["_decomposed_from"] = assertion["draft_id"]
+                        new_assertions.append(new_a)
+                        entities.append(
+                            {
+                                "canonical_name": part,
+                                "entity_type": self._find_entity_type(
+                                    entities, assertion["object_canonical_name"]
+                                ),
+                                "ontology_id": None,
+                                "ontology_source": None,
+                                "aliases": [],
+                                "paper_ids": [assertion.get("paper_id", "")],
+                            }
+                        )
+                    report.claims_produced += len(parts)
+
+        assertions = [a for i, a in enumerate(assertions) if i not in to_remove] + new_assertions
+
+        log.info(
+            "pre_dedup_normalization_complete",
+            text_cleaned=report.text_cleaned,
+            predicates_cleaned=report.predicates_cleaned,
+            claims_decomposed=report.claims_decomposed,
+            claims_produced=report.claims_produced,
+            llm_calls=report.llm_calls,
+        )
+        return entities, assertions, report
+
+    async def post_dedup(
+        self,
+        assertions: list[dict],
+    ) -> tuple[list[dict], NormalizationReport]:
+        """Run after entity dedup, before merge: quantitative context backfill."""
+        report = NormalizationReport()
+        for assertion in assertions:
+            if backfill_quantitative_context(assertion):
+                report.quant_backfilled += 1
+        log.info("post_dedup_normalization_complete", quant_backfilled=report.quant_backfilled)
+        return assertions, report
+
+    @staticmethod
+    def _find_entity_type(entities: list[dict], name: str) -> str:
+        """Look up entity_type for a given canonical name."""
+        for e in entities:
+            if e["canonical_name"] == name:
+                return e["entity_type"]
+        return "biological_process"
