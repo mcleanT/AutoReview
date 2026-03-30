@@ -9,7 +9,9 @@ No domain dependencies — pure math module.
 
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 import structlog
@@ -81,6 +83,10 @@ class HLMRFEngine:
         # Ordered dict: var_name -> (index, init_value)
         self._variables: dict[str, tuple[int, float]] = {}
         self._rules: list[GroundRule] = []
+        # Convergence metadata — updated after each solve()
+        self._last_converged: bool = True
+        self._last_n_iterations: int = 0
+        self._last_final_objective: float = 0.0
 
     # ------------------------------------------------------------------
     # Public API
@@ -119,6 +125,21 @@ class HLMRFEngine:
     def n_rules(self) -> int:
         """Number of registered ground rules."""
         return len(self._rules)
+
+    @property
+    def last_converged(self) -> bool:
+        """Whether the last solve() call converged."""
+        return self._last_converged
+
+    @property
+    def last_n_iterations(self) -> int:
+        """Number of iterations in the last solve() call."""
+        return self._last_n_iterations
+
+    @property
+    def last_final_objective(self) -> float:
+        """Final objective value from the last solve() call."""
+        return self._last_final_objective
 
     def solve(self) -> dict[str, float]:
         """Run MAP inference and return optimal truth values.
@@ -187,6 +208,21 @@ class HLMRFEngine:
                         if argmin_idx is not None:
                             grad[argmin_idx] += 2.0 * rule.weight * shortfall * rule.target
 
+                elif rule.rule_type == "aggregation":
+                    # Squared distance to weighted mean of body vars
+                    # body_coeffs are weights (should sum to 1 for a true mean)
+                    if rule.body_vars:
+                        body_mean = sum(
+                            bc * x[var_idx[bv]] for bv, bc in zip(rule.body_vars, rule.body_coeffs)
+                        )
+                    else:
+                        body_mean = rule.target
+                    diff = x[hi] - body_mean
+                    obj += rule.weight * diff * diff
+                    grad[hi] += 2.0 * rule.weight * diff
+                    for bv, bc in zip(rule.body_vars, rule.body_coeffs):
+                        grad[var_idx[bv]] -= 2.0 * rule.weight * diff * bc
+
             return obj, grad
 
         log.info(
@@ -205,6 +241,10 @@ class HLMRFEngine:
             options={"maxiter": self._max_iter, "ftol": self._tol, "gtol": self._tol},
         )
 
+        self._last_converged = result.success
+        self._last_n_iterations = int(result.nit)
+        self._last_final_objective = float(result.fun)
+
         log.info(
             "hlmrf.solve.done",
             converged=result.success,
@@ -214,3 +254,249 @@ class HLMRFEngine:
         )
 
         return dict(zip(var_names, result.x.tolist()))
+
+    def solve_incremental(
+        self,
+        prior_solution: dict[str, float],
+        affected_vars: set[str],
+        hop_radius: int = 2,
+    ) -> dict[str, float]:
+        """Re-solve the MRF using a prior solution as a warm start.
+
+        Only variables within ``hop_radius`` hops of ``affected_vars`` in the
+        rule adjacency graph are optimized; all others are frozen at their
+        ``prior_solution`` values.  This is substantially cheaper than a full
+        re-solve when the number of new variables is small relative to the graph.
+
+        Args:
+            prior_solution: Variable name -> value mapping from a previous solve().
+                Variables not present in prior_solution fall back to their registered
+                init value.
+            affected_vars: Set of variable names that have changed (e.g. new edges).
+            hop_radius: BFS depth limit from affected_vars when determining which
+                additional variables to free.  ``hop_radius=0`` frees only the
+                affected vars themselves; ``hop_radius=2`` (default) frees variables
+                up to two rule-hops away.
+
+        Returns:
+            Mapping from variable name to optimal truth value in [0, 1].
+        """
+        if self.n_variables == 0:
+            return {}
+
+        # Build rule adjacency graph: each variable is adjacent to all other
+        # variables that share a rule with it.
+        adjacency: dict[str, set[str]] = defaultdict(set)
+        for rule in self._rules:
+            all_rule_vars = [rule.head_var] + list(rule.body_vars)
+            for i, vi in enumerate(all_rule_vars):
+                for j, vj in enumerate(all_rule_vars):
+                    if i != j:
+                        adjacency[vi].add(vj)
+
+        # BFS from affected_vars to find free_vars within hop_radius hops.
+        free_vars: set[str] = set()
+        frontier = set(affected_vars) & set(self._variables)
+        for _ in range(hop_radius + 1):
+            free_vars |= frontier
+            next_frontier: set[str] = set()
+            for v in frontier:
+                for neighbor in adjacency.get(v, set()):
+                    if neighbor in self._variables and neighbor not in free_vars:
+                        next_frontier.add(neighbor)
+            frontier = next_frontier
+
+        # If no free vars, return prior solution (everything frozen).
+        if not free_vars:
+            var_names = sorted(self._variables, key=lambda v: self._variables[v][0])
+            result: dict[str, float] = {}
+            for v in var_names:
+                result[v] = prior_solution.get(v, self._variables[v][1])
+            return result
+
+        # Build full variable list in index order.
+        var_names = sorted(self._variables, key=lambda v: self._variables[v][0])
+        var_idx: dict[str, int] = {v: i for i, v in enumerate(var_names)}
+
+        # Build frozen values vector (used for non-free vars throughout optimization).
+        frozen_vals = np.array(
+            [prior_solution.get(v, self._variables[v][1]) for v in var_names],
+            dtype=np.float64,
+        )
+
+        # Free variable indices and initial values.
+        free_list = sorted(free_vars, key=lambda v: var_idx[v])
+        free_indices = np.array([var_idx[v] for v in free_list], dtype=np.intp)
+        x0_free = frozen_vals[free_indices].copy()
+
+        bounds = [(0.0, 1.0)] * len(free_list)
+
+        def objective_and_grad(x_free: np.ndarray) -> tuple[float, np.ndarray]:
+            # Reconstruct full x vector: frozen vars hold prior, free vars use x_free.
+            x = frozen_vals.copy()
+            x[free_indices] = x_free
+
+            obj = 0.0
+            grad_full = np.zeros(len(var_names), dtype=np.float64)
+
+            for rule in self._rules:
+                hi = var_idx[rule.head_var]
+
+                if rule.rule_type == "unary":
+                    diff = x[hi] - rule.target
+                    obj += rule.weight * diff * diff
+                    grad_full[hi] += 2.0 * rule.weight * diff
+
+                elif rule.rule_type == "contradiction":
+                    val = x[hi]
+                    for bv, bc in zip(rule.body_vars, rule.body_coeffs):
+                        val += bc * x[var_idx[bv]]
+                    violation = max(0.0, val - rule.target)
+                    if violation > 0.0:
+                        obj += rule.weight * violation * violation
+                        grad_full[hi] += 2.0 * rule.weight * violation
+                        for bv, bc in zip(rule.body_vars, rule.body_coeffs):
+                            grad_full[var_idx[bv]] += 2.0 * rule.weight * violation * bc
+
+                elif rule.rule_type == "composition":
+                    if rule.body_vars:
+                        body_indices = [var_idx[bv] for bv in rule.body_vars]
+                        body_vals = [x[bi] for bi in body_indices]
+                        argmin_local = int(np.argmin(body_vals))
+                        body_strength = body_vals[argmin_local]
+                        argmin_idx = body_indices[argmin_local]
+                    else:
+                        body_strength = 1.0
+                        argmin_idx = None
+                    expected = rule.target * body_strength
+                    shortfall = max(0.0, expected - x[hi])
+                    if shortfall > 0.0:
+                        obj += rule.weight * shortfall * shortfall
+                        grad_full[hi] -= 2.0 * rule.weight * shortfall
+                        if argmin_idx is not None:
+                            grad_full[argmin_idx] += 2.0 * rule.weight * shortfall * rule.target
+
+                elif rule.rule_type == "aggregation":
+                    # Squared distance to weighted mean of body vars
+                    # body_coeffs are weights (should sum to 1 for a true mean)
+                    if rule.body_vars:
+                        body_mean = sum(
+                            bc * x[var_idx[bv]] for bv, bc in zip(rule.body_vars, rule.body_coeffs)
+                        )
+                    else:
+                        body_mean = rule.target
+                    diff = x[hi] - body_mean
+                    obj += rule.weight * diff * diff
+                    grad_full[hi] += 2.0 * rule.weight * diff
+                    for bv, bc in zip(rule.body_vars, rule.body_coeffs):
+                        grad_full[var_idx[bv]] -= 2.0 * rule.weight * diff * bc
+
+            # Return only the gradients for free variables.
+            grad_free = grad_full[free_indices]
+            return obj, grad_free
+
+        log.info(
+            "hlmrf.solve_incremental.start",
+            n_variables=self.n_variables,
+            n_free=len(free_list),
+            n_frozen=self.n_variables - len(free_list),
+            n_rules=self.n_rules,
+        )
+
+        result_opt = minimize(
+            objective_and_grad,
+            x0_free,
+            method="L-BFGS-B",
+            jac=True,
+            bounds=bounds,
+            options={"maxiter": self._max_iter, "ftol": self._tol, "gtol": self._tol},
+        )
+
+        self._last_converged = result_opt.success
+        self._last_n_iterations = int(result_opt.nit)
+        self._last_final_objective = float(result_opt.fun)
+
+        log.info(
+            "hlmrf.solve_incremental.done",
+            converged=result_opt.success,
+            n_iter=result_opt.nit,
+            final_obj=float(result_opt.fun),
+        )
+
+        # Reconstruct the full solution dict.
+        x_final = frozen_vals.copy()
+        x_final[free_indices] = result_opt.x
+        return dict(zip(var_names, x_final.tolist()))
+
+    def compute_diagnostics(self, solution: dict[str, float]) -> list[dict[str, Any]]:
+        """Compute per-rule residuals given a solution.
+
+        Args:
+            solution: Variable name -> value mapping (output of solve()).
+
+        Returns:
+            List of dicts, one per rule, each with keys:
+                rule_index, rule_type, head_var, violation, target, actual.
+        """
+        if not self._rules:
+            return []
+
+        var_names = sorted(self._variables, key=lambda v: self._variables[v][0])
+        var_idx: dict[str, int] = {v: i for i, v in enumerate(var_names)}
+        x = np.array([solution.get(v, self._variables[v][1]) for v in var_names], dtype=np.float64)
+
+        results: list[dict[str, Any]] = []
+        for i, rule in enumerate(self._rules):
+            hi = var_idx[rule.head_var]
+
+            if rule.rule_type == "unary":
+                diff = x[hi] - rule.target
+                violation = rule.weight * diff * diff
+                actual = float(x[hi])
+
+            elif rule.rule_type == "contradiction":
+                val = x[hi]
+                for bv, bc in zip(rule.body_vars, rule.body_coeffs):
+                    val += bc * x[var_idx[bv]]
+                hinge = max(0.0, val - rule.target)
+                violation = rule.weight * hinge * hinge
+                actual = float(val)
+
+            elif rule.rule_type == "composition":
+                if rule.body_vars:
+                    body_vals = [x[var_idx[bv]] for bv in rule.body_vars]
+                    body_strength = min(body_vals)
+                else:
+                    body_strength = 1.0
+                expected = rule.target * body_strength
+                shortfall = max(0.0, expected - x[hi])
+                violation = rule.weight * shortfall * shortfall
+                actual = float(x[hi])
+
+            elif rule.rule_type == "aggregation":
+                if rule.body_vars:
+                    body_mean = sum(
+                        bc * x[var_idx[bv]] for bv, bc in zip(rule.body_vars, rule.body_coeffs)
+                    )
+                else:
+                    body_mean = rule.target
+                diff = x[hi] - body_mean
+                violation = rule.weight * diff * diff
+                actual = float(x[hi])
+
+            else:
+                violation = 0.0
+                actual = float(x[hi])
+
+            results.append(
+                {
+                    "rule_index": i,
+                    "rule_type": rule.rule_type,
+                    "head_var": rule.head_var,
+                    "violation": float(violation),
+                    "target": float(rule.target),
+                    "actual": actual,
+                }
+            )
+
+        return results

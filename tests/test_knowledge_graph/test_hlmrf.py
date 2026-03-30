@@ -373,3 +373,282 @@ def test_multiple_unary_rules_weighted_average() -> None:
 
     # Weighted minimum: d/dx [1*(x-0)^2 + 3*(x-1)^2] = 0 → 2x + 6x - 6 = 0 → x = 6/8 = 0.75
     assert abs(result["x"] - 0.75) < 1e-4, f"Expected ~0.75, got {result['x']:.4f}"
+
+
+# ---------------------------------------------------------------------------
+# Test 10: compute_diagnostics — per-rule residuals
+# ---------------------------------------------------------------------------
+
+
+def test_compute_diagnostics_returns_per_rule_residuals() -> None:
+    """compute_diagnostics should return one dict per rule with violation info."""
+    engine = HLMRFEngine()
+    engine.add_variable("x", init=0.5)
+    engine.add_ground_rule(
+        GroundRule(
+            head_var="x",
+            body_vars=[],
+            body_coeffs=[],
+            target=1.0,
+            weight=10.0,
+            rule_type="unary",
+        )
+    )
+    solution = engine.solve()
+    diagnostics = engine.compute_diagnostics(solution)
+    assert len(diagnostics) == 1
+    assert diagnostics[0]["rule_index"] == 0
+    assert diagnostics[0]["rule_type"] == "unary"
+    assert "violation" in diagnostics[0]
+    assert diagnostics[0]["violation"] >= 0.0
+
+
+def test_compute_diagnostics_multiple_rules() -> None:
+    """compute_diagnostics should return one entry per rule."""
+    engine = HLMRFEngine()
+    engine.add_variable("a", init=0.5)
+    engine.add_variable("b", init=0.5)
+    engine.add_ground_rule(
+        GroundRule(
+            head_var="a",
+            body_vars=[],
+            body_coeffs=[],
+            target=0.9,
+            weight=10.0,
+            rule_type="unary",
+        )
+    )
+    engine.add_ground_rule(
+        GroundRule(
+            head_var="b",
+            body_vars=[],
+            body_coeffs=[],
+            target=0.1,
+            weight=10.0,
+            rule_type="unary",
+        )
+    )
+    engine.add_ground_rule(
+        GroundRule(
+            head_var="a",
+            body_vars=["b"],
+            body_coeffs=[1.0],
+            target=1.0,
+            weight=5.0,
+            rule_type="contradiction",
+        )
+    )
+    solution = engine.solve()
+    diagnostics = engine.compute_diagnostics(solution)
+    assert len(diagnostics) == 3
+    types = [d["rule_type"] for d in diagnostics]
+    assert "unary" in types
+    assert "contradiction" in types
+
+
+def test_convergence_metadata_properties() -> None:
+    """After solve(), engine should expose convergence metadata."""
+    engine = HLMRFEngine()
+    engine.add_variable("x", init=0.5)
+    engine.add_ground_rule(
+        GroundRule(
+            head_var="x",
+            body_vars=[],
+            body_coeffs=[],
+            target=0.8,
+            weight=5.0,
+            rule_type="unary",
+        )
+    )
+    engine.solve()
+    assert isinstance(engine.last_converged, bool)
+    assert isinstance(engine.last_n_iterations, int)
+    assert isinstance(engine.last_final_objective, float)
+    assert engine.last_converged is True
+    assert engine.last_final_objective >= 0.0
+
+
+def test_convergence_metadata_defaults() -> None:
+    """Before solve(), metadata should have safe defaults."""
+    engine = HLMRFEngine()
+    assert engine.last_converged is True
+    assert engine.last_n_iterations == 0
+    assert engine.last_final_objective == 0.0
+
+
+# ---------------------------------------------------------------------------
+# Test 11: solve_incremental — frozen and free variables
+# ---------------------------------------------------------------------------
+
+
+def test_solve_incremental_freezes_unaffected() -> None:
+    """Variables outside hop_radius of affected_vars should stay frozen at prior values."""
+    engine = HLMRFEngine()
+    for v in ["a", "b", "c"]:
+        engine.add_variable(v, init=0.5)
+    engine.add_ground_rule(
+        GroundRule(
+            head_var="a",
+            body_vars=[],
+            body_coeffs=[],
+            target=0.9,
+            weight=10.0,
+            rule_type="unary",
+        )
+    )
+    engine.add_ground_rule(
+        GroundRule(
+            head_var="b",
+            body_vars=[],
+            body_coeffs=[],
+            target=0.8,
+            weight=10.0,
+            rule_type="unary",
+        )
+    )
+    engine.add_ground_rule(
+        GroundRule(
+            head_var="c",
+            body_vars=[],
+            body_coeffs=[],
+            target=0.7,
+            weight=10.0,
+            rule_type="unary",
+        )
+    )
+    prior = {"a": 0.88, "b": 0.78, "c": 0.68}
+    result = engine.solve_incremental(prior_solution=prior, affected_vars={"c"}, hop_radius=0)
+    # a and b frozen at prior values (no rules connecting them to c)
+    assert abs(result["a"] - 0.88) < 1e-6
+    assert abs(result["b"] - 0.78) < 1e-6
+    # c optimized toward target 0.7
+    assert abs(result["c"] - 0.7) < 0.05
+
+
+def test_solve_incremental_hop_radius_unfreezes_neighbors() -> None:
+    """hop_radius=1 should unfreeze vars connected to affected via rules."""
+    engine = HLMRFEngine()
+    for v in ["a", "b"]:
+        engine.add_variable(v, init=0.5)
+    engine.add_ground_rule(
+        GroundRule(
+            head_var="a",
+            body_vars=[],
+            body_coeffs=[],
+            target=0.9,
+            weight=10.0,
+            rule_type="unary",
+        )
+    )
+    engine.add_ground_rule(
+        GroundRule(
+            head_var="b",
+            body_vars=[],
+            body_coeffs=[],
+            target=0.8,
+            weight=10.0,
+            rule_type="unary",
+        )
+    )
+    engine.add_ground_rule(
+        GroundRule(
+            head_var="a",
+            body_vars=["b"],
+            body_coeffs=[1.0],
+            target=1.0,
+            weight=20.0,
+            rule_type="contradiction",
+        )
+    )
+    prior = {"a": 0.5, "b": 0.5}
+    result = engine.solve_incremental(prior_solution=prior, affected_vars={"a"}, hop_radius=1)
+    # Both a and b unfrozen — should move from 0.5
+    assert result["a"] != 0.5 or result["b"] != 0.5
+
+
+def test_solve_incremental_empty_affected_returns_prior() -> None:
+    """No affected vars = everything frozen = return prior solution."""
+    engine = HLMRFEngine()
+    engine.add_variable("x", init=0.5)
+    engine.add_ground_rule(
+        GroundRule(
+            head_var="x",
+            body_vars=[],
+            body_coeffs=[],
+            target=0.9,
+            weight=10.0,
+            rule_type="unary",
+        )
+    )
+    prior = {"x": 0.3}
+    result = engine.solve_incremental(prior_solution=prior, affected_vars=set(), hop_radius=2)
+    assert abs(result["x"] - 0.3) < 1e-6
+
+
+# ---------------------------------------------------------------------------
+# Test 12: Aggregation rule — finding tracks mean of body vars
+# ---------------------------------------------------------------------------
+
+
+def test_aggregation_rule_tracks_mean() -> None:
+    """Aggregation rule: head should converge toward mean of body vars."""
+    rule_b1 = GroundRule(
+        head_var="b1",
+        body_vars=[],
+        body_coeffs=[],
+        target=0.8,
+        weight=10.0,
+        rule_type="unary",
+    )
+    rule_b2 = GroundRule(
+        head_var="b2",
+        body_vars=[],
+        body_coeffs=[],
+        target=0.6,
+        weight=10.0,
+        rule_type="unary",
+    )
+    agg_rule = GroundRule(
+        head_var="f",
+        body_vars=["b1", "b2"],
+        body_coeffs=[0.5, 0.5],
+        target=0.0,
+        weight=10.0,
+        rule_type="aggregation",
+    )
+    rule_f = GroundRule(
+        head_var="f",
+        body_vars=[],
+        body_coeffs=[],
+        target=0.5,
+        weight=1.0,
+        rule_type="unary",
+    )
+    engine = make_engine(rule_b1, rule_b2, agg_rule, rule_f, b1=0.5, b2=0.5, f=0.5)
+    result = engine.solve()
+    assert abs(result["f"] - 0.7) < 0.1, f"Expected ~0.7, got {result['f']:.4f}"
+
+
+def test_aggregation_rule_in_diagnostics() -> None:
+    """Aggregation rule should appear in compute_diagnostics output."""
+    agg_rule = GroundRule(
+        head_var="f",
+        body_vars=["b1"],
+        body_coeffs=[1.0],
+        target=0.0,
+        weight=5.0,
+        rule_type="aggregation",
+    )
+    unary = GroundRule(
+        head_var="b1",
+        body_vars=[],
+        body_coeffs=[],
+        target=0.8,
+        weight=10.0,
+        rule_type="unary",
+    )
+    engine = make_engine(agg_rule, unary, f=0.5, b1=0.5)
+    solution = engine.solve()
+    diagnostics = engine.compute_diagnostics(solution)
+    types = [d["rule_type"] for d in diagnostics]
+    assert "aggregation" in types
