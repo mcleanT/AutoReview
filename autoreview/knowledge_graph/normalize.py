@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Awaitable, Callable
 
 _PARENTHETICAL_RE = re.compile(r"\s*\([^)]*\)")
 
@@ -311,3 +312,124 @@ def clean_entity_name(name: str) -> tuple[str, list[str]]:
     cleaned = _collapse_whitespace(cleaned)
     cleaned = _strip_trailing_descriptors(cleaned)
     return cleaned, aliases
+
+
+LLMDecomposeFn = Callable[[list[str]], Awaitable[list[list[str]]]]
+
+
+async def llm_decompose_objects(
+    objects: list[str],
+    llm_fn: LLMDecomposeFn | None,
+) -> list[list[str]]:
+    """Decompose objects using an LLM function.
+
+    Args:
+        objects: List of verbose object strings to decompose.
+        llm_fn: Async function that takes a batch of strings and returns
+            decompositions. If None, returns each object as a single-element list.
+
+    Returns:
+        List of decompositions, one per input object.
+    """
+    if llm_fn is None:
+        return [[obj] for obj in objects]
+    return await llm_fn(objects)
+
+
+_CONCENTRATION_RE = re.compile(
+    r"(\d+\.?\d*)\s*(ng/mL|µM|nM|mM|µg/mL|μM|μg/mL)", re.IGNORECASE
+)
+_TIMEPOINT_RE = re.compile(
+    r"(?:at\s+)?(\d+\.?\d*)\s*(h|hr|hrs|hours|d|days|min|minutes)\b", re.IGNORECASE
+)
+_DAY_TIMEPOINT_RE = re.compile(r"(?:at\s+)?day\s+(\d+\.?\d*)", re.IGNORECASE)
+_DOSE_RE = re.compile(r"(\d+\.?\d*)\s*(mg/kg|µg/kg|μg/kg|Gy|U/mL)", re.IGNORECASE)
+
+_TIME_UNIT_MAP: dict[str, str] = {
+    "hr": "h",
+    "hrs": "h",
+    "hours": "h",
+    "h": "h",
+    "days": "d",
+    "d": "d",
+    "minutes": "min",
+    "min": "min",
+}
+
+
+def _extract_concentration(text: str) -> str | None:
+    m = _CONCENTRATION_RE.search(text)
+    return f"{m.group(1)} {m.group(2)}" if m else None
+
+
+def _extract_timepoint(text: str) -> str | None:
+    m = _DAY_TIMEPOINT_RE.search(text)
+    if m:
+        return f"{m.group(1)}d"
+    m = _TIMEPOINT_RE.search(text)
+    if m:
+        unit = _TIME_UNIT_MAP.get(m.group(2).lower(), m.group(2))
+        return f"{m.group(1)}{unit}"
+    return None
+
+
+def _extract_dose(text: str) -> str | None:
+    m = _DOSE_RE.search(text)
+    return f"{m.group(1)} {m.group(2)}" if m else None
+
+
+def backfill_quantitative_context(assertion: dict) -> bool:
+    """Parse quantitative values from natural_language when quantitative_context is null.
+
+    Modifies assertion in place. Returns True if any field was backfilled.
+    Never overwrites existing non-null values in quantitative_context.
+    Falls back to conditions.treatment strings when natural_language yields no matches.
+    """
+    qc = assertion.get("quantitative_context")
+
+    # Build combined text for extraction
+    texts = [assertion.get("natural_language", "")]
+    conditions = assertion.get("conditions") or {}
+    treatments = conditions.get("treatment", [])
+    if treatments:
+        texts.extend(treatments)
+    combined = " ".join(texts)
+
+    if qc is not None and isinstance(qc, dict):
+        # Existing qc — only backfill null fields
+        has_any_value = any(
+            qc.get(k) is not None for k in ("concentration", "timepoint", "dose")
+        )
+        if has_any_value:
+            changed = False
+            if qc.get("concentration") is None:
+                val = _extract_concentration(combined)
+                if val:
+                    qc["concentration"] = val
+                    changed = True
+            if qc.get("timepoint") is None:
+                val = _extract_timepoint(combined)
+                if val:
+                    qc["timepoint"] = val
+                    changed = True
+            if qc.get("dose") is None:
+                val = _extract_dose(combined)
+                if val:
+                    qc["dose"] = val
+                    changed = True
+            return changed
+
+    # qc is None or all fields null — try to build from scratch
+    concentration = _extract_concentration(combined)
+    timepoint = _extract_timepoint(combined)
+    dose = _extract_dose(combined)
+
+    if concentration is None and timepoint is None and dose is None:
+        return False
+
+    assertion["quantitative_context"] = {
+        "concentration": concentration,
+        "timepoint": timepoint,
+        "dose": dose,
+    }
+    return True

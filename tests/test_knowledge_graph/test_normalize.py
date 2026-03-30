@@ -205,3 +205,171 @@ class TestCompoundDecomposition:
         # "ng/mL" should not be split
         result = decompose_object("10 ng/mL BMP4 treatment effect")
         assert len(result) == 1
+
+
+import asyncio
+
+
+class TestLLMDecomposition:
+    """Tests for LLM fallback decomposition with mocked LLM."""
+
+    def test_llm_fallback_decomposes_verbose_object(self):
+        from autoreview.knowledge_graph.normalize import llm_decompose_objects
+
+        async def mock_llm(objects: list[str]) -> list[list[str]]:
+            return [["endoderm differentiation", "mesoderm differentiation"]]
+
+        result = asyncio.get_event_loop().run_until_complete(
+            llm_decompose_objects(
+                [
+                    "self-organization of human gastruloids into homogenous subpopulations of endoderm and mesoderm"
+                ],
+                mock_llm,
+            )
+        )
+        assert result == [["endoderm differentiation", "mesoderm differentiation"]]
+
+    def test_llm_fallback_atomic_passthrough(self):
+        from autoreview.knowledge_graph.normalize import llm_decompose_objects
+
+        async def mock_llm(objects: list[str]) -> list[list[str]]:
+            return [["mesoderm differentiation"]]
+
+        result = asyncio.get_event_loop().run_until_complete(
+            llm_decompose_objects(["mesoderm differentiation"], mock_llm)
+        )
+        assert result == [["mesoderm differentiation"]]
+
+    def test_llm_fallback_batch(self):
+        from autoreview.knowledge_graph.normalize import llm_decompose_objects
+
+        async def mock_llm(objects: list[str]) -> list[list[str]]:
+            return [
+                ["endoderm", "mesoderm"],
+                ["neural crest migration", "neural tube closure"],
+            ]
+
+        result = asyncio.get_event_loop().run_until_complete(
+            llm_decompose_objects(["obj1 long enough words", "obj2 long enough words"], mock_llm)
+        )
+        assert len(result) == 2
+        assert result[0] == ["endoderm", "mesoderm"]
+        assert result[1] == ["neural crest migration", "neural tube closure"]
+
+    def test_llm_fallback_none_fn_returns_originals(self):
+        from autoreview.knowledge_graph.normalize import llm_decompose_objects
+
+        result = asyncio.get_event_loop().run_until_complete(
+            llm_decompose_objects(["some verbose object name here"], None)
+        )
+        assert result == [["some verbose object name here"]]
+
+
+class TestQuantitativeBackfill:
+    """Tests for extracting quantitative context from natural language text."""
+
+    def test_extract_concentration(self):
+        from autoreview.knowledge_graph.normalize import backfill_quantitative_context
+
+        assertion = {
+            "natural_language": "BMP4 at 10 ng/mL induces mesoderm differentiation",
+            "quantitative_context": None,
+        }
+        changed = backfill_quantitative_context(assertion)
+        assert changed is True
+        assert assertion["quantitative_context"]["concentration"] == "10 ng/mL"
+
+    def test_extract_timepoint(self):
+        from autoreview.knowledge_graph.normalize import backfill_quantitative_context
+
+        assertion = {
+            "natural_language": "Mesoderm markers appear at 48h of culture",
+            "quantitative_context": None,
+        }
+        changed = backfill_quantitative_context(assertion)
+        assert changed is True
+        assert assertion["quantitative_context"]["timepoint"] == "48h"
+
+    def test_normalize_time_units(self):
+        from autoreview.knowledge_graph.normalize import backfill_quantitative_context
+
+        assertion = {
+            "natural_language": "Expression peaks at 72 hours post-treatment",
+            "quantitative_context": None,
+        }
+        changed = backfill_quantitative_context(assertion)
+        assert changed is True
+        assert assertion["quantitative_context"]["timepoint"] == "72h"
+
+    def test_extract_dose(self):
+        from autoreview.knowledge_graph.normalize import backfill_quantitative_context
+
+        assertion = {
+            "natural_language": "Animals received 5 mg/kg of the compound",
+            "quantitative_context": None,
+        }
+        changed = backfill_quantitative_context(assertion)
+        assert changed is True
+        assert assertion["quantitative_context"]["dose"] == "5 mg/kg"
+
+    def test_extract_multiple_fields(self):
+        from autoreview.knowledge_graph.normalize import backfill_quantitative_context
+
+        assertion = {
+            "natural_language": "BMP4 at 10 ng/mL induces T expression at 48h",
+            "quantitative_context": None,
+        }
+        changed = backfill_quantitative_context(assertion)
+        assert changed is True
+        assert assertion["quantitative_context"]["concentration"] == "10 ng/mL"
+        assert assertion["quantitative_context"]["timepoint"] == "48h"
+
+    def test_no_overwrite_existing(self):
+        from autoreview.knowledge_graph.normalize import backfill_quantitative_context
+
+        assertion = {
+            "natural_language": "BMP4 at 10 ng/mL induces mesoderm at 48h",
+            "quantitative_context": {
+                "concentration": "5 ng/mL",
+                "timepoint": None,
+                "dose": None,
+            },
+        }
+        changed = backfill_quantitative_context(assertion)
+        assert changed is True
+        assert assertion["quantitative_context"]["concentration"] == "5 ng/mL"  # preserved
+        assert assertion["quantitative_context"]["timepoint"] == "48h"  # backfilled
+
+    def test_no_match_returns_false(self):
+        from autoreview.knowledge_graph.normalize import backfill_quantitative_context
+
+        assertion = {
+            "natural_language": "BMP4 induces mesoderm differentiation",
+            "quantitative_context": None,
+        }
+        changed = backfill_quantitative_context(assertion)
+        assert changed is False
+        assert assertion["quantitative_context"] is None
+
+    def test_fallback_to_treatment(self):
+        from autoreview.knowledge_graph.normalize import backfill_quantitative_context
+
+        assertion = {
+            "natural_language": "BMP4 induces mesoderm",
+            "quantitative_context": None,
+            "conditions": {"treatment": ["10 ng/mL BMP4"]},
+        }
+        changed = backfill_quantitative_context(assertion)
+        assert changed is True
+        assert assertion["quantitative_context"]["concentration"] == "10 ng/mL"
+
+    def test_day_timepoint(self):
+        from autoreview.knowledge_graph.normalize import backfill_quantitative_context
+
+        assertion = {
+            "natural_language": "At day 5 gastruloids show elongation",
+            "quantitative_context": None,
+        }
+        changed = backfill_quantitative_context(assertion)
+        assert changed is True
+        assert assertion["quantitative_context"]["timepoint"] == "5d"
