@@ -665,3 +665,190 @@ def test_existing_edge_tests_unchanged_with_finding_layer_off() -> None:
     assert result.posteriors["edge_ac"] > 0.38
     assert result.posteriors["edge_ab"] > 0.75
     assert result.posteriors["edge_bc"] > 0.75
+
+
+# ---------------------------------------------------------------------------
+# Integration tests — 3-paper fixture graph
+# ---------------------------------------------------------------------------
+
+
+def _make_3paper_integration_graph() -> nx.MultiDiGraph:
+    """3 papers, ~10 edges, 2 topic clusters, 1 directional + 1 boundary contradiction.
+
+    Cluster 1: BMP4 → mesoderm (activating)
+      - Paper 1: induces, positive, mouse, in_vitro (strong)
+      - Paper 1: is_sufficient_for, positive, mouse, in_vitro (strong)
+      - Paper 2: induces, negative, mouse, in_vitro (weak — contradiction)
+      - Paper 3: induces, positive, human, in_vitro (different organism)
+
+    Cluster 2: SMAD1 → neural (activating)
+      - Paper 1: induces, positive, mouse, in_vitro
+      - Paper 2: is_sufficient_for, positive, mouse, in_vitro (agreement)
+    """
+    G = nx.MultiDiGraph()
+    G.add_node("bmp4", canonical_name="BMP4", entity_type="protein")
+    G.add_node("meso", canonical_name="mesoderm", entity_type="biological_process")
+    G.add_node("smad1", canonical_name="SMAD1", entity_type="protein")
+    G.add_node("neural", canonical_name="neural", entity_type="biological_process")
+
+    # Cluster 1 edges
+    G.add_edge(
+        "bmp4",
+        "meso",
+        edge_id="c1p1e1",
+        predicate="induces",
+        direction="positive",
+        confidence_mean=0.85,
+        organism="Mus musculus",
+        model_system="mESC",
+        in_vitro=True,
+        conditions={},
+        section_source="primary_empirical",
+        natural_language="BMP4 induces mesoderm (paper 1)",
+        _kg_edge=None,
+    )
+    G.add_edge(
+        "bmp4",
+        "meso",
+        edge_id="c1p1e2",
+        predicate="is_sufficient_for",
+        direction="positive",
+        confidence_mean=0.80,
+        organism="Mus musculus",
+        model_system="mESC",
+        in_vitro=True,
+        conditions={},
+        section_source="primary_empirical",
+        natural_language="BMP4 is sufficient for mesoderm (paper 1)",
+        _kg_edge=None,
+    )
+    G.add_edge(
+        "bmp4",
+        "meso",
+        edge_id="c1p2e1",
+        predicate="induces",
+        direction="negative",
+        confidence_mean=0.35,
+        organism="Mus musculus",
+        model_system="mESC",
+        in_vitro=True,
+        conditions={},
+        section_source="primary_empirical",
+        natural_language="BMP4 does not induce mesoderm (paper 2)",
+        _kg_edge=None,
+    )
+    G.add_edge(
+        "bmp4",
+        "meso",
+        edge_id="c1p3e1",
+        predicate="induces",
+        direction="positive",
+        confidence_mean=0.70,
+        organism="Homo sapiens",
+        model_system="iPSC",
+        in_vitro=True,
+        conditions={},
+        section_source="primary_empirical",
+        natural_language="BMP4 induces mesoderm in human iPSC (paper 3)",
+        _kg_edge=None,
+    )
+
+    # Cluster 2 edges
+    G.add_edge(
+        "smad1",
+        "neural",
+        edge_id="c2p1e1",
+        predicate="induces",
+        direction="positive",
+        confidence_mean=0.75,
+        organism="Mus musculus",
+        model_system="mESC",
+        in_vitro=True,
+        conditions={},
+        section_source="primary_empirical",
+        natural_language="SMAD1 induces neural (paper 1)",
+        _kg_edge=None,
+    )
+    G.add_edge(
+        "smad1",
+        "neural",
+        edge_id="c2p2e1",
+        predicate="is_sufficient_for",
+        direction="positive",
+        confidence_mean=0.70,
+        organism="Mus musculus",
+        model_system="mESC",
+        in_vitro=True,
+        conditions={},
+        section_source="primary_empirical",
+        natural_language="SMAD1 is sufficient for neural (paper 2)",
+        _kg_edge=None,
+    )
+    return G
+
+
+def test_integration_clusters_form_correctly() -> None:
+    """Cluster 1 (BMP4→mesoderm) and Cluster 2 (SMAD1→neural) should form."""
+    from autoreview.knowledge_graph.cluster import build_topic_clusters
+
+    G = _make_3paper_integration_graph()
+    clusters = build_topic_clusters(G)
+    assert len(clusters) == 2
+    subjects = {c.subject_id for c in clusters}
+    assert "bmp4" in subjects
+    assert "smad1" in subjects
+
+
+def test_integration_findings_form_correctly() -> None:
+    """Cluster 1 should have 3 findings (pos+mouse, neg+mouse, pos+human)."""
+    from autoreview.knowledge_graph.cluster import build_topic_clusters, form_findings
+
+    G = _make_3paper_integration_graph()
+    clusters = build_topic_clusters(G)
+    findings = form_findings(clusters, G)
+    # Cluster 1: 3 findings (pos/mouse/invitro, neg/mouse/invitro, pos/human/invitro)
+    # Cluster 2: 1 finding (pos/mouse/invitro)
+    assert len(findings) >= 4
+
+
+def test_integration_contradictions_detected() -> None:
+    """Should detect at least 1 directional contradiction in cluster 1."""
+    from autoreview.knowledge_graph.cluster import (
+        build_topic_clusters,
+        detect_finding_contradictions,
+        form_findings,
+    )
+
+    G = _make_3paper_integration_graph()
+    clusters = build_topic_clusters(G)
+    findings = form_findings(clusters, G)
+    contradictions = detect_finding_contradictions(findings, clusters, graph=G)
+    assert len(contradictions) >= 1
+    directional = [c for c in contradictions if c.contradiction_type == "directional"]
+    assert len(directional) >= 1
+
+
+def test_integration_mrf_resolves() -> None:
+    """MRF with finding layer should resolve contradictions."""
+    G = _make_3paper_integration_graph()
+    config = MRFConfig(enable_finding_layer=True)
+    result = score_graph_mrf(G, config=config)
+    assert result.converged
+    assert result.n_findings >= 4
+    assert len(result.finding_posteriors) >= 4
+    for val in result.posteriors.values():
+        assert 0.0 <= val <= 1.0
+    for val in result.finding_posteriors.values():
+        assert 0.0 <= val <= 1.0
+
+
+def test_integration_non_contradicted_unaffected() -> None:
+    """Cluster 2 (SMAD1→neural, no contradiction) should be stable."""
+    G = _make_3paper_integration_graph()
+    config_on = MRFConfig(enable_finding_layer=True)
+    result_on = score_graph_mrf(G, config=config_on)
+    config_off = MRFConfig(enable_finding_layer=False)
+    result_off = score_graph_mrf(G, config=config_off)
+    for eid in ["c2p1e1", "c2p2e1"]:
+        diff = abs(result_on.posteriors[eid] - result_off.posteriors[eid])
+        assert diff < 0.15, f"Non-contradicted edge {eid} shifted too much: {diff:.4f}"
