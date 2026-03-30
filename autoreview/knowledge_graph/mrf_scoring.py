@@ -19,6 +19,11 @@ from dataclasses import dataclass, field
 import networkx as nx
 import structlog
 
+from autoreview.knowledge_graph.cluster import (
+    build_topic_clusters,
+    detect_finding_contradictions,
+    form_findings,
+)
 from autoreview.knowledge_graph.condition_compat import ConditionVector, condition_coupling
 from autoreview.knowledge_graph.hlmrf import GroundRule, HLMRFEngine
 from autoreview.knowledge_graph.predicate_algebra import compose_predicates
@@ -122,18 +127,20 @@ class MRFResult:
 def _ground_rules(
     graph: nx.MultiDiGraph,
     config: MRFConfig,
-) -> tuple[HLMRFEngine, dict[str, dict], int, int]:
+) -> tuple[HLMRFEngine, dict[str, dict], int, int, int, int, list]:
     """Ground all MRF rules from graph structure.
 
-    Performs Steps 1–5 of the MRF pipeline: collect edges, register variables,
-    add unary evidence rules, contradiction rules, and composition rules.
+    Performs Steps 1–6 of the MRF pipeline: collect edges, register variables,
+    add unary evidence rules, contradiction rules, composition rules, and
+    (optionally) finding-layer rules.
 
     Args:
         graph: A NetworkX MultiDiGraph with edge attributes.
         config: MRF hyperparameters.
 
     Returns:
-        Tuple of (engine, edge_data, n_contradictions, n_compositions).
+        Tuple of (engine, edge_data, n_contradictions, n_compositions,
+        n_findings, n_finding_contradictions, all_findings).
         ``edge_data`` maps edge_id → enriched attribute dict.
         The engine is fully grounded and ready for ``solve()`` or
         ``solve_incremental()``.
@@ -328,7 +335,100 @@ def _ground_rules(
 
     log.info("mrf_scoring.composition_rules_added", n_composition_rules=n_compositions)
 
-    return engine, edge_data, n_contradictions, n_compositions
+    # -----------------------------------------------------------------------
+    # Step 6: Finding layer (optional)
+    # -----------------------------------------------------------------------
+    n_findings = 0
+    n_finding_contradictions = 0
+    all_findings: list = []
+
+    if config.enable_finding_layer:
+        clusters = build_topic_clusters(graph)
+        all_findings = form_findings(clusters, graph)
+        finding_contras = detect_finding_contradictions(
+            all_findings,
+            clusters,
+            graph=graph,
+        )
+
+        n_findings = len(all_findings)
+        n_finding_contradictions = len(finding_contras)
+
+        # Register finding variables
+        for finding in all_findings:
+            var_name = f"finding:{finding.finding_id}"
+            engine.add_variable(var_name, init=finding.confidence.mean)
+
+        # Rule type 1: Upward aggregation (edge → finding)
+        for finding in all_findings:
+            member_ids = [eid for eid in finding.member_edge_ids if eid in edge_data]
+            if not member_ids:
+                continue
+            n_members = len(member_ids)
+            coeffs = [1.0 / n_members] * n_members
+            var_name = f"finding:{finding.finding_id}"
+            engine.add_ground_rule(
+                GroundRule(
+                    head_var=var_name,
+                    body_vars=member_ids,
+                    body_coeffs=coeffs,
+                    target=0.0,
+                    weight=config.evidence_weight,
+                    rule_type="aggregation",
+                )
+            )
+
+        # Rule type 2: Finding contradiction (finding ↔ finding)
+        for fc in finding_contras:
+            if fc.contradiction_type == "boundary":
+                continue
+            var_a = f"finding:{fc.finding_a_id}"
+            var_b = f"finding:{fc.finding_b_id}"
+            effective_weight = config.finding_contradiction_weight * fc.severity
+            engine.add_ground_rule(
+                GroundRule(
+                    head_var=var_a,
+                    body_vars=[var_b],
+                    body_coeffs=[1.0],
+                    target=1.0,
+                    weight=effective_weight,
+                    rule_type="contradiction",
+                )
+            )
+            n_contradictions += 1
+
+        # Rule type 3: Downward propagation (finding → edge)
+        for finding in all_findings:
+            var_name = f"finding:{finding.finding_id}"
+            for eid in finding.member_edge_ids:
+                if eid not in edge_data:
+                    continue
+                engine.add_ground_rule(
+                    GroundRule(
+                        head_var=var_name,
+                        body_vars=[eid],
+                        body_coeffs=[-1.0],
+                        target=0.0,
+                        weight=config.propagation_weight,
+                        rule_type="contradiction",
+                    )
+                )
+
+        log.info(
+            "mrf_scoring.finding_layer_added",
+            n_findings=n_findings,
+            n_finding_contradictions=n_finding_contradictions,
+        )
+
+    return (
+        engine,
+        edge_data,
+        n_contradictions,
+        n_compositions,
+        n_findings,
+        n_finding_contradictions,
+        all_findings,
+    )
 
 
 def _build_diagnostics(
@@ -409,7 +509,15 @@ def score_graph_mrf(
     if config is None:
         config = MRFConfig()
 
-    engine, edge_data, n_contradictions, n_compositions = _ground_rules(graph, config)
+    (
+        engine,
+        edge_data,
+        n_contradictions,
+        n_compositions,
+        n_findings,
+        n_finding_contradictions,
+        all_findings,
+    ) = _ground_rules(graph, config)
 
     if not edge_data:
         log.info("mrf_scoring.empty_graph")
@@ -426,14 +534,24 @@ def score_graph_mrf(
 
     log.info("mrf_scoring.solve_done", n_posteriors=len(posteriors))
 
+    # Extract finding posteriors (separate from edge posteriors)
+    finding_posteriors: dict[str, float] = {}
+    for finding in all_findings:
+        var_name = f"finding:{finding.finding_id}"
+        if var_name in posteriors:
+            finding_posteriors[finding.finding_id] = posteriors[var_name]
+
     return MRFResult(
-        posteriors=posteriors,
+        posteriors={k: v for k, v in posteriors.items() if not k.startswith("finding:")},
         n_variables=engine.n_variables,
         n_rules=engine.n_rules,
         n_contradictions=n_contradictions,
         n_compositions=n_compositions,
         converged=engine.last_converged,
         diagnostics=diagnostics,
+        finding_posteriors=finding_posteriors,
+        n_findings=n_findings,
+        n_finding_contradictions=n_finding_contradictions,
     )
 
 
@@ -461,7 +579,15 @@ def update_graph_mrf(
     if config is None:
         config = MRFConfig()
 
-    engine, edge_data, n_contradictions, n_compositions = _ground_rules(graph, config)
+    (
+        engine,
+        edge_data,
+        n_contradictions,
+        n_compositions,
+        n_findings,
+        n_finding_contradictions,
+        all_findings,
+    ) = _ground_rules(graph, config)
 
     if not edge_data:
         return MRFResult()
@@ -480,12 +606,22 @@ def update_graph_mrf(
         n_posteriors=len(posteriors),
     )
 
+    # Extract finding posteriors (separate from edge posteriors)
+    finding_posteriors: dict[str, float] = {}
+    for finding in all_findings:
+        var_name = f"finding:{finding.finding_id}"
+        if var_name in posteriors:
+            finding_posteriors[finding.finding_id] = posteriors[var_name]
+
     return MRFResult(
-        posteriors=posteriors,
+        posteriors={k: v for k, v in posteriors.items() if not k.startswith("finding:")},
         n_variables=engine.n_variables,
         n_rules=engine.n_rules,
         n_contradictions=n_contradictions,
         n_compositions=n_compositions,
         converged=engine.last_converged,
         diagnostics=diagnostics,
+        finding_posteriors=finding_posteriors,
+        n_findings=n_findings,
+        n_finding_contradictions=n_finding_contradictions,
     )

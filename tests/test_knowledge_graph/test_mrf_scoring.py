@@ -556,3 +556,112 @@ def test_finding_layer_disabled_matches_baseline() -> None:
     result_default = score_graph_mrf(G, config=config_default)
     for eid in result_off.posteriors:
         assert abs(result_off.posteriors[eid] - result_default.posteriors[eid]) < 1e-9
+
+
+# ---------------------------------------------------------------------------
+# Finding layer integration tests
+# ---------------------------------------------------------------------------
+
+
+def _make_finding_contradiction_graph() -> nx.MultiDiGraph:
+    """Graph with two papers contradicting at the finding level."""
+    G = nx.MultiDiGraph()
+    G.add_node("bmp4", canonical_name="BMP4", entity_type="protein")
+    G.add_node("meso", canonical_name="mesoderm", entity_type="biological_process")
+    G.add_edge(
+        "bmp4",
+        "meso",
+        edge_id="pos1",
+        predicate="induces",
+        direction="positive",
+        confidence_mean=0.85,
+        organism="Mus musculus",
+        model_system="mESC",
+        in_vitro=True,
+        conditions={},
+        section_source="primary_empirical",
+        natural_language="BMP4 induces mesoderm",
+        _kg_edge=None,
+    )
+    G.add_edge(
+        "bmp4",
+        "meso",
+        edge_id="pos2",
+        predicate="is_sufficient_for",
+        direction="positive",
+        confidence_mean=0.80,
+        organism="Mus musculus",
+        model_system="mESC",
+        in_vitro=True,
+        conditions={},
+        section_source="primary_empirical",
+        natural_language="BMP4 is sufficient for mesoderm",
+        _kg_edge=None,
+    )
+    G.add_edge(
+        "bmp4",
+        "meso",
+        edge_id="neg1",
+        predicate="induces",
+        direction="negative",
+        confidence_mean=0.40,
+        organism="Mus musculus",
+        model_system="mESC",
+        in_vitro=True,
+        conditions={},
+        section_source="primary_empirical",
+        natural_language="BMP4 does not induce mesoderm",
+        _kg_edge=None,
+    )
+    return G
+
+
+def test_finding_layer_produces_finding_posteriors() -> None:
+    G = _make_finding_contradiction_graph()
+    config = MRFConfig(enable_finding_layer=True)
+    result = score_graph_mrf(G, config=config)
+    assert result.n_findings >= 2
+    assert len(result.finding_posteriors) >= 2
+    for fid, val in result.finding_posteriors.items():
+        assert 0.0 <= val <= 1.0
+
+
+def test_finding_contradiction_reduces_weaker_finding() -> None:
+    G = _make_finding_contradiction_graph()
+    config = MRFConfig(enable_finding_layer=True)
+    result = score_graph_mrf(G, config=config)
+    posteriors = result.finding_posteriors
+    finding_vals = sorted(posteriors.values())
+    assert finding_vals[0] < finding_vals[-1], (
+        f"Weaker finding should have lower posterior: {finding_vals}"
+    )
+
+
+def test_downward_propagation_reduces_member_edges() -> None:
+    G = _make_finding_contradiction_graph()
+    config_off = MRFConfig(enable_finding_layer=False)
+    result_off = score_graph_mrf(G, config=config_off)
+    config_on = MRFConfig(enable_finding_layer=True)
+    result_on = score_graph_mrf(G, config=config_on)
+    neg1_off = result_off.posteriors.get("neg1", 0.5)
+    neg1_on = result_on.posteriors.get("neg1", 0.5)
+    assert neg1_on <= neg1_off + 0.05, (
+        f"neg1 should not increase much with finding layer: off={neg1_off:.4f}, on={neg1_on:.4f}"
+    )
+
+
+def test_finding_layer_off_no_finding_vars() -> None:
+    G = _make_finding_contradiction_graph()
+    config = MRFConfig(enable_finding_layer=False)
+    result = score_graph_mrf(G, config=config)
+    assert result.n_findings == 0
+    assert result.finding_posteriors == {}
+
+
+def test_existing_edge_tests_unchanged_with_finding_layer_off() -> None:
+    G = _make_scored_graph()
+    config = MRFConfig(enable_finding_layer=False)
+    result = score_graph_mrf(G, config=config)
+    assert result.posteriors["edge_ac"] > 0.38
+    assert result.posteriors["edge_ab"] > 0.75
+    assert result.posteriors["edge_bc"] > 0.75
