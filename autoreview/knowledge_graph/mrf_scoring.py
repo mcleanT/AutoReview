@@ -395,9 +395,10 @@ def _ground_rules(
                     rule_type="contradiction",
                 )
             )
-            n_contradictions += 1
 
         # Rule type 3: Downward propagation (finding → edge)
+        # head_var=eid so the edge is penalised when edge > finding, pulling
+        # member edges DOWN when their finding's posterior drops.
         for finding in all_findings:
             var_name = f"finding:{finding.finding_id}"
             for eid in finding.member_edge_ids:
@@ -405,8 +406,8 @@ def _ground_rules(
                     continue
                 engine.add_ground_rule(
                     GroundRule(
-                        head_var=var_name,
-                        body_vars=[eid],
+                        head_var=eid,
+                        body_vars=[var_name],
                         body_coeffs=[-1.0],
                         target=0.0,
                         weight=config.propagation_weight,

@@ -512,6 +512,10 @@ def _finding_coupling(fa: Finding, fb: Finding) -> float:
 
     Formula: 0.7 * org_score + 0.3 * vitro_score
 
+    # Simplified coupling for findings — findings already group by
+    # (organism_class, in_vitro), so we only need species-level and
+    # vitro-level comparison, not the full ConditionVector scoring.
+
     Args:
         fa: First finding.
         fb: Second finding.
