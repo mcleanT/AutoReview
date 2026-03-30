@@ -1,16 +1,13 @@
-## Last Session: 2026-03-30
+# Last Session State
 
-### What was worked on
-- feat(kg): Meta-level contradiction structure — full implementation from spec through code review
-  - New cluster.py: TopicCluster, Finding, FindingContradiction with predicate class collapse
-  - Aggregation rule type in HL-MRF engine
-  - Finding layer wired into MRF scoring (3 rule types)
-  - Finding-level analysis functions
-  - Audit caught: incremental solve losing finding posteriors, propagation direction bug
-  - Docs: README, CHANGELOG v0.4.0, ARCHITECTURE updated
-  - 502 tests passing, 0 regressions
+Last updated: 2026-03-30
 
-### Current state
-- Branch: main, all changes committed
-- 12 commits for the finding layer feature
-- enable_finding_layer=True by default in MRFConfig
+## Current State
+- v11.2.1 prompt confirmed as stable standard (reverted from v11.3 experiments)
+- Citation supplement system fully implemented and tested:
+  - citation_supplement.py: needs_citation_supplement(), extract_sections(), build_claim_summary(), run_citation_supplement(), merge_supplement(), extract_with_supplement()
+  - kg_citation_supplement_prompt.md: focused prompt with correct schema (matching main extraction fields)
+  - batch_extract_kg.py: --supplement and --poll-supplement flags integrated
+- Test results: Large paper 0→25 attributed_prior, medium/small correctly not triggered
+- Fixed citation regex to handle (N) parenthetical format
+- Ready for large-scale extraction: run main batch, then --supplement pass

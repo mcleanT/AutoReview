@@ -166,15 +166,31 @@ def _quant_context_present(claim: dict) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def _metric_density(n: int) -> float:
+def _metric_density(n: int, paper_chars: int = 0) -> float:
+    """Score claim density, optionally scaling with paper size.
+
+    When paper_chars > 0, the sweet-spot floor and ceiling scale linearly
+    with paper length (roughly 5 claims per 10K chars as floor, 10 per 10K
+    as ceiling).  When paper_chars == 0 (unknown), falls back to a wide
+    fixed range of 15–120 that avoids penalising any reasonable extraction.
+    """
     if n == 0:
         return 0.0
-    if n < 25:
-        return n / 25
-    if n <= 50:
+    if paper_chars > 0:
+        # Scale sweet-spot with paper size
+        units = paper_chars / 10_000  # 10K-char units
+        floor = max(10, int(units * 5))  # ~5 claims per 10K chars
+        ceiling = max(30, int(units * 10))  # ~10 claims per 10K chars
+    else:
+        # Unknown paper size — wide permissive range
+        floor = 15
+        ceiling = 120
+    if n < floor:
+        return n / floor
+    if n <= ceiling:
         return 1.0
-    # linear penalty above 50; reaches 0 at n == 100
-    return max(0.0, 1.0 - (n - 50) / 50)
+    # Gentle penalty above ceiling; reaches 0 at 2x ceiling
+    return max(0.0, 1.0 - (n - ceiling) / ceiling)
 
 
 def _metric_predicate_valid(claims: list[dict]) -> float:
@@ -319,6 +335,7 @@ def _metric_citation_contexts(data: dict) -> float:
 def score_extraction(
     data: dict,
     rapid: bool = False,
+    paper_chars: int = 0,
 ) -> tuple[float, dict[str, float]]:
     """Score a KG extraction result against quality metrics.
 
@@ -328,6 +345,8 @@ def score_extraction(
         rapid: When True, exclude metrics that depend on sections removed
             by rapid truncation (Discussion/References). Excluded metrics
             are still computed and returned but do not affect the composite.
+        paper_chars: Length of the source paper text in characters. When > 0,
+            the density metric scales its sweet-spot with paper size.
 
     Returns:
         Tuple of (composite_score, per_metric_dict). Both values are in [0, 1].
@@ -347,7 +366,7 @@ def score_extraction(
 
     metrics: dict[str, float] = {
         # Graph structure
-        "density": _metric_density(n),
+        "density": _metric_density(n, paper_chars),
         "evidence_linkage": _metric_evidence_linkage(claims),
         "evidence_depth": _metric_evidence_depth(claims),
         "evidence_density": _metric_evidence_density(n_evidence),

@@ -388,12 +388,16 @@ def run_extraction(
         system_prompt,
     ]
 
+    import os
+
+    env = {**os.environ, "CLAUDE_CODE_MAX_OUTPUT_TOKENS": str(_MAX_OUTPUT_TOKENS)}
     result = subprocess.run(
         cmd,
         input=user_prompt,
         capture_output=True,
         text=True,
         timeout=timeout,
+        env=env,
     )
 
     if result.returncode != 0:

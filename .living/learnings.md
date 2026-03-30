@@ -1428,3 +1428,39 @@ Review papers and abstract-only papers yield qualitatively different KG extracti
 
 ### 2026-03-30 — Incremental solve must include ALL variable types in prior_solution
 - When `score_graph_mrf()` filters finding variables out of `posteriors`, those values are lost for `update_graph_mrf()`. The incremental solver falls back to init values instead of warm-starting. Always merge all variable types back into the prior_solution dict before calling `solve_incremental()`.
+
+### 2026-03-30 — Proportional density guidance is harder than expected
+- Removing fixed claim floors from KG extraction prompt causes Haiku to under-extract, even with proportional language like "scale with paper content"
+- Haiku interprets soft guidance as permission to extract fewer claims
+- Structural anchors (per-figure-panel minimums) recover quality but not quantity
+- The fundamental tension: fixed floors risk overextraction on small papers, but Haiku needs strong density signals to prevent attention reallocation from Results to Discussion
+
+## 2026-03-30 — Ground truth corpus size for Bayesian calibration
+**Context:** Planning Phase 2 of Bayesian claim confidence tool (ground truth curation)
+**Learning:** 1000 papers over a single field is sufficient for ground truth curation. No need to span multiple fields or dramatically larger corpora for the initial calibration pass. Single-field focus actually improves label consistency.
+**Applies to:** KG confidence scoring, Bayesian calibration, benchmark design
+
+---
+## 2026-03-30 — citation_contexts without attributed_prior: a silent extraction failure mode
+
+**Finding**: Haiku can produce citation_contexts metadata entries (correctly formatted) without generating the corresponding attributed_prior claims. This is a silent failure — the output looks structurally valid but the claim layer is missing. corpus_10 had 11 citation_contexts and 0 attributed_prior claims.
+
+**Why it happens**: Prioritization language ("complete Results first") causes the model to treat citation extraction as secondary. Even when it processes the Discussion section, it records the citation metadata but skips the claim object — possibly because claim generation is perceived as "extra work" after the priority pass is done.
+
+**Detection**: Always cross-check len(attributed_prior) vs len(citation_contexts). A ratio below 0.5 on a paper with visible in-text citations signals this failure mode. The extraction is not truncated — check token usage; if completion is well under budget, the issue is priority/instruction, not capacity.
+
+**Fix pattern**: Two-pass instruction structure (Pass 1 = Results, Pass 2 = Citations mandatory) + self-check quality gate in the checklist. Bidirectional constraint (every attributed_prior ↔ citation_context) also helps.
+
+**Cross-paper pattern**: This may be size-dependent. Medium papers (shorter Discussion) may not trigger the priority shortcut as strongly. Test v11.3 at both medium and large scale before declaring fix complete.
+
+---
+## Learnings: 2026-03-30 — KG extraction prompt architecture
+
+- "Two-pass" or "re-read" instructions in prompts are actively harmful for Haiku on long papers. v11.3 told the model to do "Pass 1: Results, Pass 2: Citations" and the model produced only 2 claims on a 117K paper (down from 96). The framing confused the model's generation strategy. Single-call prompts should have ONE clear instruction, not multi-step workflows.
+- Supplement prompt schema must match the main extraction schema exactly. First attempt used wrong field names (claim_text vs natural_language, claim_type: "attributed_prior" instead of section_source). Fixed by including a complete example claim in the supplement prompt with all required fields.
+
+## Citation detection regex must handle multiple formats (2026-03-30)
+- Citation format varies across papers — the `(N)` parenthetical format (common in biology journals) was missed by the initial `[N]` bracket-only regex in needs_citation_supplement(). Fixed to match both `[N]` and `(N, M, ...)` formats. Always test citation detection on papers from different journals/fields.
+
+## Adaptive trigger outperforms hard size thresholds for supplement detection (2026-03-30)
+- The adaptive trigger (check extraction output for 0 attributed_prior + citation count > 5) is more robust than a hard paper-size threshold. Medium and small papers with existing attributed_prior correctly skip the supplement, while the large paper that needed it gets triggered regardless of size.

@@ -420,3 +420,14 @@
 | 2026-03-29 | 2026-03-29-006 | autoreview | main | 1m | 26 | optimize_extraction_prompt.py,scoring.py | | complete | | [log](2026-03-29-006-autoreview.md) |
 | 2026-03-29 | 2026-03-29-007 | autoreview | main | 1m | 26 | optimize_extraction_prompt.py | | complete | | [log](2026-03-29-007-autoreview.md) |
 | 2026-03-29 | 2026-03-29-008 | autoreview | main | 1m | 26 |  | | complete | | [log](2026-03-29-008-autoreview.md) |
+| 2026-03-29 | 2026-03-29-009 | autoreview | main | 2m | 5 | corpus_4_sonnet_extraction.json | | complete | | [log](2026-03-29-009-autoreview.md) |
+| 2026-03-29 | 2026-03-29-010 | autoreview | main | 0m | 5 |  | | complete | | [log](2026-03-29-010-autoreview.md) |
+| 2026-03-29 | 2026-03-29-011 | autoreview | main | 0m | 10 | __init__.py,mrf_weight_learning.py,test_mrf_scoring.py (+1 more) | | complete | | [log](2026-03-29-011-autoreview.md) |
+| 2026-03-30 | 2026-03-30-001 | autoreview | main | 1m | 11 |  | | complete | | [log](2026-03-30-001-autoreview.md) |
+| 2026-03-30 | 2026-03-30-002 | autoreview | main | 9m | 12 | run_v11_scoring.py,run_v6_etoc.py,2026-03-30-bayesian-inference-upgrade.md (+2 more) | | complete | | [log](2026-03-30-002-autoreview.md) |
+| 2026-03-30 | 2026-03-30-003 | autoreview | main | 4m | 16 | run_v11_1_etoc.py,run_v11_1_scoring.py,__init__.py (+4 more) | | complete | | [log](2026-03-30-003-autoreview.md) |
+| 2026-03-30 | 2026-03-30-004 | autoreview | main | 6m | 15 | run_v11_1_scoring.py,diagnostics.py,model.py (+3 more) | | complete | | [log](2026-03-30-004-autoreview.md) |
+| 2026-03-30 | 2026-03-30-005 | autoreview | main | 0m | 13 | diagnostics.py,inference.py,2026-03-30-meta-level-contradiction-structure.md (+1 more) | | complete | | [log](2026-03-30-005-autoreview.md) |
+| 2026-03-30 | 2026-03-30-006 | autoreview | main | 0m | 6 | CHANGELOG.md,README.md | | complete | | [log](2026-03-30-006-autoreview.md) |
+| 2026-03-30 | 2026-03-30-007 | autoreview | main | 0m | 7 |  | | complete | | [log](2026-03-30-007-autoreview.md) |
+| 2026-03-30 | 2026-03-30-008 | autoreview | main | 1m | 7 |  | | complete | | [log](2026-03-30-008-autoreview.md) |

@@ -517,6 +517,179 @@ def retry_failures(api_key: str) -> None:
     poll_batch(api_key, batch.id)
 
 
+SUPPLEMENT_SECTIONS = ["introduction", "discussion", "references", "bibliography"]
+SUPPLEMENT_MAX_OUTPUT_TOKENS = 32000
+
+
+def _load_supplement_prompt() -> str:
+    prompt_path = _SCRIPT_DIR / "kg_citation_supplement_prompt.md"
+    return prompt_path.read_text().strip()
+
+
+def submit_supplement_batch(api_key: str) -> str:
+    """Check cached extractions for missing attributed_prior and submit a supplement batch."""
+    client = anthropic.Anthropic(api_key=api_key)
+
+    papers_path = OUTPUT_DIR / "papers.json"
+    with open(papers_path) as f:
+        papers = json.load(f)
+
+    paper_lookup: dict[str, dict] = {}
+    for p in papers:
+        phash = _paper_hash(p.get("doi"), p.get("title"))
+        paper_lookup[phash] = p
+
+    supplement_prompt = _load_supplement_prompt()
+    requests = []
+    checked = 0
+    already_has_prior = 0
+
+    for cache_file in sorted(EXTRACTION_CACHE_DIR.glob("*.json")):
+        if cache_file.name.endswith("_raw.txt"):
+            continue
+        phash = cache_file.stem
+        if phash not in paper_lookup:
+            continue
+
+        checked += 1
+        extraction = json.loads(cache_file.read_text())
+        paper = paper_lookup[phash]
+        paper_text = paper.get("full_text", "")
+
+        if not needs_citation_supplement(extraction, paper_text):
+            already_has_prior += 1
+            continue
+
+        # Build supplement user message
+        sections_text = extract_sections(paper_text, SUPPLEMENT_SECTIONS)
+        if not sections_text:
+            sections_text = paper_text[:40_000]
+
+        claim_summary = build_claim_summary(extraction)
+
+        user_content = (
+            "Below are the Introduction, Discussion, and References sections of a paper, "
+            "followed by a summary of claims already extracted in pass 1.\n\n"
+            "Your task: extract ONLY attributed_prior claims — claims that cite prior literature "
+            "as evidence, not claims about this paper's own results.\n\n"
+            "IMPORTANT: Output ONLY valid JSON. No markdown fences. No commentary.\n\n"
+            "--- SECTIONS ---\n\n"
+            + sections_text
+            + "\n\n--- PASS-1 CLAIM SUMMARY (for cross-referencing only) ---\n\n"
+            + (claim_summary if claim_summary else "(no claims extracted in pass 1)")
+        )
+
+        requests.append(
+            {
+                "custom_id": f"{phash}_sup",
+                "params": {
+                    "model": MODEL,
+                    "max_tokens": SUPPLEMENT_MAX_OUTPUT_TOKENS,
+                    "temperature": 0.0,
+                    "system": [
+                        {
+                            "type": "text",
+                            "text": supplement_prompt,
+                            "cache_control": {"type": "ephemeral"},
+                        }
+                    ],
+                    "messages": [
+                        {"role": "user", "content": user_content},
+                        {"role": "assistant", "content": "{"},
+                    ],
+                },
+            }
+        )
+
+    logger.info(
+        "supplement.prepared",
+        checked=checked,
+        already_has_prior=already_has_prior,
+        needs_supplement=len(requests),
+    )
+
+    if not requests:
+        logger.info("supplement.nothing_to_do")
+        return ""
+
+    logger.info("supplement.submitting", count=len(requests))
+    batch = client.messages.batches.create(requests=requests)
+    logger.info("supplement.submitted", batch_id=batch.id)
+    return batch.id
+
+
+def poll_supplement_batch(api_key: str, batch_id: str) -> None:
+    """Poll supplement batch, then merge results into cached extractions."""
+    client = anthropic.Anthropic(api_key=api_key)
+
+    while True:
+        batch = client.messages.batches.retrieve(batch_id)
+        counts = batch.request_counts
+        total = (
+            counts.processing + counts.succeeded + counts.errored + counts.expired + counts.canceled
+        )
+        print(
+            f"\r  [supplement {batch.processing_status}] "
+            f"{counts.succeeded} succeeded, {counts.errored} errored, "
+            f"{counts.processing} processing / {total} total",
+            end="",
+            flush=True,
+        )
+        if batch.processing_status == "ended":
+            print()
+            break
+        time.sleep(15)
+
+    merged_count = 0
+    errors = 0
+
+    for result in client.messages.batches.results(batch_id):
+        custom_id = result.custom_id
+        if not custom_id.endswith("_sup"):
+            continue
+        phash = custom_id[:-4]  # strip "_sup"
+
+        if result.result.type != "succeeded":
+            errors += 1
+            logger.warning("supplement.error", hash=phash, type=result.result.type)
+            continue
+
+        message = result.result.message
+        content = message.content[0].text if message.content else ""
+        if content and not content.lstrip().startswith("{"):
+            content = "{" + content
+
+        try:
+            json_str = _extract_json_str(content)
+            raw_dict = json.loads(json_str)
+            supplement = coerce_kg_dict(raw_dict)
+
+            # Load and merge with cached extraction
+            cache_path = EXTRACTION_CACHE_DIR / f"{phash}.json"
+            if not cache_path.exists():
+                logger.warning("supplement.no_cache", hash=phash)
+                continue
+
+            extraction = json.loads(cache_path.read_text())
+            merged = merge_supplement(extraction, supplement)
+
+            # Re-validate and save
+            validated = KGExtraction.model_validate(merged)
+            cache_path.write_text(
+                json.dumps(validated.model_dump(), indent=2, default=str, ensure_ascii=False)
+            )
+
+            n_sup = len(supplement.get("claims", []))
+            merged_count += 1
+            logger.info("supplement.merged", hash=phash, new_claims=n_sup)
+
+        except Exception as e:
+            errors += 1
+            logger.warning("supplement.merge_error", hash=phash, error=str(e)[:150])
+
+    print(f"\n  Supplement complete: {merged_count} merged, {errors} errors")
+
+
 def main() -> None:
     import os
 
@@ -529,6 +702,16 @@ def main() -> None:
         action="store_true",
         help="Resubmit papers that failed parsing in the last run",
     )
+    parser.add_argument(
+        "--supplement",
+        action="store_true",
+        help="Run citation supplement pass on cached extractions missing attributed_prior",
+    )
+    parser.add_argument(
+        "--poll-supplement",
+        type=str,
+        help="Resume polling for a supplement batch ID",
+    )
     args = parser.parse_args()
 
     api_key = os.environ.get("ANTHROPIC_API_KEY", "")
@@ -538,6 +721,12 @@ def main() -> None:
 
     if args.retry_failures:
         retry_failures(api_key)
+    elif args.poll_supplement:
+        poll_supplement_batch(api_key, args.poll_supplement)
+    elif args.supplement:
+        batch_id = submit_supplement_batch(api_key)
+        if batch_id:
+            poll_supplement_batch(api_key, batch_id)
     elif args.poll:
         poll_batch(api_key, args.poll)
     else:

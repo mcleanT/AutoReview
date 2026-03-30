@@ -1312,3 +1312,41 @@ Added `--version-prefix` CLI arg to `optimize_extraction_prompt.py` (default `v7
 ### 2026-03-30 — v0.4.0 docs: README, CHANGELOG, ARCHITECTURE
 - **Decision**: Updated all three docs to reflect the finding layer and other v0.3→v0.4 additions (Bayesian inference, normalization, weight learning)
 - **Why**: The finding layer is a major architectural addition that changes how contradictions are detected and resolved. Users and contributors need to understand the hierarchy.
+
+### 2026-03-30 — v11.2/v11.2.1: Testing proportional density guidance
+- **Context**: v11.1 had fixed "40-70 claims, 30+ primary_empirical" floor. User concerned this causes overextraction on small papers and underextraction on large ones.
+- **v11.2 attempt**: Replaced with soft proportional language ("scale with paper content, 25-40 for 4-5 figures"). Result: Haiku under-extracted on medium (49 vs 62 claims) and large (50 claims for 117K paper). Too permissive.
+- **v11.2.1 attempt**: Replaced with structural anchors ("2 claims per main figure panel, 1 per supp panel"). Testing in progress — early results show quality recovered (adj 0.9284 vs 0.9271 baseline) but claim counts still lower (42 vs 62 for medium).
+- **Status**: Awaiting large paper results before deciding. The tension is between paper-agnostic guidance and preventing Haiku attention reallocation.
+
+### 2026-03-30 — v11.2.1 set as new KG extraction standard
+- **Decision**: Replace v11.1 (fixed 40-70 density floor) with v11.2.1 (per-figure-panel anchors + size-aware density scorer)
+- **Rationale**: Fixed floors do not generalize across paper sizes. v11.2.1 tested on small/medium/large papers with adj composites 0.883/0.928/0.983. Opus audit confirms 96% finding coverage on medium paper. Scorer density metric now scales with paper_chars.
+- **Supersedes**: v11.1 standard (2026-03-30 earlier)
+
+---
+## 2026-03-30 — KG Extraction Prompt v11.3: Two-Pass Citation Architecture
+
+**Context**: corpus_10 (117K chars, large paper) extracted 0 attributed_prior claims despite ~45 citations in Introduction/Discussion. Model created 11 citation_contexts entries but skipped the corresponding attributed_prior claims entirely.
+
+**Root cause**: "Prioritize Results completeness first — before moving to Discussion or Introduction" language caused Haiku to deprioritize citation extraction. When it did read Discussion (9 interpretive claims), it produced citation_context metadata without generating the paired attributed_prior claim.
+
+**Decision**: Shipped v11.3 with three targeted prompt changes:
+1. ROLE section — replaced vague attributed_prior instruction with explicit triple-output requirement: every cited claim must produce (claim, evidence stub, citation_context) together, with a concrete numbered-citation example [N]
+2. Replaced "prioritize Results first" with an explicit two-pass instruction: Pass 1 = Results (completeness), Pass 2 = Citations & Interpretation (mandatory, not optional)
+3. Quality checklist — added self-check #10 (count citations vs attributed_prior claims; go back if under-extracting) and bidirectional constraint #12 (every attributed_prior ↔ citation_context)
+
+**Alternatives rejected**: Increasing token budget (output was not truncated — issue was priority, not capacity); adding more examples of Results claims (misdiagnoses the problem).
+
+**Status**: v11.3 round 1 improved medium papers (12→16 attributed_prior) but large still returned 0. Round 2 with stronger language in progress.
+
+---
+## Decision: v11.3 prompt changes reverted — two-pass framing catastrophically broke extraction
+Date: 2026-03-30
+
+- v11.3 prompt changes (two-pass instruction, stronger attributed_prior language) REVERTED — they catastrophically broke extraction on large papers (96 claims → 2 claims). The "two-pass" framing confused Haiku on long papers.
+- Decision: implement citation extraction as a SEPARATE SECOND PASS rather than modifying the main prompt. Architecture: main v11.2.1 extraction runs first, then `needs_citation_supplement()` checks if attributed_prior == 0 AND paper has >5 citations. If triggered, a focused citation-only prompt runs on just Intro/Discussion/References sections. Results merged into the main extraction.
+- Key insight: single-prompt solutions for citation extraction do not work on large papers. The model allocates all attention to Results and never processes citations regardless of prompt language. Separating the concern into a dedicated pass is the correct architecture.
+
+## Citation supplement pass architecture (2026-03-30)
+- Citation supplement pass integrated into batch_extract_kg.py via `--supplement` flag. Architecture: main batch runs first, then `--supplement` scans cached extractions, identifies papers with 0 attributed_prior AND >5 citations in Intro/Discussion, submits a second batch with focused citation-only prompt on just Intro/Discussion/References sections, merges results back into cache. Uses same Anthropic batch API (50% discount). Supplement custom_ids use `{phash}_sup` suffix.
