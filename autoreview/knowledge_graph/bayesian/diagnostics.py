@@ -79,9 +79,10 @@ def compute_mcmc_diagnostics(
     idata = az.from_numpyro(mcmc)
 
     # Per-edge summary: R-hat, ESS
+    # arviz may return summary columns as object dtype (string) — cast to float
     summary = az.summary(idata, var_names=["truth"])
-    r_hats = summary["r_hat"].values
-    ess_bulk = summary["ess_bulk"].values
+    r_hats = summary["r_hat"].values.astype(float)
+    ess_bulk = summary["ess_bulk"].values.astype(float)
 
     # Divergences
     n_divergences = 0
