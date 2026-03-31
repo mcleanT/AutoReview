@@ -28,6 +28,7 @@ dependencies = [
     "pyalex>=0.14",
     "beautifulsoup4>=4.12",
     "textstat>=0.7",
+    "rapidfuzz>=3.0",
 ]
 
 [project.optional-dependencies]
