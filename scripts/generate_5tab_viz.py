@@ -200,6 +200,7 @@ async def main():
     from autoreview.knowledge_graph.community_labeling import enrich_community_subfields
     from autoreview.knowledge_graph.contradiction_viz import build_contradiction_viz_data
     from autoreview.knowledge_graph.interactive import generate_multi_graph_html
+
     from autoreview.llm.claude_code import ClaudeCodeProvider
 
     # Load data
