@@ -4,6 +4,12 @@ from __future__ import annotations
 
 import networkx as nx
 
+from autoreview.knowledge_graph.cluster import (
+    build_topic_clusters,
+    detect_finding_contradictions,
+    form_findings,
+)
+
 
 def _make_test_graph() -> nx.MultiDiGraph:
     """Build a small test graph with known properties."""
@@ -509,22 +515,15 @@ class TestContradictionCentrality:
         assert scores == sorted(scores, reverse=True)
 
 
-from autoreview.knowledge_graph.cluster import (
-    build_topic_clusters,
-    detect_finding_contradictions,
-    form_findings,
-)
-
-
 def _make_finding_test_graph() -> nx.MultiDiGraph:
     """Graph with topic clusters for finding-level analysis testing."""
-    G = nx.MultiDiGraph()
-    G.add_node("A", canonical_name="Entity A")
-    G.add_node("B", canonical_name="Entity B")
-    G.add_node("C", canonical_name="Entity C")
+    graph = nx.MultiDiGraph()
+    graph.add_node("A", canonical_name="Entity A")
+    graph.add_node("B", canonical_name="Entity B")
+    graph.add_node("C", canonical_name="Entity C")
 
     # Cluster 1: A→B activating (3 edges, 2 directions → contradiction)
-    G.add_edge(
+    graph.add_edge(
         "A",
         "B",
         edge_id="ab1",
@@ -539,7 +538,7 @@ def _make_finding_test_graph() -> nx.MultiDiGraph:
         natural_language="A induces B",
         _kg_edge=None,
     )
-    G.add_edge(
+    graph.add_edge(
         "A",
         "B",
         edge_id="ab2",
@@ -554,7 +553,7 @@ def _make_finding_test_graph() -> nx.MultiDiGraph:
         natural_language="A is sufficient for B",
         _kg_edge=None,
     )
-    G.add_edge(
+    graph.add_edge(
         "A",
         "B",
         edge_id="ab3",
@@ -571,7 +570,7 @@ def _make_finding_test_graph() -> nx.MultiDiGraph:
     )
 
     # Cluster 2: B→C activating (2 edges, same direction → no contradiction)
-    G.add_edge(
+    graph.add_edge(
         "B",
         "C",
         edge_id="bc1",
@@ -586,7 +585,7 @@ def _make_finding_test_graph() -> nx.MultiDiGraph:
         natural_language="B induces C",
         _kg_edge=None,
     )
-    G.add_edge(
+    graph.add_edge(
         "B",
         "C",
         edge_id="bc2",
@@ -601,16 +600,16 @@ def _make_finding_test_graph() -> nx.MultiDiGraph:
         natural_language="B is sufficient for C",
         _kg_edge=None,
     )
-    return G
+    return graph
 
 
 class TestSummarizeTopicClusters:
     def test_returns_list_of_dicts(self):
         from autoreview.knowledge_graph.analysis import summarize_topic_clusters
 
-        G = _make_finding_test_graph()
-        clusters = build_topic_clusters(G)
-        findings = form_findings(clusters, G)
+        graph = _make_finding_test_graph()
+        clusters = build_topic_clusters(graph)
+        findings = form_findings(clusters, graph)
         summary = summarize_topic_clusters(clusters, findings)
         assert isinstance(summary, list)
         assert len(summary) >= 1
@@ -618,9 +617,9 @@ class TestSummarizeTopicClusters:
     def test_dict_structure(self):
         from autoreview.knowledge_graph.analysis import summarize_topic_clusters
 
-        G = _make_finding_test_graph()
-        clusters = build_topic_clusters(G)
-        findings = form_findings(clusters, G)
+        graph = _make_finding_test_graph()
+        clusters = build_topic_clusters(graph)
+        findings = form_findings(clusters, graph)
         summary = summarize_topic_clusters(clusters, findings)
         required_keys = {
             "cluster_id",
@@ -637,9 +636,9 @@ class TestSummarizeTopicClusters:
     def test_edge_counts_correct(self):
         from autoreview.knowledge_graph.analysis import summarize_topic_clusters
 
-        G = _make_finding_test_graph()
-        clusters = build_topic_clusters(G)
-        findings = form_findings(clusters, G)
+        graph = _make_finding_test_graph()
+        clusters = build_topic_clusters(graph)
+        findings = form_findings(clusters, graph)
         summary = summarize_topic_clusters(clusters, findings)
         ab_cluster = [s for s in summary if s["subject_id"] == "A" and s["object_id"] == "B"]
         assert len(ab_cluster) == 1
@@ -650,21 +649,21 @@ class TestScoreFindingContradictionCentrality:
     def test_returns_list_of_dicts(self):
         from autoreview.knowledge_graph.analysis import score_finding_contradiction_centrality
 
-        G = _make_finding_test_graph()
-        clusters = build_topic_clusters(G)
-        findings = form_findings(clusters, G)
-        contradictions = detect_finding_contradictions(findings, clusters, graph=G)
-        results = score_finding_contradiction_centrality(G, contradictions)
+        graph = _make_finding_test_graph()
+        clusters = build_topic_clusters(graph)
+        findings = form_findings(clusters, graph)
+        contradictions = detect_finding_contradictions(findings, clusters, graph=graph)
+        results = score_finding_contradiction_centrality(graph, contradictions)
         assert isinstance(results, list)
 
     def test_dict_structure(self):
         from autoreview.knowledge_graph.analysis import score_finding_contradiction_centrality
 
-        G = _make_finding_test_graph()
-        clusters = build_topic_clusters(G)
-        findings = form_findings(clusters, G)
-        contradictions = detect_finding_contradictions(findings, clusters, graph=G)
-        results = score_finding_contradiction_centrality(G, contradictions)
+        graph = _make_finding_test_graph()
+        clusters = build_topic_clusters(graph)
+        findings = form_findings(clusters, graph)
+        contradictions = detect_finding_contradictions(findings, clusters, graph=graph)
+        results = score_finding_contradiction_centrality(graph, contradictions)
         if results:
             required_keys = {
                 "node_id",
@@ -678,11 +677,11 @@ class TestScoreFindingContradictionCentrality:
     def test_contradicted_nodes_have_positive_scores(self):
         from autoreview.knowledge_graph.analysis import score_finding_contradiction_centrality
 
-        G = _make_finding_test_graph()
-        clusters = build_topic_clusters(G)
-        findings = form_findings(clusters, G)
-        contradictions = detect_finding_contradictions(findings, clusters, graph=G)
-        results = score_finding_contradiction_centrality(G, contradictions)
+        graph = _make_finding_test_graph()
+        clusters = build_topic_clusters(graph)
+        findings = form_findings(clusters, graph)
+        contradictions = detect_finding_contradictions(findings, clusters, graph=graph)
+        results = score_finding_contradiction_centrality(graph, contradictions)
         if results:
             for r in results:
                 assert r["raw_score"] > 0.0
@@ -690,6 +689,6 @@ class TestScoreFindingContradictionCentrality:
     def test_empty_contradictions_returns_empty(self):
         from autoreview.knowledge_graph.analysis import score_finding_contradiction_centrality
 
-        G = _make_finding_test_graph()
-        results = score_finding_contradiction_centrality(G, [])
+        graph = _make_finding_test_graph()
+        results = score_finding_contradiction_centrality(graph, [])
         assert results == []

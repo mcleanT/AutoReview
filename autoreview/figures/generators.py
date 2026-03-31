@@ -78,7 +78,7 @@ def generate_pipeline_schematic(output_dir: Path) -> Path:
                 edgecolor=WONG["blue"],
             )
             refs.append(ref)
-        for a, b in zip(refs, refs[1:]):
+        for a, b in zip(refs, refs[1:], strict=False):
             engine.arrow(a.right_center, b.left_center, color=WONG["blue"], lw=2)
         # Tier labels
         tiers = [
@@ -132,7 +132,7 @@ def generate_temporal_chart(year_counts: dict[int, int], output_dir: Path) -> Pa
 
     fig, ax = plt.subplots(figsize=(8, 5), dpi=300)
     bars = ax.bar([str(y) for y in years], counts, color=CB_PALETTE[0], edgecolor="white", lw=0.5)
-    for bar, count in zip(bars, counts):
+    for bar, count in zip(bars, counts, strict=False):
         ax.text(
             bar.get_x() + bar.get_width() / 2,
             bar.get_height() + 5,
@@ -372,7 +372,10 @@ def generate_all_figures(kb: Any) -> dict[str, FigureMetadata]:
     figures["fig1_rag_pipeline"] = FigureMetadata(
         key="fig1_rag_pipeline",
         path="figures/fig1_rag_pipeline.png",
-        caption="Figure 1. Canonical RAG pipeline architecture showing the progression from naive single-retrieval to agentic multi-tool systems.",
+        caption=(
+            "Figure 1. Canonical RAG pipeline architecture showing the progression"
+            " from naive single-retrieval to agentic multi-tool systems."
+        ),
         anchor=VisualInsertionAnchor(section_id="sec_1", position="after"),
     )
 
@@ -380,7 +383,10 @@ def generate_all_figures(kb: Any) -> dict[str, FigureMetadata]:
         figures["fig2_temporal"] = FigureMetadata(
             key="fig2_temporal",
             path="figures/fig2_temporal.png",
-            caption="Figure 2. Temporal distribution of reviewed papers, showing the inflection point driven by ChatGPT-era deployment interest.",
+            caption=(
+                "Figure 2. Temporal distribution of reviewed papers, showing the inflection"
+                " point driven by ChatGPT-era deployment interest."
+            ),
             anchor=VisualInsertionAnchor(section_id="sec_2", position="after"),
             data_driven=True,
         )
@@ -390,7 +396,10 @@ def generate_all_figures(kb: Any) -> dict[str, FigureMetadata]:
     figures["fig3_taxonomy"] = FigureMetadata(
         key="fig3_taxonomy",
         path="figures/fig3_taxonomy.png",
-        caption="Figure 3. Taxonomy of RAG architectural variants from naive single-pass to autonomous agentic systems.",
+        caption=(
+            "Figure 3. Taxonomy of RAG architectural variants from naive single-pass"
+            " to autonomous agentic systems."
+        ),
         anchor=VisualInsertionAnchor(section_id="sec_6", position="before"),
     )
 
@@ -398,7 +407,10 @@ def generate_all_figures(kb: Any) -> dict[str, FigureMetadata]:
         figures["fig4_evidence"] = FigureMetadata(
             key="fig4_evidence",
             path="figures/fig4_evidence.png",
-            caption="Figure 4. Evidence strength distribution across thematic clusters identified in the reviewed corpus.",
+            caption=(
+                "Figure 4. Evidence strength distribution across thematic clusters"
+                " identified in the reviewed corpus."
+            ),
             anchor=VisualInsertionAnchor(section_id="sec_13", position="before"),
             data_driven=True,
         )

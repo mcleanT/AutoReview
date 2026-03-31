@@ -151,7 +151,7 @@ def label_communities(
 ) -> dict[int, CommunityLabel]:
     """Assign human-readable labels to claim communities."""
     # Priority order for meaningful subfield categorization
-    _TYPE_PRIORITY: list[str] = [
+    type_priority: list[str] = [
         "pathway",
         "biological_process",
         "cell_type",
@@ -213,7 +213,7 @@ def label_communities(
         # --- Heuristic subfield label ---
         # Find the highest-priority entity type with at least 2 entities
         dominant_type: str | None = None
-        for candidate_type in _TYPE_PRIORITY:
+        for candidate_type in type_priority:
             if entity_type_counter.get(candidate_type, 0) >= 2:
                 dominant_type = candidate_type
                 break

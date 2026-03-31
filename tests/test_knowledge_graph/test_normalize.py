@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 
 class TestTextCleaning:
     """Tests for entity name text cleaning transforms."""
@@ -191,12 +193,11 @@ class TestCompoundDecomposition:
     def test_flag_for_llm(self):
         from autoreview.knowledge_graph.normalize import flag_for_llm_decomposition
 
-        assert (
-            flag_for_llm_decomposition(
-                "self-organization of human gastruloids into homogenous subpopulations of endoderm and mesoderm"
-            )
-            is True
+        long_obj = (
+            "self-organization of human gastruloids into homogenous"
+            " subpopulations of endoderm and mesoderm"
         )
+        assert flag_for_llm_decomposition(long_obj) is True
         assert flag_for_llm_decomposition("mesoderm differentiation") is False
 
     def test_slash_not_in_units(self):
@@ -205,9 +206,6 @@ class TestCompoundDecomposition:
         # "ng/mL" should not be split
         result = decompose_object("10 ng/mL BMP4 treatment effect")
         assert len(result) == 1
-
-
-import asyncio
 
 
 class TestLLMDecomposition:
@@ -219,13 +217,12 @@ class TestLLMDecomposition:
         async def mock_llm(objects: list[str]) -> list[list[str]]:
             return [["endoderm differentiation", "mesoderm differentiation"]]
 
+        long_obj = (
+            "self-organization of human gastruloids into homogenous"
+            " subpopulations of endoderm and mesoderm"
+        )
         result = asyncio.get_event_loop().run_until_complete(
-            llm_decompose_objects(
-                [
-                    "self-organization of human gastruloids into homogenous subpopulations of endoderm and mesoderm"
-                ],
-                mock_llm,
-            )
+            llm_decompose_objects([long_obj], mock_llm)
         )
         assert result == [["endoderm differentiation", "mesoderm differentiation"]]
 

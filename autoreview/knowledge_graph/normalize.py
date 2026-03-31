@@ -537,7 +537,7 @@ class ClaimNormalizer:
             objects_to_decompose = [obj for _, obj in llm_candidates]
             decompositions = await llm_decompose_objects(objects_to_decompose, self._llm_fn)
             report.llm_calls += 1 if self._llm_fn else 0
-            for (idx, _orig_obj), parts in zip(llm_candidates, decompositions):
+            for (idx, _orig_obj), parts in zip(llm_candidates, decompositions, strict=False):
                 if len(parts) > 1:
                     to_remove.add(idx)
                     assertion = assertions[idx]

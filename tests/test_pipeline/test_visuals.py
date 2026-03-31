@@ -146,7 +146,11 @@ def test_generate_all_figures_with_data(tmp_path):
 def test_insert_visuals():
     from autoreview.pipeline.nodes import _insert_visuals
 
-    draft = "# 1. Introduction\n\nSome intro text.\n\n# 2. Methods\n\nMethods text.\n\n# 3. Results\n\nResults."
+    draft = (
+        "# 1. Introduction\n\nSome intro text.\n\n"
+        "# 2. Methods\n\nMethods text.\n\n"
+        "# 3. Results\n\nResults."
+    )
     figures = {
         "fig1": FigureMetadata(
             key="fig1",
@@ -182,7 +186,10 @@ def test_add_navigation():
 def test_polish_abstract():
     from autoreview.pipeline.nodes import _polish_abstract
 
-    draft = "## Abstract\n\nThis review synthesises the current state of RAG research across 634 papers.\n\n# 1. Introduction"
+    draft = (
+        "## Abstract\n\nThis review synthesises the current state"
+        " of RAG research across 634 papers.\n\n# 1. Introduction"
+    )
     result = _polish_abstract(draft)
     assert "four specific objectives" in result
     assert "(1)" in result

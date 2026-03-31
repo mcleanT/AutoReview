@@ -501,7 +501,6 @@ class TestClassifyCrossClaims:
 
         # Build fake logits: high contradiction score [10, 0, 0] → softmax ≈ [1, 0, 0]
         fake_logits = torch.tensor([[10.0, 0.0, 0.0]])
-        fake_probs = torch.softmax(fake_logits, dim=-1)
 
         fake_model_output = MagicMock()
         fake_model_output.logits = fake_logits
@@ -573,7 +572,7 @@ class TestUpdateGraphPosteriors:
         updated = _update_graph_posteriors(g, nli_results, claims, contradiction_threshold=0.3)
         assert updated == 2
 
-        for u, v, k, data in g.edges(keys=True, data=True):
+        for _u, _v, _k, data in g.edges(keys=True, data=True):
             if "confidence_mean" not in data:
                 continue
             alpha = data["_nli_alpha"]

@@ -539,10 +539,10 @@ def batch_evaluate(
 
 @app.command(name="nli-score")
 def nli_score(
-    input_path: Path = typer.Argument(..., help="Path to input KG pickle file"),
-    output: str | None = typer.Option(None, "--output", "-o", help="Output base path (no ext)"),
-    device: str = typer.Option("auto", "--device", "-d", help="Device: auto/mps/cuda/cpu"),
-    batch_size: int = typer.Option(64, "--batch-size", "-b", help="NLI batch size"),
+    input_path: Path = typer.Argument(..., help="Path to input KG pickle file"),  # noqa: B008
+    output: str | None = typer.Option(None, "--output", "-o", help="Output base path (no ext)"),  # noqa: B008
+    device: str = typer.Option("auto", "--device", "-d", help="Device: auto/mps/cuda/cpu"),  # noqa: B008
+    batch_size: int = typer.Option(64, "--batch-size", "-b", help="NLI batch size"),  # noqa: B008
     threshold: float = typer.Option(0.3, "--threshold", "-t", help="Contradiction threshold"),
     no_parallel_filter: bool = typer.Option(False, help="Disable parallel assertion filter"),
     no_predicate_opposition: bool = typer.Option(False, help="Disable predicate opposition"),
@@ -629,9 +629,9 @@ def nli_score(
 
 @app.command(name="nli-diagnose")
 def nli_diagnose(
-    input_path: Path = typer.Argument(..., help="Path to input KG pickle file"),
-    output: str | None = typer.Option(None, "--output", "-o", help="Output JSON path"),
-    device: str = typer.Option("auto", "--device", "-d", help="Device: auto/mps/cuda/cpu"),
+    input_path: Path = typer.Argument(..., help="Path to input KG pickle file"),  # noqa: B008
+    output: str | None = typer.Option(None, "--output", "-o", help="Output JSON path"),  # noqa: B008
+    device: str = typer.Option("auto", "--device", "-d", help="Device: auto/mps/cuda/cpu"),  # noqa: B008
 ) -> None:
     """Run evidence-level NLI diagnostic (does NOT modify graph)."""
     import json

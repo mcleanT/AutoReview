@@ -140,7 +140,7 @@ def compute_study_design_accuracy(
     """Exact match percentage."""
     if not predicted:
         return 0.0
-    matches = sum(1 for p, g in zip(predicted, ground_truth) if p == g)
+    matches = sum(1 for p, g in zip(predicted, ground_truth, strict=False) if p == g)
     return matches / len(predicted)
 
 
@@ -153,7 +153,7 @@ def compute_sample_size_accuracy(
     if not predicted:
         return 0.0
     matches = 0
-    for p, g in zip(predicted, ground_truth):
+    for p, g in zip(predicted, ground_truth, strict=False):
         if p is None and g is None:
             matches += 1
         elif p is not None and g is not None:
@@ -173,7 +173,11 @@ def compute_quality_score_correlation(
 ) -> float:
     """Pearson correlation normalized to [0,1]. Returns 0.5 if <3 pairs or no variance."""
     # Filter to pairs where both are non-None
-    pairs = [(p, g) for p, g in zip(predicted, ground_truth) if p is not None and g is not None]
+    pairs = [
+        (p, g)
+        for p, g in zip(predicted, ground_truth, strict=False)
+        if p is not None and g is not None
+    ]
     if len(pairs) < 3:
         return 0.5
     pred_vals = [p for p, _ in pairs]
@@ -426,7 +430,8 @@ def _embedding_key_findings_score(
 
     # Build matched pairs list: (pred_idx, gold_idx, similarity)
     matched_pairs: list[tuple[int, int, float]] = [
-        (int(pi), int(gi), float(sim_matrix[gi, pi])) for gi, pi in zip(gold_idx, pred_idx)
+        (int(pi), int(gi), float(sim_matrix[gi, pi]))
+        for gi, pi in zip(gold_idx, pred_idx, strict=False)
     ]
 
     # Precision: fraction of predicted claims matched with similarity > 0.5

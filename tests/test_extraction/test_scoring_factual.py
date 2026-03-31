@@ -361,9 +361,9 @@ class TestScoreExtractionPairFactual:
             assert key in scores, f"Missing key: {key}"
 
 
-import pytest
+import pytest  # noqa: E402
 
-from autoreview.extraction.scoring import compute_dual_composite
+from autoreview.extraction.scoring import compute_dual_composite  # noqa: E402
 
 
 class TestDualComposite:

@@ -419,9 +419,7 @@ def _is_parallel_assertion(claim_a: dict[str, Any], claim_b: dict[str, Any]) -> 
     if claim_a["subj_id"] == claim_b["subj_id"] and claim_a["obj_id"] != claim_b["obj_id"]:
         return True
     # Same object, different subject
-    if claim_a["obj_id"] == claim_b["obj_id"] and claim_a["subj_id"] != claim_b["subj_id"]:
-        return True
-    return False
+    return claim_a["obj_id"] == claim_b["obj_id"] and claim_a["subj_id"] != claim_b["subj_id"]
 
 
 def _predicates_oppose(pred_a: str, pred_b: str) -> float | None:
@@ -588,7 +586,7 @@ def _batch_nli_classify(
             logits = model(**encoding).logits  # (batch, 3)
             probs = torch.softmax(logits, dim=-1).cpu().tolist()
 
-        for (a_id, b_id), prob_row in zip(batch_pairs, probs):
+        for (a_id, b_id), prob_row in zip(batch_pairs, probs, strict=False):
             results[(a_id, b_id)] = {
                 "p_contra": float(prob_row[contra_idx]),
                 "p_entail": float(prob_row[entail_idx]),
@@ -623,7 +621,8 @@ def _update_graph_posteriors(
     - new_beta   = base_beta + beta_updates[edge_key]
     - confidence_mean    = alpha / (alpha + new_beta)
     - controversy_score  = min(alpha, new_beta) / max(alpha, new_beta)
-    - Stored on edge data: confidence_mean, controversy_score, _nli_alpha, _nli_beta, _nli_cross_beta
+    - Stored on edge data: confidence_mean, controversy_score, _nli_alpha, _nli_beta,
+      _nli_cross_beta
 
     Args:
         graph: The knowledge graph (mutated in-place).
@@ -776,7 +775,7 @@ def classify_cross_claims(
     nli_pairs: list[tuple[str, str]] = []
     all_nli_results: dict[tuple[str, str], dict[str, Any]] = {}
 
-    for (a_id, b_id), shared_entities in pair_shared.items():
+    for (a_id, b_id), _shared_entities in pair_shared.items():
         claim_a = claims[a_id]
         claim_b = claims[b_id]
 
@@ -986,7 +985,9 @@ def diagnose_evidence_directions(
             logits = model(**encoding).logits
             probs = torch.softmax(logits, dim=-1).cpu().tolist()
 
-        for meta, prob_row, premise, hyp in zip(batch_meta, probs, batch_premises, batch_hyp):
+        for meta, prob_row, premise, hyp in zip(  # noqa: B905
+            batch_meta, probs, batch_premises, batch_hyp, strict=False
+        ):
             label_idx = int(max(range(3), key=lambda i: prob_row[i]))
             label_name = label_map[label_idx]
             label_distribution[label_name] += 1

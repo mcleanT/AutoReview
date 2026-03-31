@@ -342,7 +342,7 @@ class HybridExtractor:
         tasks = [self.extract(sp) for sp in papers]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        for sp, result in zip(papers, results):
+        for sp, result in zip(papers, results, strict=False):
             if isinstance(result, Exception):
                 logger.error(
                     "hybrid_extraction.batch_failure",

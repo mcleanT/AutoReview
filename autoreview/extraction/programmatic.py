@@ -361,12 +361,13 @@ def score_sentence(
         score += 0.15
 
     # --- Comparison + numbers bonus (0.0 – 0.10) ---
-    _COMPARISON_KW_RE = re.compile(
-        r"\b(compared to|outperform|baseline|vs\.?|versus|better than|worse than|superior|inferior)\b",
+    _comparison_kw_re = re.compile(
+        r"\b(compared to|outperform|baseline|vs\.?|versus"
+        r"|better than|worse than|superior|inferior)\b",
         re.IGNORECASE,
     )
-    _ANY_NUMBER_RE = re.compile(r"\d+\.?\d*")
-    if _COMPARISON_KW_RE.search(sentence) and _ANY_NUMBER_RE.search(sentence):
+    _any_number_re = re.compile(r"\d+\.?\d*")
+    if _comparison_kw_re.search(sentence) and _any_number_re.search(sentence):
         score += 0.10
 
     # --- Title similarity weight (0.0 – 0.15) ---
@@ -722,11 +723,14 @@ def determine_evidence_strength(
         StudyDesign.SYSTEMATIC_REVIEW,
         StudyDesign.RCT,
     }
-    if study_design in high_evidence_designs and has_quantitative:
+    if (
+        study_design in high_evidence_designs
+        and has_quantitative
+        and (has_specific_claim or paper_quant_density >= 0.3)
+    ):
         # Meta-analyses/RCTs with quant data can be STRONG even without
         # specific claim language
-        if has_specific_claim or paper_quant_density >= 0.3:
-            strength = EvidenceStrength.STRONG
+        strength = EvidenceStrength.STRONG
 
     # --- Rule 5: Downgrade non-quantitative claims from weak sections ---
     # 40% of full-text non-quant findings are WEAK or PRELIMINARY
@@ -1112,10 +1116,9 @@ def _is_junk_section(sec: ParsedSection) -> bool:
     if len(text_stripped) < 100:
         words = sec.name.strip().split()
         # Short name + short text = likely metadata
-        if len(words) <= 5:
-            # Check if it looks like a person name or affiliation
-            if all(w[0].isupper() for w in words if w and w[0].isalpha()):
-                return True
+        # Check if it looks like a person name or affiliation
+        if len(words) <= 5 and all(w[0].isupper() for w in words if w and w[0].isalpha()):
+            return True
 
     # Sections that are just geographic locations or institutions
     if any(sig in name_lower for sig in _LOCATION_SECTION_SIGNALS):
@@ -1274,7 +1277,7 @@ def _section_name_matches(name: str, patterns: list[str]) -> bool:
     # Reject names that end with a dangling preposition/article/conjunction —
     # these are column-split sentence fragments (e.g. "The strengths and limitations
     # of the approach in"). Real headings do not end in prepositions.
-    _DANGLING_TERMINAL_WORDS = frozenset(
+    _dangling_terminal_words = frozenset(
         [
             "in",
             "of",
@@ -1297,7 +1300,7 @@ def _section_name_matches(name: str, patterns: list[str]) -> bool:
             "than",
         ]
     )
-    if len(words) >= 4 and words[-1] in _DANGLING_TERMINAL_WORDS:
+    if len(words) >= 4 and words[-1] in _dangling_terminal_words:
         return False
 
     for pat in patterns:
@@ -1324,8 +1327,8 @@ def _section_name_matches(name: str, patterns: list[str]) -> bool:
         if comma_pos >= 0:
             after_comma = full_lower[comma_pos + 1 :].strip()
             # Sentence fragment if after comma starts with a pronoun or conjunction+verb
-            _SENTENCE_AFTER_COMMA = ("we ", "i ", "it ", "they ", "our ", "this ", "these ")
-            if any(after_comma.startswith(sw) for sw in _SENTENCE_AFTER_COMMA):
+            _sentence_after_comma = ("we ", "i ", "it ", "they ", "our ", "this ", "these ")
+            if any(after_comma.startswith(sw) for sw in _sentence_after_comma):
                 continue
         return True
     return False
@@ -1391,7 +1394,7 @@ def _find_section_with_children(
         # NOTE: "acknowledge" was too broad — "We acknowledge further limitations"
         # is a child content sentence, not a new section. Use "acknowledgement"
         # (the section heading form) instead.
-        _TOP_LEVEL_NAMES = [
+        _top_level_names = [
             "introduction",
             "result",
             "discussion",
@@ -1414,7 +1417,7 @@ def _find_section_with_children(
             child = sections[ci]
             child_lower = child.name.lower()
             # Stop if we hit another major section
-            if any(top in child_lower for top in _TOP_LEVEL_NAMES):
+            if any(top in child_lower for top in _top_level_names):
                 break
             # Stop if we hit another section matching the same patterns
             # (avoids merging unrelated methods-like sections)
@@ -1724,10 +1727,7 @@ def _is_non_content_sentence(sentence: str) -> bool:
         return True
 
     # Lines that look like option/answer choices (benchmark examples, not methodology)
-    if re.match(r"^Option [A-Z]:", stripped):
-        return True
-
-    return False
+    return bool(re.match(r"^Option [A-Z]:", stripped))
 
 
 _RESULTS_PENALTY_PHRASES: list[str] = [
@@ -1824,7 +1824,7 @@ def _score_methods_sentence(sentence: str) -> float:
 
     # Bonus for containing numbers (specific quantities, parameters)
     # Include word-form numbers common in paper descriptions
-    _WORD_NUMBERS = (
+    _word_numbers = (
         "two",
         "three",
         "four",
@@ -1842,11 +1842,11 @@ def _score_methods_sentence(sentence: str) -> float:
         "fifty",
         "hundred",
     )
-    if re.search(r"\d+", sentence) or any(wn in lower for wn in _WORD_NUMBERS):
+    if re.search(r"\d+", sentence) or any(wn in lower for wn in _word_numbers):
         score += 0.3
 
     # Bonus for sentences that introduce/describe a system, dataset or benchmark
-    _INTRO_VERBS = (
+    _intro_verbs = (
         "we introduce",
         "we present",
         "we propose",
@@ -1886,7 +1886,7 @@ def _score_methods_sentence(sentence: str) -> float:
         "we also build",
         "we also construct",
     )
-    if any(iv in lower for iv in _INTRO_VERBS):
+    if any(iv in lower for iv in _intro_verbs):
         score += 0.3
 
     # Bonus for containing parenthetical details like (n=100) or (p<0.05)
@@ -2577,7 +2577,6 @@ def extract_limitations(
     # We extract limitation-specific sentences, scope-limiting language, and
     # fall back to abstract summary sentences for general context.
     abs_lim_text = ""
-    abs_is_fallback = False  # True when abstract text is a generic tail fallback
     if abstract:
         abs_sents = split_sentences(abstract)
         abs_sents = [s for s in abs_sents if not _is_non_content_sentence(s)]
@@ -2598,15 +2597,12 @@ def extract_limitations(
         # Mark as fallback so we don't dilute a dedicated Limitations section.
         if not abs_lim_sents and len(abs_sents) >= 3:
             abs_lim_sents = abs_sents[-3:]
-            abs_is_fallback = True
         elif not abs_lim_sents and abs_sents:
             abs_lim_sents = abs_sents
-            abs_is_fallback = True
         abs_lim_text = " ".join(abs_lim_sents)
 
     # --- Step 2: Try to extract section-level limitation content ---
     section_lim_text = ""
-    section_is_dedicated = False  # True when content came from a dedicated Limitations section
 
     # Try dedicated limitations section (with child aggregation).
     # For a dedicated limitations section we use the full text — every sentence
@@ -2635,7 +2631,6 @@ def extract_limitations(
         _table_data = bool(re.search(r"\n\[\d+\]\n", lim_sec.text))
         if not _peer_review_signals and not _figure_signals and not _table_data:
             section_lim_text = _truncate_at_sentence_boundary(lim_sec.text.strip(), max_chars)
-            section_is_dedicated = True
     if not section_lim_text:
         lim_sec = _find_section(sections, _LIMITATION_SECTION_HEADINGS)
         if lim_sec and len(lim_sec.text.strip()) >= 50:
@@ -2649,7 +2644,6 @@ def extract_limitations(
             _table_data = bool(re.search(r"\n\[\d+\]\n", lim_sec.text))
             if not _peer_review_signals and not _figure_signals and not _table_data:
                 section_lim_text = _truncate_at_sentence_boundary(lim_sec.text.strip(), max_chars)
-                section_is_dedicated = True
 
     # Try combined sections (Conclusion and Limitations, etc.)
     if not section_lim_text:
@@ -2787,13 +2781,11 @@ def extract_limitations(
             if citation_count >= 3 and density > 0.025:
                 return True
             # Short table cells: ≤50 words with at least 1 citation at higher density
-            if words <= 50 and citation_count >= 1 and density > 0.015:
-                return True
-            return False
+            return words <= 50 and citation_count >= 1 and density > 0.015
 
         strong_kws = _STRONG_LIMITATION_KEYWORDS
         # Keywords whose presence at the START of a section name signals a table cell
-        _TABLE_CELL_NAME_STARTERS = frozenset(
+        _table_cell_name_starters = frozenset(
             [
                 "limited",
                 "limitation",
@@ -2820,7 +2812,7 @@ def extract_limitations(
             # these are table "limitation" column cells parsed as headings, not prose
             sec_name_lower = sec.name.lower().strip()
             _is_table_cell_section = len(sec.text.split()) <= 30 and any(
-                sec_name_lower.startswith(kw) for kw in _TABLE_CELL_NAME_STARTERS
+                sec_name_lower.startswith(kw) for kw in _table_cell_name_starters
             )
             if _is_table_cell_section:
                 continue
@@ -3127,7 +3119,7 @@ def _is_review_paper(title_lower: str, combined_lower: str) -> StudyDesign | Non
     # the paper *is* a review (not as an object being reviewed, e.g. "automated review of ethics").
     # Require "review" in the title to be preceded by a review-indicating particle or to
     # follow a pattern like "<X> review" where X is a review type qualifier.
-    _TITLE_REVIEW_CONTEXT_PATTERNS = [
+    _title_review_context_patterns = [
         "a review",
         "the review",
         ": review",
@@ -3144,7 +3136,7 @@ def _is_review_paper(title_lower: str, combined_lower: str) -> StudyDesign | Non
         "mini review",
         "brief review",
     ]
-    title_has_review = any(p in title_lower for p in _TITLE_REVIEW_CONTEXT_PATTERNS)
+    title_has_review = any(p in title_lower for p in _title_review_context_patterns)
 
     if not (
         has_title_review_signal or has_body_review_signal or title_has_survey or title_has_review
@@ -3284,14 +3276,19 @@ _SAMPLE_SIZE_MED_CONF: list[re.Pattern[str]] = [
     re.compile(
         r"(?:consisting|comprising|composed)\s+of\s+(\d[\d,]*)"
         + _ADJ_GAP
-        + r"(?:instances|questions|items|entries|examples|problems|tasks|articles|projects|pairs|cases|prompts|scenarios|benchmarks|templates|datapoints|data\s*points|test\s*cases|multiple.choice)",
+        + r"(?:instances|questions|items|entries|examples|problems|tasks|articles|projects"
+        + r"|pairs|cases|prompts|scenarios|benchmarks|templates|datapoints"
+        + r"|data\s*points|test\s*cases|multiple.choice)",
         re.IGNORECASE,
     ),
     # "contains/containing X [adj] instances/..."
     re.compile(
         r"contain(?:s|ing)\s+(\d[\d,]*)"
         + _ADJ_GAP
-        + r"(?:instances|questions|items|entries|examples|problems|tasks|articles|projects|pairs|cases|prompts|scenarios|real-world|multiple.choice|datasets?|stories|terms|topics|utterances|judgments?|annotations?|conversations?|instructions?|responses?|encounters?|queries|test\s*pairs?)",
+        + r"(?:instances|questions|items|entries|examples|problems|tasks|articles|projects"
+        + r"|pairs|cases|prompts|scenarios|real-world|multiple.choice|datasets?|stories"
+        + r"|terms|topics|utterances|judgments?|annotations?|conversations?"
+        + r"|instructions?|responses?|encounters?|queries|test\s*pairs?)",
         re.IGNORECASE,
     ),
     # "evaluate/evaluated/evaluating [of] X [adj] benchmarks/datasets" (NOT models/LLMs
@@ -3306,12 +3303,21 @@ _SAMPLE_SIZE_MED_CONF: list[re.Pattern[str]] = [
     re.compile(
         r"(?:total|totaling)\s+(?:of\s+)?(\d[\d,]*)"
         + _ADJ_GAP
-        + r"(?:instances|questions|items|entries|examples|problems|tasks|articles|projects|pairs|cases|prompts|scenarios|papers|studies|terms|multiple.choice|datasets?|stories|topics|utterances|judgments?|annotations?|conversations?|instructions?|responses?|encounters?|queries)",
+        + r"(?:instances|questions|items|entries|examples|problems|tasks|articles|projects"
+        + r"|pairs|cases|prompts|scenarios|papers|studies|terms|multiple.choice|datasets?"
+        + r"|stories|topics|utterances|judgments?|annotations?|conversations?"
+        + r"|instructions?|responses?|encounters?|queries)",
         re.IGNORECASE,
     ),
     # "X news articles" and similar compound-noun patterns
     re.compile(
-        r"(\d[\d,]*)\s+(?:news\s+articles|clinical\s+cases|medical\s+cases|test\s+examples|evaluation\s+instances|benchmark\s+problems|multiple.choice\s+questions|clinical\s+scenarios|examination.style\s+\w+|bug\s+instances|software\s+projects|real.world\s+(?:projects?|utterances?|scenarios?|queries)|solution\s+codes?|test\s+pairs?|query.response\s+pairs?|user\s+queries|interaction\s+records?)",
+        r"(\d[\d,]*)\s+(?:news\s+articles|clinical\s+cases|medical\s+cases"
+        + r"|test\s+examples|evaluation\s+instances|benchmark\s+problems"
+        + r"|multiple.choice\s+questions|clinical\s+scenarios"
+        + r"|examination.style\s+\w+|bug\s+instances|software\s+projects"
+        + r"|real.world\s+(?:projects?|utterances?|scenarios?|queries)"
+        + r"|solution\s+codes?|test\s+pairs?|query.response\s+pairs?"
+        + r"|user\s+queries|interaction\s+records?)",
         re.IGNORECASE,
     ),
     # "dataset of X" -- but only in methods/abstract context
@@ -3326,14 +3332,17 @@ _SAMPLE_SIZE_MED_CONF: list[re.Pattern[str]] = [
     re.compile(
         r"(\d[\d,]*)"
         + _ADJ_GAP
-        + r"(?:samples|documents|records|images|videos|texts?|sentences|utterances|dialogues?|conversations?|trials?|publications?|terms|stories|queries|instructions?|encounters?|judgments?|annotations?|responses?|transcripts?)",
+        + r"(?:samples|documents|records|images|videos|texts?|sentences|utterances"
+        + r"|dialogues?|conversations?|trials?|publications?|terms|stories|queries"
+        + r"|instructions?|encounters?|judgments?|annotations?|responses?|transcripts?)",
         re.IGNORECASE,
     ),
     # "includes/including X [adj] questions/tasks"
     re.compile(
         r"(?:includes?|including)\s+(\d[\d,]*)"
         + _ADJ_GAP
-        + r"(?:instances|questions|items|examples|problems|tasks|prompts|scenarios|datasets?|test\s*cases|studies|papers?|articles?|bug\s*instances?)",
+        + r"(?:instances|questions|items|examples|problems|tasks|prompts|scenarios"
+        + r"|datasets?|test\s*cases|studies|papers?|articles?|bug\s*instances?)",
         re.IGNORECASE,
     ),
     # "across X datasets/tasks/domains" -- exclude subjects/topics/categories
@@ -3351,12 +3360,14 @@ _SAMPLE_SIZE_MED_CONF: list[re.Pattern[str]] = [
     re.compile(
         r"(?:comprises?|encompass\w+)\s+(\d[\d,]*)"
         + _ADJ_GAP
-        + r"(?:instances|questions|items|entries|examples|problems|tasks|prompts|scenarios|pairs|cases|datasets?|stories|terms)",
+        + r"(?:instances|questions|items|entries|examples|problems|tasks|prompts|scenarios"
+        + r"|pairs|cases|datasets?|stories|terms)",
         re.IGNORECASE,
     ),
     # "reviewed/surveyed/examined X [adj] papers/studies"
     re.compile(
-        r"(?:review\w*|survey\w*|examin\w*|screen\w*|analyz\w*|retriev\w*)\s+(?:of\s+)?(\d[\d,]*)"
+        r"(?:review\w*|survey\w*|examin\w*|screen\w*|analyz\w*|retriev\w*)"
+        + r"\s+(?:of\s+)?(\d[\d,]*)"
         + _ADJ_GAP
         + r"(?:papers?|studies|articles?|publications?|trials?|primary\s+studies)",
         re.IGNORECASE,
@@ -3368,9 +3379,13 @@ _SAMPLE_SIZE_MED_CONF: list[re.Pattern[str]] = [
     ),
     # "constructed/curated/built X [adj] items" (broader verb set)
     re.compile(
-        r"(?:construct\w*|built|creat\w*|develop\w*|prepar\w*|generat\w*|introduc\w*)\s+(?:a\s+)?(?:dataset\s+(?:of|with|comprising|containing)\s+)?(\d[\d,]*)"
+        r"(?:construct\w*|built|creat\w*|develop\w*|prepar\w*|generat\w*|introduc\w*)"
+        + r"\s+(?:a\s+)?(?:dataset\s+(?:of|with|comprising|containing)\s+)?(\d[\d,]*)"
         + _ADJ_GAP
-        + r"(?:instances|questions|items|entries|examples|problems|tasks|pairs|cases|prompts|scenarios|terms|stories|topics|utterances|judgments?|annotations?|conversations?|instructions?|responses?|encounters?|queries|samples?|test\s*cases)",
+        + r"(?:instances|questions|items|entries|examples|problems|tasks|pairs|cases"
+        + r"|prompts|scenarios|terms|stories|topics|utterances|judgments?|annotations?"
+        + r"|conversations?|instructions?|responses?|encounters?|queries|samples?"
+        + r"|test\s*cases)",
         re.IGNORECASE,
     ),
     # "sampled/selected X [adj] items" (require past tense to avoid
@@ -3378,21 +3393,25 @@ _SAMPLE_SIZE_MED_CONF: list[re.Pattern[str]] = [
     re.compile(
         r"(?:sampled|selected|filter\w+|retain\w+)\s+(\d[\d,]*)"
         + _ADJ_GAP
-        + r"(?:instances|questions|items|entries|examples|problems|tasks|pairs|cases|prompts|scenarios|terms|stories|utterances|conversations?|instructions?|responses?|encounters?|queries|samples?|papers?|studies|test\s*cases)",
+        + r"(?:instances|questions|items|entries|examples|problems|tasks|pairs|cases"
+        + r"|prompts|scenarios|terms|stories|utterances|conversations?|instructions?"
+        + r"|responses?|encounters?|queries|samples?|papers?|studies|test\s*cases)",
         re.IGNORECASE,
     ),
     # "evaluated on X [adj] questions/items" (passive, data-item targets only)
     re.compile(
         r"evaluated\s+on\s+(\d[\d,]*)"
         + _ADJ_GAP
-        + r"(?:instances|questions|items|examples|problems|tasks|prompts|scenarios|pairs|cases)",
+        + r"(?:instances|questions|items|examples|problems|tasks|prompts|scenarios"
+        + r"|pairs|cases)",
         re.IGNORECASE,
     ),
     # "processed/annotated/labeled X questions/items" (past tense verbs)
     re.compile(
         r"(?:process\w*|annotat\w*|label\w*|classif\w*)\s+(\d[\d,]*)"
         + _ADJ_GAP
-        + r"(?:instances|questions|items|entries|examples|problems|tasks|pairs|cases|prompts|scenarios|samples?)",
+        + r"(?:instances|questions|items|entries|examples|problems|tasks|pairs|cases"
+        + r"|prompts|scenarios|samples?)",
         re.IGNORECASE,
     ),
 ]
@@ -3402,7 +3421,8 @@ _SAMPLE_SIZE_LOW_CONF: list[re.Pattern[str]] = [
     re.compile(
         r"(\d[\d,]*)"
         + _ADJ_GAP
-        + r"(?:LLMs?|models?|benchmarks?|questions|instances|examples|problems|articles|entries|terms|projects|papers|studies|datasets?|SLMs?)",
+        + r"(?:LLMs?|models?|benchmarks?|questions|instances|examples|problems"
+        + r"|articles|entries|terms|projects|papers|studies|datasets?|SLMs?)",
         re.IGNORECASE,
     ),
 ]

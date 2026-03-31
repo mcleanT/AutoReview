@@ -614,7 +614,8 @@ class TestExtractSampleSize:
 
     def test_models_in_abstract(self):
         result = extract_sample_size(
-            "We investigate the tool learning ability of 41 prevalent LLMs by reproducing benchmarks.",
+            "We investigate the tool learning ability of "
+            "41 prevalent LLMs by reproducing benchmarks.",
             [],
         )
         assert result == 41

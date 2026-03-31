@@ -1464,3 +1464,48 @@ Review papers and abstract-only papers yield qualitatively different KG extracti
 
 ## Adaptive trigger outperforms hard size thresholds for supplement detection (2026-03-30)
 - The adaptive trigger (check extraction output for 0 attributed_prior + citation count > 5) is more robust than a hard paper-size threshold. Medium and small papers with existing attributed_prior correctly skip the supplement, while the large paper that needed it gets triggered regardless of size.
+
+### 2026-03-30 — Multi-signal review detection outperforms keyword-only title matching
+
+**Context**: Gastruloid corpus audit — filtering non-primary-research papers.
+
+**Finding**: A keyword-only pass on paper titles (Round 1) missed 6 true review articles that were caught only in Round 2 via intro text analysis. These papers had titles that sounded like primary research (e.g., no "review", "overview", "perspective" keywords) but contained explicit "In this review, we..." declarations in their introduction paragraphs.
+
+**Lesson**: Review detection requires a weighted multi-signal approach:
+1. Title keywords ("review", "overview", "perspective", "meta-analysis") — high precision, lower recall
+2. Journal name matching against known review journals — catches themed issues
+3. Abstract text patterns ("here we review", "we summarize") — medium signal
+4. Intro paragraph text patterns ("In this review", "This review aims") — highest recall, catches papers that deliberately avoid review language in the title/abstract
+
+Apply all four signals when building corpus filters. A paper failing any signal at sufficient confidence threshold should be flagged for manual review before archiving.
+
+**Applies to**: Any corpus curation pipeline that needs to exclude secondary literature.
+
+### 2026-03-30 — Corpus version mismatch orphans all KG extractions
+
+**Context**: Gastruloid KG extraction pipeline — checking extraction coverage after corpus quality audit.
+
+**Finding**: After archiving 90 papers to reduce corpus from 1,023 → 933, discovered that 311 existing KG extractions have 0% match against the current corpus. The extractions used paper IDs from a prior corpus version (different ID scheme or different paper set). This means the KG extraction work is not lost but is entirely uncoupled from the current corpus state.
+
+**Root cause**: Paper IDs in the corpus are not stable across corpus rebuilds. When papers are re-ingested or the corpus is re-indexed, IDs can shift even for the same papers.
+
+**Lesson**: Always treat KG extractions (and any derived artifacts) as tied to a specific corpus snapshot. Before running downstream KG steps, verify extraction coverage by joining on stable paper identifiers (DOI, PMID) rather than internal IDs. Maintain a corpus version tag and extraction version tag; flag a mismatch before any pipeline run.
+
+**Action required**: Re-run KG extraction on the 933-paper corpus using stable DOI/PMID joins to confirm which papers already have valid extractions vs. need fresh extraction.
+
+**Applies to**: Any pipeline where extraction artifacts are keyed on mutable internal IDs.
+
+---
+## 2026-03-30 — Gastruloid Corpus Gap Analysis
+
+### OpenAlex relevance filter drops important papers
+**Context**: Gap analysis cross-referencing gastruloid corpus against OpenAlex (500 results), PubMed (227), Semantic Scholar (100), Europe PMC (500).
+**Finding**: 10 of 13 priority gap papers were not found in OpenAlex results at all, despite appearing in 3+ other databases. OpenAlex relevance ranking deprioritizes highly-cited foundational papers when search terms skew toward recent literature.
+**Implication**: Never rely on a single database for completeness. Multi-DB cross-reference is mandatory — OpenAlex alone misses ~770f priority gaps.
+**Action**: For future corpus expansion, always cross-reference at minimum PubMed + OpenAlex + Europe PMC. Flag papers appearing in 2+ databases but absent from corpus.
+
+### Full text cache negative entries block re-resolution
+**Context**: retry_inaccessible.py recovering papers with VPN that initially failed without VPN.
+**Finding**: The full text cache stored negative (failure) entries from the initial non-VPN resolution pass. When retry_inaccessible.py ran, it read those cached negatives and skipped re-attempting resolution, silently missing papers that would have succeeded with VPN.
+**Fix**: Clear negative cache entries (or use a separate retry cache) before running any retry pass. Positive cache entries (successful resolutions) should be preserved.
+**Implication**: Cached failures are not permanent facts — they reflect the resolution environment at the time. Retry logic must not trust negative cache entries.

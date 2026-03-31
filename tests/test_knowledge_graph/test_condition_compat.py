@@ -107,9 +107,8 @@ class TestSpeciesScore:
         assert _species_score("Some rattus", "Mus musculus") == 0.3
 
     def test_both_unlisted_species(self):
-        # Both unlisted → no groups found → 0.3 (groups not equal: both None but != None check fails)
-        # Actually both group lookups return None and None == None, so should be 0.6
-        # Let's verify the actual logic:
+        # Both unlisted → group lookups return None.
+        # None == None → 0.6 (same group).
         # group_a = _SPECIES_GROUPS.get("Unknown A") → None
         # group_b = _SPECIES_GROUPS.get("Unknown B") → None
         # group_a is not None → False → falls through to 0.3

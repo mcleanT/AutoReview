@@ -5,9 +5,9 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from autoreview.extraction.hybrid import HybridExtractor
 
 from autoreview.config.models import ExtractionConfig
+from autoreview.extraction.hybrid import HybridExtractor
 from autoreview.extraction.models import EvidenceStrength, Finding, PaperExtraction, StudyDesign
 from autoreview.extraction.programmatic import ProgrammaticExtractor
 from autoreview.models.paper import CandidatePaper, ScreenedPaper
@@ -105,7 +105,9 @@ class TestHybridExtractor:
     async def test_study_design_overridden_from_programmatic(self):
         """study_design is always taken from programmatic draft regardless of LLM output."""
         sp = _make_screened_paper(
-            full_text="We conducted a randomized controlled trial (RCT). Results showed improvement."
+            full_text=(
+                "We conducted a randomized controlled trial (RCT). Results showed improvement."
+            )
         )
         pid = sp.paper.id
         programmatic = ProgrammaticExtractor(ExtractionConfig())

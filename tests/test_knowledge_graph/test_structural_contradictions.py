@@ -24,9 +24,9 @@ from autoreview.knowledge_graph.structural_contradictions import (
 
 def _make_graph_with_edges(edges: list[dict]) -> nx.MultiDiGraph:
     """Build a test MultiDiGraph from a list of edge dicts."""
-    G = nx.MultiDiGraph()
+    graph = nx.MultiDiGraph()
     for e in edges:
-        G.add_edge(
+        graph.add_edge(
             e["subject"],
             e["object"],
             predicate=e["predicate"],
@@ -37,7 +37,7 @@ def _make_graph_with_edges(edges: list[dict]) -> nx.MultiDiGraph:
             conditions=e.get("conditions", {}),
             edge_id=e.get("edge_id", f"{e['subject']}_{e['predicate']}_{e['object']}"),
         )
-    return G
+    return graph
 
 
 # ---------------------------------------------------------------------------
@@ -48,7 +48,7 @@ def _make_graph_with_edges(edges: list[dict]) -> nx.MultiDiGraph:
 class TestDetectContradictions:
     def test_opposing_predicates_same_conditions_gives_predicate_opposition(self) -> None:
         """induces vs inhibits on same S/O, same species → PREDICATE_OPPOSITION."""
-        G = _make_graph_with_edges(
+        graph = _make_graph_with_edges(
             [
                 {
                     "subject": "BRAF",
@@ -68,7 +68,7 @@ class TestDetectContradictions:
                 },
             ]
         )
-        results = detect_contradictions(G)
+        results = detect_contradictions(graph)
         assert len(results) == 1
         pair = results[0]
         assert pair.contradiction_type == ContradictionType.PREDICATE_OPPOSITION
@@ -79,7 +79,7 @@ class TestDetectContradictions:
 
     def test_synonym_opposing_predicates_detected(self) -> None:
         """activates vs suppresses should resolve to induces vs inhibits via canonicalization."""
-        G = _make_graph_with_edges(
+        graph = _make_graph_with_edges(
             [
                 {
                     "subject": "A",
@@ -99,13 +99,13 @@ class TestDetectContradictions:
                 },
             ]
         )
-        results = detect_contradictions(G)
+        results = detect_contradictions(graph)
         assert len(results) == 1
         assert results[0].contradiction_type == ContradictionType.PREDICATE_OPPOSITION
 
     def test_same_predicate_opposite_direction_gives_direction_conflict(self) -> None:
         """Same predicate but opposite direction → DIRECTION_CONFLICT."""
-        G = _make_graph_with_edges(
+        graph = _make_graph_with_edges(
             [
                 {
                     "subject": "PI3K",
@@ -127,7 +127,7 @@ class TestDetectContradictions:
                 },
             ]
         )
-        results = detect_contradictions(G)
+        results = detect_contradictions(graph)
         assert len(results) == 1
         pair = results[0]
         assert pair.contradiction_type == ContradictionType.DIRECTION_CONFLICT
@@ -137,7 +137,7 @@ class TestDetectContradictions:
 
     def test_opposing_predicates_different_species_gives_boundary_condition(self) -> None:
         """Opposing predicates but very different conditions → BOUNDARY_CONDITION."""
-        G = _make_graph_with_edges(
+        graph = _make_graph_with_edges(
             [
                 {
                     "subject": "X",
@@ -160,7 +160,7 @@ class TestDetectContradictions:
             ]
         )
         # coupling: sp=0.3 (rodent vs insect), sy=0.5 (different), iv=0.6 (different) → 0.42
-        results = detect_contradictions(G, boundary_threshold=0.6)
+        results = detect_contradictions(graph, boundary_threshold=0.6)
         assert len(results) == 1
         pair = results[0]
         assert pair.contradiction_type == ContradictionType.BOUNDARY_CONDITION
@@ -168,7 +168,7 @@ class TestDetectContradictions:
 
     def test_different_objects_no_contradiction(self) -> None:
         """Edges with same subject but different objects should not be compared."""
-        G = _make_graph_with_edges(
+        graph = _make_graph_with_edges(
             [
                 {
                     "subject": "A",
@@ -184,12 +184,12 @@ class TestDetectContradictions:
                 },
             ]
         )
-        results = detect_contradictions(G)
+        results = detect_contradictions(graph)
         assert results == []
 
     def test_non_opposing_same_subject_object_no_contradiction(self) -> None:
         """Non-opposing predicates on same S/O → no contradiction."""
-        G = _make_graph_with_edges(
+        graph = _make_graph_with_edges(
             [
                 {
                     "subject": "A",
@@ -205,12 +205,12 @@ class TestDetectContradictions:
                 },
             ]
         )
-        results = detect_contradictions(G)
+        results = detect_contradictions(graph)
         assert results == []
 
     def test_same_predicate_same_direction_no_contradiction(self) -> None:
         """Same predicate and same direction → not a contradiction."""
-        G = _make_graph_with_edges(
+        graph = _make_graph_with_edges(
             [
                 {
                     "subject": "A",
@@ -228,21 +228,21 @@ class TestDetectContradictions:
                 },
             ]
         )
-        results = detect_contradictions(G)
+        results = detect_contradictions(graph)
         assert results == []
 
     def test_empty_graph_returns_empty_list(self) -> None:
         """Empty graph has no edges → no contradictions."""
-        G = nx.MultiDiGraph()
-        results = detect_contradictions(G)
+        graph = nx.MultiDiGraph()
+        results = detect_contradictions(graph)
         assert results == []
 
     def test_single_edge_no_contradiction(self) -> None:
         """A graph with one edge cannot have any contradiction."""
-        G = _make_graph_with_edges(
+        graph = _make_graph_with_edges(
             [{"subject": "A", "object": "B", "predicate": "induces", "edge_id": "only_edge"}]
         )
-        results = detect_contradictions(G)
+        results = detect_contradictions(graph)
         assert results == []
 
 
@@ -254,7 +254,7 @@ class TestDetectContradictions:
 class TestBoundaryConditionClassification:
     def test_high_coupling_gives_predicate_opposition(self) -> None:
         """Same species, same system → coupling high → PREDICATE_OPPOSITION."""
-        G = _make_graph_with_edges(
+        graph = _make_graph_with_edges(
             [
                 {
                     "subject": "P",
@@ -276,14 +276,14 @@ class TestBoundaryConditionClassification:
                 },
             ]
         )
-        results = detect_contradictions(G, boundary_threshold=0.6)
+        results = detect_contradictions(graph, boundary_threshold=0.6)
         assert len(results) == 1
         assert results[0].contradiction_type == ContradictionType.PREDICATE_OPPOSITION
         assert results[0].condition_coupling >= 0.6
 
     def test_low_coupling_gives_boundary_condition(self) -> None:
         """Very different organisms → low coupling → BOUNDARY_CONDITION."""
-        G = _make_graph_with_edges(
+        graph = _make_graph_with_edges(
             [
                 {
                     "subject": "P",
@@ -305,13 +305,13 @@ class TestBoundaryConditionClassification:
                 },
             ]
         )
-        results = detect_contradictions(G, boundary_threshold=0.6)
+        results = detect_contradictions(graph, boundary_threshold=0.6)
         assert len(results) == 1
         assert results[0].contradiction_type == ContradictionType.BOUNDARY_CONDITION
 
     def test_boundary_threshold_parameter_respected(self) -> None:
         """Adjusting boundary_threshold changes classification."""
-        G = _make_graph_with_edges(
+        graph = _make_graph_with_edges(
             [
                 {
                     "subject": "A",
@@ -332,8 +332,8 @@ class TestBoundaryConditionClassification:
             ]
         )
         # coupling: sp=0.6 (same rodent), sy=0.5, iv=0.6 → 0.5*0.6 + 0.3*0.5 + 0.2*0.6 = 0.57
-        results_low = detect_contradictions(G, boundary_threshold=0.5)
-        results_high = detect_contradictions(G, boundary_threshold=0.7)
+        results_low = detect_contradictions(graph, boundary_threshold=0.5)
+        results_high = detect_contradictions(graph, boundary_threshold=0.7)
 
         # With low threshold (0.5), coupling ~0.57 > 0.5 → PREDICATE_OPPOSITION
         assert results_low[0].contradiction_type == ContradictionType.PREDICATE_OPPOSITION
@@ -342,7 +342,7 @@ class TestBoundaryConditionClassification:
 
     def test_direction_conflict_with_low_coupling_gives_boundary(self) -> None:
         """Direction conflict with very different conditions → BOUNDARY_CONDITION."""
-        G = _make_graph_with_edges(
+        graph = _make_graph_with_edges(
             [
                 {
                     "subject": "A",
@@ -366,7 +366,7 @@ class TestBoundaryConditionClassification:
                 },
             ]
         )
-        results = detect_contradictions(G, boundary_threshold=0.6)
+        results = detect_contradictions(graph, boundary_threshold=0.6)
         assert len(results) == 1
         assert results[0].contradiction_type == ContradictionType.BOUNDARY_CONDITION
 
@@ -379,7 +379,7 @@ class TestBoundaryConditionClassification:
 class TestMultipleContradictions:
     def test_multiple_contradictions_in_same_graph(self) -> None:
         """Graph with two independent contradictions both detected."""
-        G = _make_graph_with_edges(
+        graph = _make_graph_with_edges(
             [
                 # Contradiction 1: A→B induces vs inhibits
                 {
@@ -426,7 +426,7 @@ class TestMultipleContradictions:
                 },
             ]
         )
-        results = detect_contradictions(G)
+        results = detect_contradictions(graph)
         assert len(results) == 2
 
         types = {c.contradiction_type for c in results}
@@ -435,7 +435,7 @@ class TestMultipleContradictions:
 
     def test_three_edges_same_pair_two_contradictions(self) -> None:
         """Three edges on same S/O: first two oppose, second and third also oppose."""
-        G = _make_graph_with_edges(
+        graph = _make_graph_with_edges(
             [
                 {
                     "subject": "A",
@@ -463,7 +463,7 @@ class TestMultipleContradictions:
                 },
             ]
         )
-        results = detect_contradictions(G)
+        results = detect_contradictions(graph)
         # (induces, inhibits1), (induces, inhibits2) → 2 contradictions
         # (inhibits1, inhibits2) → same predicate, same direction → no contradiction
         assert len(results) == 2
@@ -472,7 +472,7 @@ class TestMultipleContradictions:
 
     def test_result_is_sorted_deterministically(self) -> None:
         """Results are sorted by (edge_a_id, edge_b_id) for determinism."""
-        G = _make_graph_with_edges(
+        graph = _make_graph_with_edges(
             [
                 {
                     "subject": "A",
@@ -492,7 +492,7 @@ class TestMultipleContradictions:
                 },
             ]
         )
-        results = detect_contradictions(G)
+        results = detect_contradictions(graph)
         assert len(results) == 1
         # a_edge < z_edge alphabetically → a_edge should be edge_a_id
         assert results[0].edge_a_id == "a_edge"
@@ -500,7 +500,7 @@ class TestMultipleContradictions:
 
     def test_returns_contradiction_pair_instances(self) -> None:
         """All returned items are ContradictionPair instances."""
-        G = _make_graph_with_edges(
+        graph = _make_graph_with_edges(
             [
                 {
                     "subject": "A",
@@ -520,13 +520,13 @@ class TestMultipleContradictions:
                 },
             ]
         )
-        results = detect_contradictions(G)
+        results = detect_contradictions(graph)
         for item in results:
             assert isinstance(item, ContradictionPair)
 
     def test_condition_coupling_field_in_range(self) -> None:
         """condition_coupling field is always in [0, 1]."""
-        G = _make_graph_with_edges(
+        graph = _make_graph_with_edges(
             [
                 {
                     "subject": "A",
@@ -546,6 +546,6 @@ class TestMultipleContradictions:
                 },
             ]
         )
-        results = detect_contradictions(G)
+        results = detect_contradictions(graph)
         assert len(results) == 1
         assert 0.0 <= results[0].condition_coupling <= 1.0

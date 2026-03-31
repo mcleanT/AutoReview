@@ -336,7 +336,7 @@ def test_ground_rule_is_frozen() -> None:
         weight=1.0,
         rule_type="unary",
     )
-    with pytest.raises(Exception):  # FrozenInstanceError is a subclass of AttributeError
+    with pytest.raises(AttributeError):  # FrozenInstanceError is a subclass of AttributeError
         rule.weight = 99.0  # type: ignore[misc]
 
 

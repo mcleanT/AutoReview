@@ -13,13 +13,20 @@ logger = structlog.get_logger()
 
 def generate_retrieval_table() -> TableMetadata:
     """Generate retrieval paradigm comparison table (Table 1)."""
-    md = """| Method | Mechanism | Key Systems | Strengths | Limitations |
-|--------|-----------|-------------|-----------|-------------|
-| Dense bi-encoder | Semantic embedding similarity | DPR, M3-Embedding | Semantic matching, zero-shot transfer | Representation bottleneck, domain shift |
-| Sparse lexical | Term overlap (BM25, TF-IDF) | BM25, SPLADE | Exact match, no GPU, domain robust | No semantic understanding |
-| Hybrid fusion | Score combination of dense + sparse | RRF pipelines | Best of both, robust across domains | Complexity, tuning fusion weights |
-| Late interaction | Per-token similarity (MaxSim) | ColBERT, ColPali | Fine-grained matching, scalable | Larger index size |
-| Learned sparse | Neural term weighting | SPLADE, ANCE-PRF | Inverted index efficiency + semantics | Training data requirements |"""
+    md = (
+        "| Method | Mechanism | Key Systems | Strengths | Limitations |\n"
+        "|--------|-----------|-------------|-----------|-------------|\n"
+        "| Dense bi-encoder | Semantic embedding similarity | DPR, M3-Embedding"
+        " | Semantic matching, zero-shot transfer | Representation bottleneck, domain shift |\n"  # noqa: E501
+        "| Sparse lexical | Term overlap (BM25, TF-IDF) | BM25, SPLADE"
+        " | Exact match, no GPU, domain robust | No semantic understanding |\n"
+        "| Hybrid fusion | Score combination of dense + sparse | RRF pipelines"
+        " | Best of both, robust across domains | Complexity, tuning fusion weights |\n"  # noqa: E501
+        "| Late interaction | Per-token similarity (MaxSim) | ColBERT, ColPali"
+        " | Fine-grained matching, scalable | Larger index size |\n"
+        "| Learned sparse | Neural term weighting | SPLADE, ANCE-PRF"
+        " | Inverted index efficiency + semantics | Training data requirements |"
+    )
 
     return TableMetadata(
         key="table1_retrieval",
@@ -70,7 +77,10 @@ def generate_domain_table(theme_counts: dict[str, int] | None = None) -> TableMe
             "ColPali, M3DocRAG, EVisRAG",
         ),
     ]
-    header = "| Domain | Papers | Key Challenges | Representative Systems |\n|--------|--------|----------------|----------------------|"
+    header = (
+        "| Domain | Papers | Key Challenges | Representative Systems |\n"
+        "|--------|--------|----------------|----------------------|"
+    )
     body = "\n".join(f"| {d} | {p} | {c} | {s} |" for d, p, c, s in rows)
     md = f"{header}\n{body}"
 
@@ -84,13 +94,19 @@ def generate_domain_table(theme_counts: dict[str, int] | None = None) -> TableMe
 
 def generate_evaluation_table() -> TableMetadata:
     """Generate evaluation framework comparison table (Table 3)."""
-    md = """| Framework | Metrics | Scope | Automation | Key Limitation |
-|-----------|---------|-------|------------|---------------|
-| RAGAS | Faithfulness, relevance, context | Component-level | Fully automated (LLM) | Sensitive to judge model |
-| ARES | Confidence intervals on quality | End-to-end + component | Automated with PPI | Requires labeled calibration |
-| RAGBench | TRACe explainability scores | End-to-end | Automated | English-only |
-| ASTRID | Multi-dimension faithfulness | Faithfulness focus | Automated | Narrow scope |
-| Human eval | Task-specific rubrics | End-to-end | Manual | Expensive, low reliability |"""
+    md = (
+        "| Framework | Metrics | Scope | Automation | Key Limitation |\n"
+        "|-----------|---------|-------|------------|---------------|\n"
+        "| RAGAS | Faithfulness, relevance, context | Component-level"
+        " | Fully automated (LLM) | Sensitive to judge model |\n"
+        "| ARES | Confidence intervals on quality | End-to-end + component"
+        " | Automated with PPI | Requires labeled calibration |\n"
+        "| RAGBench | TRACe explainability scores | End-to-end | Automated | English-only |\n"
+        "| ASTRID | Multi-dimension faithfulness | Faithfulness focus"
+        " | Automated | Narrow scope |\n"
+        "| Human eval | Task-specific rubrics | End-to-end | Manual"
+        " | Expensive, low reliability |"
+    )
 
     return TableMetadata(
         key="table3_evaluation",

@@ -8,17 +8,17 @@ import pytest
 jax = pytest.importorskip("jax")
 numpyro = pytest.importorskip("numpyro")
 
-import jax.numpy as jnp
-import networkx as nx
-from numpyro.infer.util import log_density
+import jax.numpy as jnp  # noqa: E402
+import networkx as nx  # noqa: E402
+from numpyro.infer.util import log_density  # noqa: E402
 
 
 def _make_3node_graph() -> nx.MultiDiGraph:
     """A->B->C with A->C direct edge. Induces 1 composition chain."""
-    G = nx.MultiDiGraph()
+    graph = nx.MultiDiGraph()
     for n in ["A", "B", "C"]:
-        G.add_node(n, canonical_name=n, entity_type="protein")
-    G.add_edge(
+        graph.add_node(n, canonical_name=n, entity_type="protein")
+    graph.add_edge(
         "A",
         "B",
         predicate="induces",
@@ -31,7 +31,7 @@ def _make_3node_graph() -> nx.MultiDiGraph:
         in_vitro=True,
         conditions={},
     )
-    G.add_edge(
+    graph.add_edge(
         "B",
         "C",
         predicate="induces",
@@ -44,7 +44,7 @@ def _make_3node_graph() -> nx.MultiDiGraph:
         in_vitro=True,
         conditions={},
     )
-    G.add_edge(
+    graph.add_edge(
         "A",
         "C",
         predicate="induces",
@@ -57,15 +57,15 @@ def _make_3node_graph() -> nx.MultiDiGraph:
         in_vitro=True,
         conditions={},
     )
-    return G
+    return graph
 
 
 def _make_contradiction_graph() -> nx.MultiDiGraph:
     """Two opposing edges on same subject-object pair."""
-    G = nx.MultiDiGraph()
+    graph = nx.MultiDiGraph()
     for n in ["X", "Y"]:
-        G.add_node(n, canonical_name=n, entity_type="protein")
-    G.add_edge(
+        graph.add_node(n, canonical_name=n, entity_type="protein")
+    graph.add_edge(
         "X",
         "Y",
         predicate="induces",
@@ -78,7 +78,7 @@ def _make_contradiction_graph() -> nx.MultiDiGraph:
         in_vitro=True,
         conditions={},
     )
-    G.add_edge(
+    graph.add_edge(
         "X",
         "Y",
         predicate="inhibits",
@@ -91,29 +91,27 @@ def _make_contradiction_graph() -> nx.MultiDiGraph:
         in_vitro=True,
         conditions={},
     )
-    return G
+    return graph
 
 
 def test_prepare_model_inputs_edge_ids() -> None:
     """prepare_model_inputs should collect all edges with sorted IDs."""
+    from autoreview.knowledge_graph.bayesian.config import BayesianConfig
     from autoreview.knowledge_graph.bayesian.model import prepare_model_inputs
 
-    from autoreview.knowledge_graph.bayesian.config import BayesianConfig
-
-    G = _make_3node_graph()
-    inputs = prepare_model_inputs(G, BayesianConfig())
+    graph = _make_3node_graph()
+    inputs = prepare_model_inputs(graph, BayesianConfig())
     assert set(inputs.edge_ids) == {"ab", "bc", "ac"}
     assert inputs.n_edges == 3
 
 
 def test_prepare_model_inputs_alpha_beta_derived() -> None:
     """Alpha/beta should be derived from confidence_mean + evidence_count."""
+    from autoreview.knowledge_graph.bayesian.config import BayesianConfig
     from autoreview.knowledge_graph.bayesian.model import prepare_model_inputs
 
-    from autoreview.knowledge_graph.bayesian.config import BayesianConfig
-
-    G = _make_3node_graph()
-    inputs = prepare_model_inputs(G, BayesianConfig())
+    graph = _make_3node_graph()
+    inputs = prepare_model_inputs(graph, BayesianConfig())
     idx = inputs.edge_index["ab"]
     # ab: mean=0.85, evidence_count=3 -> kappa=5.0
     # alpha=0.85*5=4.25, beta=0.15*5=0.75
@@ -123,23 +121,21 @@ def test_prepare_model_inputs_alpha_beta_derived() -> None:
 
 def test_prepare_model_inputs_contradictions() -> None:
     """Should detect opposing predicates as contradictions."""
+    from autoreview.knowledge_graph.bayesian.config import BayesianConfig
     from autoreview.knowledge_graph.bayesian.model import prepare_model_inputs
 
-    from autoreview.knowledge_graph.bayesian.config import BayesianConfig
-
-    G = _make_contradiction_graph()
-    inputs = prepare_model_inputs(G, BayesianConfig())
+    graph = _make_contradiction_graph()
+    inputs = prepare_model_inputs(graph, BayesianConfig())
     assert len(inputs.contra_a_idx) > 0, "Should detect at least one contradiction"
 
 
 def test_prepare_model_inputs_compositions() -> None:
     """A->B->C chain should produce a composition chain targeting A->C."""
+    from autoreview.knowledge_graph.bayesian.config import BayesianConfig
     from autoreview.knowledge_graph.bayesian.model import prepare_model_inputs
 
-    from autoreview.knowledge_graph.bayesian.config import BayesianConfig
-
-    G = _make_3node_graph()
-    inputs = prepare_model_inputs(G, BayesianConfig())
+    graph = _make_3node_graph()
+    inputs = prepare_model_inputs(graph, BayesianConfig())
     assert len(inputs.composition_chains) > 0, "Should discover A->B->C composition"
     chain = inputs.composition_chains[0]
     target_eid = inputs.edge_ids[chain.target_idx]
@@ -148,12 +144,11 @@ def test_prepare_model_inputs_compositions() -> None:
 
 def test_kg_flat_model_finite_log_density() -> None:
     """Model should produce finite log-density for reasonable truth values."""
+    from autoreview.knowledge_graph.bayesian.config import BayesianConfig
     from autoreview.knowledge_graph.bayesian.model import kg_flat_model, prepare_model_inputs
 
-    from autoreview.knowledge_graph.bayesian.config import BayesianConfig
-
-    G = _make_3node_graph()
-    inputs = prepare_model_inputs(G, BayesianConfig())
+    graph = _make_3node_graph()
+    inputs = prepare_model_inputs(graph, BayesianConfig())
     truth_vals = jnp.array([0.5] * inputs.n_edges)
     log_p, _ = log_density(
         kg_flat_model,
@@ -166,12 +161,11 @@ def test_kg_flat_model_finite_log_density() -> None:
 
 def test_kg_flat_model_gradient_defined() -> None:
     """Gradient of log-density w.r.t. truth should be finite (no NaN)."""
+    from autoreview.knowledge_graph.bayesian.config import BayesianConfig
     from autoreview.knowledge_graph.bayesian.model import kg_flat_model, prepare_model_inputs
 
-    from autoreview.knowledge_graph.bayesian.config import BayesianConfig
-
-    G = _make_3node_graph()
-    inputs = prepare_model_inputs(G, BayesianConfig())
+    graph = _make_3node_graph()
+    inputs = prepare_model_inputs(graph, BayesianConfig())
 
     def log_post(truth_vals):
         log_p, _ = log_density(

@@ -162,7 +162,7 @@ class HLMRFEngine:
 
         if self.n_rules == 0:
             log.info("hlmrf.solve.no_rules", n_variables=self.n_variables)
-            return dict(zip(var_names, x0.tolist()))
+            return dict(zip(var_names, x0.tolist(), strict=False))
 
         def objective_and_grad(x: np.ndarray) -> tuple[float, np.ndarray]:
             obj = 0.0
@@ -180,13 +180,13 @@ class HLMRFEngine:
                 elif rule.rule_type == "contradiction":
                     # Hinge penalty when head + Σ(c_i * body_i) > target
                     val = x[hi]
-                    for bv, bc in zip(rule.body_vars, rule.body_coeffs):
+                    for bv, bc in zip(rule.body_vars, rule.body_coeffs, strict=False):
                         val += bc * x[var_idx[bv]]
                     violation = max(0.0, val - rule.target)
                     if violation > 0.0:
                         obj += rule.weight * violation * violation
                         grad[hi] += 2.0 * rule.weight * violation
-                        for bv, bc in zip(rule.body_vars, rule.body_coeffs):
+                        for bv, bc in zip(rule.body_vars, rule.body_coeffs, strict=False):
                             grad[var_idx[bv]] += 2.0 * rule.weight * violation * bc
 
                 elif rule.rule_type == "composition":
@@ -213,14 +213,15 @@ class HLMRFEngine:
                     # body_coeffs are weights (should sum to 1 for a true mean)
                     if rule.body_vars:
                         body_mean = sum(
-                            bc * x[var_idx[bv]] for bv, bc in zip(rule.body_vars, rule.body_coeffs)
+                            bc * x[var_idx[bv]]
+                            for bv, bc in zip(rule.body_vars, rule.body_coeffs, strict=False)
                         )
                     else:
                         body_mean = rule.target
                     diff = x[hi] - body_mean
                     obj += rule.weight * diff * diff
                     grad[hi] += 2.0 * rule.weight * diff
-                    for bv, bc in zip(rule.body_vars, rule.body_coeffs):
+                    for bv, bc in zip(rule.body_vars, rule.body_coeffs, strict=False):
                         grad[var_idx[bv]] -= 2.0 * rule.weight * diff * bc
 
             return obj, grad
@@ -253,7 +254,7 @@ class HLMRFEngine:
             final_obj=float(result.fun),
         )
 
-        return dict(zip(var_names, result.x.tolist()))
+        return dict(zip(var_names, result.x.tolist(), strict=False))
 
     def solve_incremental(
         self,
@@ -349,13 +350,13 @@ class HLMRFEngine:
 
                 elif rule.rule_type == "contradiction":
                     val = x[hi]
-                    for bv, bc in zip(rule.body_vars, rule.body_coeffs):
+                    for bv, bc in zip(rule.body_vars, rule.body_coeffs, strict=False):
                         val += bc * x[var_idx[bv]]
                     violation = max(0.0, val - rule.target)
                     if violation > 0.0:
                         obj += rule.weight * violation * violation
                         grad_full[hi] += 2.0 * rule.weight * violation
-                        for bv, bc in zip(rule.body_vars, rule.body_coeffs):
+                        for bv, bc in zip(rule.body_vars, rule.body_coeffs, strict=False):
                             grad_full[var_idx[bv]] += 2.0 * rule.weight * violation * bc
 
                 elif rule.rule_type == "composition":
@@ -381,14 +382,15 @@ class HLMRFEngine:
                     # body_coeffs are weights (should sum to 1 for a true mean)
                     if rule.body_vars:
                         body_mean = sum(
-                            bc * x[var_idx[bv]] for bv, bc in zip(rule.body_vars, rule.body_coeffs)
+                            bc * x[var_idx[bv]]
+                            for bv, bc in zip(rule.body_vars, rule.body_coeffs, strict=False)
                         )
                     else:
                         body_mean = rule.target
                     diff = x[hi] - body_mean
                     obj += rule.weight * diff * diff
                     grad_full[hi] += 2.0 * rule.weight * diff
-                    for bv, bc in zip(rule.body_vars, rule.body_coeffs):
+                    for bv, bc in zip(rule.body_vars, rule.body_coeffs, strict=False):
                         grad_full[var_idx[bv]] -= 2.0 * rule.weight * diff * bc
 
             # Return only the gradients for free variables.
@@ -426,7 +428,7 @@ class HLMRFEngine:
         # Reconstruct the full solution dict.
         x_final = frozen_vals.copy()
         x_final[free_indices] = result_opt.x
-        return dict(zip(var_names, x_final.tolist()))
+        return dict(zip(var_names, x_final.tolist(), strict=False))
 
     def compute_diagnostics(self, solution: dict[str, float]) -> list[dict[str, Any]]:
         """Compute per-rule residuals given a solution.
@@ -456,7 +458,7 @@ class HLMRFEngine:
 
             elif rule.rule_type == "contradiction":
                 val = x[hi]
-                for bv, bc in zip(rule.body_vars, rule.body_coeffs):
+                for bv, bc in zip(rule.body_vars, rule.body_coeffs, strict=False):
                     val += bc * x[var_idx[bv]]
                 hinge = max(0.0, val - rule.target)
                 violation = rule.weight * hinge * hinge
@@ -476,7 +478,8 @@ class HLMRFEngine:
             elif rule.rule_type == "aggregation":
                 if rule.body_vars:
                     body_mean = sum(
-                        bc * x[var_idx[bv]] for bv, bc in zip(rule.body_vars, rule.body_coeffs)
+                        bc * x[var_idx[bv]]
+                        for bv, bc in zip(rule.body_vars, rule.body_coeffs, strict=False)
                     )
                 else:
                     body_mean = rule.target

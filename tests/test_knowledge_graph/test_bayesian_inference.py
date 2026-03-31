@@ -7,15 +7,15 @@ import pytest
 jax = pytest.importorskip("jax")
 numpyro = pytest.importorskip("numpyro")
 
-import networkx as nx
+import networkx as nx  # noqa: E402
 
 
 def _make_simple_graph() -> nx.MultiDiGraph:
     """Two independent edges — no contradictions, no compositions."""
-    G = nx.MultiDiGraph()
+    graph = nx.MultiDiGraph()
     for n in ["A", "B", "C"]:
-        G.add_node(n, canonical_name=n, entity_type="protein")
-    G.add_edge(
+        graph.add_node(n, canonical_name=n, entity_type="protein")
+    graph.add_edge(
         "A",
         "B",
         predicate="induces",
@@ -28,7 +28,7 @@ def _make_simple_graph() -> nx.MultiDiGraph:
         in_vitro=True,
         conditions={},
     )
-    G.add_edge(
+    graph.add_edge(
         "B",
         "C",
         predicate="induces",
@@ -41,15 +41,15 @@ def _make_simple_graph() -> nx.MultiDiGraph:
         in_vitro=True,
         conditions={},
     )
-    return G
+    return graph
 
 
 def _make_chain_graph() -> nx.MultiDiGraph:
     """A->B->C with A->C direct — composition chain present."""
-    G = nx.MultiDiGraph()
+    graph = nx.MultiDiGraph()
     for n in ["A", "B", "C"]:
-        G.add_node(n, canonical_name=n, entity_type="protein")
-    G.add_edge(
+        graph.add_node(n, canonical_name=n, entity_type="protein")
+    graph.add_edge(
         "A",
         "B",
         predicate="induces",
@@ -62,7 +62,7 @@ def _make_chain_graph() -> nx.MultiDiGraph:
         in_vitro=True,
         conditions={},
     )
-    G.add_edge(
+    graph.add_edge(
         "B",
         "C",
         predicate="induces",
@@ -75,7 +75,7 @@ def _make_chain_graph() -> nx.MultiDiGraph:
         in_vitro=True,
         conditions={},
     )
-    G.add_edge(
+    graph.add_edge(
         "A",
         "C",
         predicate="induces",
@@ -88,16 +88,16 @@ def _make_chain_graph() -> nx.MultiDiGraph:
         in_vitro=True,
         conditions={},
     )
-    return G
+    return graph
 
 
 def _make_4node_graph() -> nx.MultiDiGraph:
     """A->B->C->D linear chain with disconnected E->F."""
-    G = nx.MultiDiGraph()
+    graph = nx.MultiDiGraph()
     for n in ["A", "B", "C", "D", "E", "F"]:
-        G.add_node(n, canonical_name=n, entity_type="protein")
+        graph.add_node(n, canonical_name=n, entity_type="protein")
     for src, dst, eid in [("A", "B", "ab"), ("B", "C", "bc"), ("C", "D", "cd"), ("E", "F", "ef")]:
-        G.add_edge(
+        graph.add_edge(
             src,
             dst,
             predicate="induces",
@@ -110,15 +110,15 @@ def _make_4node_graph() -> nx.MultiDiGraph:
             in_vitro=True,
             conditions={},
         )
-    return G
+    return graph
 
 
 def test_extract_inference_subgraph_basic() -> None:
     """Subgraph around node B with hop_radius=1 should include A, B, C."""
     from autoreview.knowledge_graph.bayesian.inference import extract_inference_subgraph
 
-    G = _make_4node_graph()
-    sub = extract_inference_subgraph(G, target_nodes={"B"}, hop_radius=1)
+    graph = _make_4node_graph()
+    sub = extract_inference_subgraph(graph, target_nodes={"B"}, hop_radius=1)
     assert set(sub.nodes()) == {"A", "B", "C"}
     assert sub.number_of_edges() == 2  # ab, bc
 
@@ -127,8 +127,8 @@ def test_extract_inference_subgraph_disconnected() -> None:
     """Subgraph around B should NOT include disconnected E, F."""
     from autoreview.knowledge_graph.bayesian.inference import extract_inference_subgraph
 
-    G = _make_4node_graph()
-    sub = extract_inference_subgraph(G, target_nodes={"B"}, hop_radius=1)
+    graph = _make_4node_graph()
+    sub = extract_inference_subgraph(graph, target_nodes={"B"}, hop_radius=1)
     assert "E" not in sub.nodes()
     assert "F" not in sub.nodes()
 
@@ -139,8 +139,8 @@ def test_laplace_approximate_returns_result() -> None:
     from autoreview.knowledge_graph.bayesian.inference import laplace_approximate
     from autoreview.knowledge_graph.bayesian.model import prepare_model_inputs
 
-    G = _make_simple_graph()
-    inputs = prepare_model_inputs(G, BayesianConfig())
+    graph = _make_simple_graph()
+    inputs = prepare_model_inputs(graph, BayesianConfig())
     result = laplace_approximate(inputs, BayesianConfig())
     assert "ab" in result.means
     assert "bc" in result.means
@@ -157,8 +157,8 @@ def test_laplace_map_near_prior_mean() -> None:
     from autoreview.knowledge_graph.bayesian.inference import laplace_approximate
     from autoreview.knowledge_graph.bayesian.model import prepare_model_inputs
 
-    G = _make_simple_graph()
-    inputs = prepare_model_inputs(G, BayesianConfig())
+    graph = _make_simple_graph()
+    inputs = prepare_model_inputs(graph, BayesianConfig())
     result = laplace_approximate(inputs, BayesianConfig())
     # ab: confidence_mean=0.80, evidence_count=4 -> kappa=6, alpha=4.8, beta=1.2
     # Beta MAP (mode) = (alpha-1)/(alpha+beta-2) = 3.8/4.0 = 0.95
@@ -175,9 +175,9 @@ def test_sample_posterior_returns_samples() -> None:
     from autoreview.knowledge_graph.bayesian.inference import sample_posterior
     from autoreview.knowledge_graph.bayesian.model import prepare_model_inputs
 
-    G = _make_simple_graph()
+    graph = _make_simple_graph()
     config = BayesianConfig(n_warmup=50, n_samples=100, n_chains=1, seed=42)
-    inputs = prepare_model_inputs(G, config)
+    inputs = prepare_model_inputs(graph, config)
     rng_key = jax.random.PRNGKey(42)
     result = sample_posterior(inputs, config, rng_key)
     assert "ab" in result.samples
@@ -192,9 +192,9 @@ def test_sample_posterior_diagnostics() -> None:
     from autoreview.knowledge_graph.bayesian.inference import sample_posterior
     from autoreview.knowledge_graph.bayesian.model import prepare_model_inputs
 
-    G = _make_simple_graph()
+    graph = _make_simple_graph()
     config = BayesianConfig(n_warmup=100, n_samples=200, n_chains=2, seed=42)
-    inputs = prepare_model_inputs(G, config)
+    inputs = prepare_model_inputs(graph, config)
     rng_key = jax.random.PRNGKey(42)
     result = sample_posterior(inputs, config, rng_key)
     assert result.diagnostics is not None

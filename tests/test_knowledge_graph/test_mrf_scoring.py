@@ -26,13 +26,13 @@ from autoreview.knowledge_graph.mrf_scoring import (
 
 def _make_scored_graph() -> nx.MultiDiGraph:
     """Build a simple three-node MultiDiGraph for testing."""
-    G = nx.MultiDiGraph()
-    G.add_node("e1", canonical_name="BMP4", entity_type="protein")
-    G.add_node("e2", canonical_name="SMAD1", entity_type="protein")
-    G.add_node("e3", canonical_name="mesoderm", entity_type="biological_process")
+    graph = nx.MultiDiGraph()
+    graph.add_node("e1", canonical_name="BMP4", entity_type="protein")
+    graph.add_node("e2", canonical_name="SMAD1", entity_type="protein")
+    graph.add_node("e3", canonical_name="mesoderm", entity_type="biological_process")
 
     # BMP4 → SMAD1 (strong)
-    G.add_edge(
+    graph.add_edge(
         "e1",
         "e2",
         predicate="induces",
@@ -45,7 +45,7 @@ def _make_scored_graph() -> nx.MultiDiGraph:
         conditions={},
     )
     # SMAD1 → mesoderm (strong)
-    G.add_edge(
+    graph.add_edge(
         "e2",
         "e3",
         predicate="induces",
@@ -58,7 +58,7 @@ def _make_scored_graph() -> nx.MultiDiGraph:
         conditions={},
     )
     # BMP4 → mesoderm (sparse)
-    G.add_edge(
+    graph.add_edge(
         "e1",
         "e3",
         predicate="induces",
@@ -70,7 +70,7 @@ def _make_scored_graph() -> nx.MultiDiGraph:
         in_vitro=True,
         conditions={},
     )
-    return G
+    return graph
 
 
 # ---------------------------------------------------------------------------
@@ -85,8 +85,8 @@ def test_transitive_boost() -> None:
     slightly when the argmin gradient for composition rules was added to hlmrf.py,
     so the threshold reflects the actual boosted value rather than a round number.
     """
-    G = _make_scored_graph()
-    result = score_graph_mrf(G)
+    graph = _make_scored_graph()
+    result = score_graph_mrf(graph)
 
     assert isinstance(result, MRFResult)
     assert "edge_ac" in result.posteriors, "edge_ac must be in posteriors"
@@ -106,8 +106,8 @@ def test_transitive_boost() -> None:
 
 def test_strong_edges_stable() -> None:
     """Well-evidenced edges (0.85, 0.80) should stay above 0.75 after inference."""
-    G = _make_scored_graph()
-    result = score_graph_mrf(G)
+    graph = _make_scored_graph()
+    result = score_graph_mrf(graph)
 
     ab_posterior = result.posteriors["edge_ab"]
     bc_posterior = result.posteriors["edge_bc"]
@@ -127,8 +127,8 @@ def test_strong_edges_stable() -> None:
 
 def test_all_edges_present() -> None:
     """posteriors must contain all edge_ids from the input graph."""
-    G = _make_scored_graph()
-    result = score_graph_mrf(G)
+    graph = _make_scored_graph()
+    result = score_graph_mrf(graph)
 
     expected_ids = {"edge_ab", "edge_bc", "edge_ac"}
     assert set(result.posteriors.keys()) == expected_ids, (
@@ -144,8 +144,8 @@ def test_all_edges_present() -> None:
 
 def test_empty_graph() -> None:
     """Empty graph should return MRFResult with empty posteriors and zero counts."""
-    G = nx.MultiDiGraph()
-    result = score_graph_mrf(G)
+    graph = nx.MultiDiGraph()
+    result = score_graph_mrf(graph)
 
     assert isinstance(result, MRFResult)
     assert result.posteriors == {}
@@ -163,12 +163,12 @@ def test_empty_graph() -> None:
 
 def test_contradiction_weakens_loser() -> None:
     """Opposing claims with similar conditions — the weaker one should decrease."""
-    G = nx.MultiDiGraph()
-    G.add_node("A", canonical_name="FGF8", entity_type="protein")
-    G.add_node("B", canonical_name="MEK", entity_type="protein")
+    graph = nx.MultiDiGraph()
+    graph.add_node("A", canonical_name="FGF8", entity_type="protein")
+    graph.add_node("B", canonical_name="MEK", entity_type="protein")
 
     # Strong inducer (high confidence)
-    G.add_edge(
+    graph.add_edge(
         "A",
         "B",
         predicate="induces",
@@ -181,7 +181,7 @@ def test_contradiction_weakens_loser() -> None:
         conditions={},
     )
     # Weak inhibitor — opposing claim, same context (coupling → real contradiction)
-    G.add_edge(
+    graph.add_edge(
         "A",
         "B",
         predicate="inhibits",
@@ -194,7 +194,7 @@ def test_contradiction_weakens_loser() -> None:
         conditions={},
     )
 
-    result = score_graph_mrf(G)
+    result = score_graph_mrf(graph)
 
     assert result.n_contradictions >= 1, "Should detect at least one contradiction rule"
 
@@ -220,13 +220,13 @@ def test_contradiction_weakens_loser() -> None:
 
 def test_no_hallucinated_composition() -> None:
     """Composition rules must not be grounded if no direct A→C edge exists."""
-    G = nx.MultiDiGraph()
-    G.add_node("X", canonical_name="X", entity_type="protein")
-    G.add_node("Y", canonical_name="Y", entity_type="protein")
-    G.add_node("Z", canonical_name="Z", entity_type="biological_process")
+    graph = nx.MultiDiGraph()
+    graph.add_node("X", canonical_name="X", entity_type="protein")
+    graph.add_node("Y", canonical_name="Y", entity_type="protein")
+    graph.add_node("Z", canonical_name="Z", entity_type="biological_process")
 
     # X→Y and Y→Z exist but no X→Z edge
-    G.add_edge(
+    graph.add_edge(
         "X",
         "Y",
         predicate="induces",
@@ -238,7 +238,7 @@ def test_no_hallucinated_composition() -> None:
         in_vitro=True,
         conditions={},
     )
-    G.add_edge(
+    graph.add_edge(
         "Y",
         "Z",
         predicate="induces",
@@ -251,7 +251,7 @@ def test_no_hallucinated_composition() -> None:
         conditions={},
     )
 
-    result = score_graph_mrf(G)
+    result = score_graph_mrf(graph)
 
     # Only the two real edges should be in posteriors — no hallucinated X→Z
     assert set(result.posteriors.keys()) == {"xy", "yz"}, (
@@ -285,15 +285,15 @@ def test_mrf_config_defaults() -> None:
 
 def test_custom_config_affects_result() -> None:
     """Providing a custom config with very high composition weight should boost A→C more."""
-    G = _make_scored_graph()
+    graph = _make_scored_graph()
 
     # Very high composition weight should push edge_ac higher
     config_strong = MRFConfig(composition_weight=50.0)
-    result_strong = score_graph_mrf(G, config=config_strong)
+    result_strong = score_graph_mrf(graph, config=config_strong)
 
     # Default config
     config_default = MRFConfig()
-    result_default = score_graph_mrf(G, config=config_default)
+    result_default = score_graph_mrf(graph, config=config_default)
 
     ac_strong = result_strong.posteriors["edge_ac"]
     ac_default = result_default.posteriors["edge_ac"]
@@ -311,8 +311,8 @@ def test_custom_config_affects_result() -> None:
 
 def test_diagnostic_counts() -> None:
     """n_rules should equal n_variables (unary) + n_contradictions + n_compositions."""
-    G = _make_scored_graph()
-    result = score_graph_mrf(G, config=MRFConfig(enable_finding_layer=False))
+    graph = _make_scored_graph()
+    result = score_graph_mrf(graph, config=MRFConfig(enable_finding_layer=False))
 
     expected_rules = result.n_variables + result.n_contradictions + result.n_compositions
     assert result.n_rules == expected_rules, (
@@ -329,8 +329,8 @@ def test_diagnostic_counts() -> None:
 
 def test_all_posteriors_bounded() -> None:
     """All posterior truth values must be in [0, 1]."""
-    G = _make_scored_graph()
-    result = score_graph_mrf(G)
+    graph = _make_scored_graph()
+    result = score_graph_mrf(graph)
 
     for edge_id, val in result.posteriors.items():
         assert 0.0 <= val <= 1.0, f"Posterior for {edge_id} = {val:.6f} is outside [0, 1]"
@@ -343,10 +343,10 @@ def test_all_posteriors_bounded() -> None:
 
 def _make_4node_chain_graph() -> nx.MultiDiGraph:
     """Build A->B->C->D with direct A->D edge for 2-hop composition testing."""
-    G = nx.MultiDiGraph()
+    graph = nx.MultiDiGraph()
     for n in ["A", "B", "C", "D"]:
-        G.add_node(n, canonical_name=n, entity_type="protein")
-    G.add_edge(
+        graph.add_node(n, canonical_name=n, entity_type="protein")
+    graph.add_edge(
         "A",
         "B",
         predicate="induces",
@@ -358,7 +358,7 @@ def _make_4node_chain_graph() -> nx.MultiDiGraph:
         in_vitro=True,
         conditions={},
     )
-    G.add_edge(
+    graph.add_edge(
         "B",
         "C",
         predicate="induces",
@@ -370,7 +370,7 @@ def _make_4node_chain_graph() -> nx.MultiDiGraph:
         in_vitro=True,
         conditions={},
     )
-    G.add_edge(
+    graph.add_edge(
         "C",
         "D",
         predicate="induces",
@@ -382,7 +382,7 @@ def _make_4node_chain_graph() -> nx.MultiDiGraph:
         in_vitro=True,
         conditions={},
     )
-    G.add_edge(
+    graph.add_edge(
         "A",
         "D",
         predicate="induces",
@@ -394,7 +394,7 @@ def _make_4node_chain_graph() -> nx.MultiDiGraph:
         in_vitro=True,
         conditions={},
     )
-    return G
+    return graph
 
 
 def test_mrf_config_multihop_defaults() -> None:
@@ -406,9 +406,9 @@ def test_mrf_config_multihop_defaults() -> None:
 
 def test_multihop_2hop_boosts_ad() -> None:
     """A->B->C->D chain (2-hop) should boost A->D above its prior 0.25."""
-    G = _make_4node_chain_graph()
+    graph = _make_4node_chain_graph()
     config = MRFConfig(max_composition_hops=3)
-    result = score_graph_mrf(G, config=config)
+    result = score_graph_mrf(graph, config=config)
     ad_posterior = result.posteriors["ad"]
     assert ad_posterior > 0.28, (
         f"2-hop chain should boost A->D above prior 0.25, got {ad_posterior:.4f}"
@@ -417,19 +417,19 @@ def test_multihop_2hop_boosts_ad() -> None:
 
 def test_multihop_disabled_at_hops_1() -> None:
     """max_composition_hops=1 should not discover 2-hop chains."""
-    G = _make_4node_chain_graph()
+    graph = _make_4node_chain_graph()
     config_1hop = MRFConfig(max_composition_hops=1)
-    result_1hop = score_graph_mrf(G, config=config_1hop)
+    result_1hop = score_graph_mrf(graph, config=config_1hop)
     config_3hop = MRFConfig(max_composition_hops=3)
-    result_3hop = score_graph_mrf(G, config=config_3hop)
+    result_3hop = score_graph_mrf(graph, config=config_3hop)
     assert result_3hop.posteriors["ad"] >= result_1hop.posteriors["ad"] - 1e-6
 
 
 def test_composition_decay_reduces_strength() -> None:
     """Higher decay = less attenuation = stronger multi-hop boost."""
-    G = _make_4node_chain_graph()
-    result_low = score_graph_mrf(G, config=MRFConfig(composition_decay=0.3))
-    result_high = score_graph_mrf(G, config=MRFConfig(composition_decay=0.9))
+    graph = _make_4node_chain_graph()
+    result_low = score_graph_mrf(graph, config=MRFConfig(composition_decay=0.3))
+    result_high = score_graph_mrf(graph, config=MRFConfig(composition_decay=0.9))
     assert result_high.posteriors["ad"] >= result_low.posteriors["ad"] - 1e-6
 
 
@@ -452,8 +452,8 @@ def test_mrf_config_diagnostics_default() -> None:
 
 def test_diagnostics_populated_on_solve() -> None:
     """Solving a non-empty graph should populate diagnostics."""
-    G = _make_scored_graph()
-    result = score_graph_mrf(G)
+    graph = _make_scored_graph()
+    result = score_graph_mrf(graph)
     assert result.diagnostics is not None
     assert result.diagnostics.converged is True
     assert result.diagnostics.n_iterations >= 0
@@ -465,9 +465,9 @@ def test_diagnostics_populated_on_solve() -> None:
 
 def test_diagnostics_top_violations_limited() -> None:
     """Top violations should be limited to diagnostics_top_n."""
-    G = _make_scored_graph()
+    graph = _make_scored_graph()
     config = MRFConfig(diagnostics_top_n=2)
-    result = score_graph_mrf(G, config=config)
+    result = score_graph_mrf(graph, config=config)
     assert result.diagnostics is not None
     assert len(result.diagnostics.top_violations) <= 2
 
@@ -479,9 +479,9 @@ def test_diagnostics_top_violations_limited() -> None:
 
 def test_update_graph_mrf_returns_all_edges() -> None:
     """update_graph_mrf should return posteriors for all edges including new ones."""
-    G = _make_scored_graph()
-    prior_result = score_graph_mrf(G)
-    G.add_edge(
+    graph = _make_scored_graph()
+    prior_result = score_graph_mrf(graph)
+    graph.add_edge(
         "e1",
         "e3",
         predicate="inhibits",
@@ -495,7 +495,7 @@ def test_update_graph_mrf_returns_all_edges() -> None:
     )
     from autoreview.knowledge_graph.mrf_scoring import update_graph_mrf
 
-    updated = update_graph_mrf(G, new_edge_ids=["edge_ac2"], prior_result=prior_result)
+    updated = update_graph_mrf(graph, new_edge_ids=["edge_ac2"], prior_result=prior_result)
     assert "edge_ac2" in updated.posteriors
     assert "edge_ab" in updated.posteriors
     assert "edge_ac" in updated.posteriors
@@ -503,9 +503,9 @@ def test_update_graph_mrf_returns_all_edges() -> None:
 
 def test_update_graph_mrf_close_to_full_solve() -> None:
     """Incremental should produce posteriors within 0.15 of full re-solve."""
-    G = _make_scored_graph()
-    prior_result = score_graph_mrf(G)
-    G.add_edge(
+    graph = _make_scored_graph()
+    prior_result = score_graph_mrf(graph)
+    graph.add_edge(
         "e2",
         "e3",
         predicate="inhibits",
@@ -519,8 +519,8 @@ def test_update_graph_mrf_close_to_full_solve() -> None:
     )
     from autoreview.knowledge_graph.mrf_scoring import update_graph_mrf
 
-    incremental = update_graph_mrf(G, new_edge_ids=["edge_bc2"], prior_result=prior_result)
-    full = score_graph_mrf(G)
+    incremental = update_graph_mrf(graph, new_edge_ids=["edge_bc2"], prior_result=prior_result)
+    full = score_graph_mrf(graph)
     for eid in full.posteriors:
         if eid in incremental.posteriors:
             assert abs(incremental.posteriors[eid] - full.posteriors[eid]) < 0.15
@@ -549,11 +549,11 @@ def test_mrf_result_has_finding_posteriors() -> None:
 
 def test_finding_layer_disabled_matches_baseline() -> None:
     """enable_finding_layer=False should produce identical results to current behavior."""
-    G = _make_scored_graph()
+    graph = _make_scored_graph()
     config_off = MRFConfig(enable_finding_layer=False)
     config_default = MRFConfig(enable_finding_layer=False)
-    result_off = score_graph_mrf(G, config=config_off)
-    result_default = score_graph_mrf(G, config=config_default)
+    result_off = score_graph_mrf(graph, config=config_off)
+    result_default = score_graph_mrf(graph, config=config_default)
     for eid in result_off.posteriors:
         assert abs(result_off.posteriors[eid] - result_default.posteriors[eid]) < 1e-9
 
@@ -565,10 +565,10 @@ def test_finding_layer_disabled_matches_baseline() -> None:
 
 def _make_finding_contradiction_graph() -> nx.MultiDiGraph:
     """Graph with two papers contradicting at the finding level."""
-    G = nx.MultiDiGraph()
-    G.add_node("bmp4", canonical_name="BMP4", entity_type="protein")
-    G.add_node("meso", canonical_name="mesoderm", entity_type="biological_process")
-    G.add_edge(
+    graph = nx.MultiDiGraph()
+    graph.add_node("bmp4", canonical_name="BMP4", entity_type="protein")
+    graph.add_node("meso", canonical_name="mesoderm", entity_type="biological_process")
+    graph.add_edge(
         "bmp4",
         "meso",
         edge_id="pos1",
@@ -583,7 +583,7 @@ def _make_finding_contradiction_graph() -> nx.MultiDiGraph:
         natural_language="BMP4 induces mesoderm",
         _kg_edge=None,
     )
-    G.add_edge(
+    graph.add_edge(
         "bmp4",
         "meso",
         edge_id="pos2",
@@ -598,7 +598,7 @@ def _make_finding_contradiction_graph() -> nx.MultiDiGraph:
         natural_language="BMP4 is sufficient for mesoderm",
         _kg_edge=None,
     )
-    G.add_edge(
+    graph.add_edge(
         "bmp4",
         "meso",
         edge_id="neg1",
@@ -613,23 +613,23 @@ def _make_finding_contradiction_graph() -> nx.MultiDiGraph:
         natural_language="BMP4 does not induce mesoderm",
         _kg_edge=None,
     )
-    return G
+    return graph
 
 
 def test_finding_layer_produces_finding_posteriors() -> None:
-    G = _make_finding_contradiction_graph()
+    graph = _make_finding_contradiction_graph()
     config = MRFConfig(enable_finding_layer=True)
-    result = score_graph_mrf(G, config=config)
+    result = score_graph_mrf(graph, config=config)
     assert result.n_findings >= 2
     assert len(result.finding_posteriors) >= 2
-    for fid, val in result.finding_posteriors.items():
+    for _fid, val in result.finding_posteriors.items():
         assert 0.0 <= val <= 1.0
 
 
 def test_finding_contradiction_reduces_weaker_finding() -> None:
-    G = _make_finding_contradiction_graph()
+    graph = _make_finding_contradiction_graph()
     config = MRFConfig(enable_finding_layer=True)
-    result = score_graph_mrf(G, config=config)
+    result = score_graph_mrf(graph, config=config)
     posteriors = result.finding_posteriors
     finding_vals = sorted(posteriors.values())
     assert finding_vals[0] < finding_vals[-1], (
@@ -638,11 +638,11 @@ def test_finding_contradiction_reduces_weaker_finding() -> None:
 
 
 def test_downward_propagation_reduces_member_edges() -> None:
-    G = _make_finding_contradiction_graph()
+    graph = _make_finding_contradiction_graph()
     config_off = MRFConfig(enable_finding_layer=False)
-    result_off = score_graph_mrf(G, config=config_off)
+    result_off = score_graph_mrf(graph, config=config_off)
     config_on = MRFConfig(enable_finding_layer=True)
-    result_on = score_graph_mrf(G, config=config_on)
+    result_on = score_graph_mrf(graph, config=config_on)
     neg1_off = result_off.posteriors.get("neg1", 0.5)
     neg1_on = result_on.posteriors.get("neg1", 0.5)
     assert neg1_on <= neg1_off + 0.05, (
@@ -651,17 +651,17 @@ def test_downward_propagation_reduces_member_edges() -> None:
 
 
 def test_finding_layer_off_no_finding_vars() -> None:
-    G = _make_finding_contradiction_graph()
+    graph = _make_finding_contradiction_graph()
     config = MRFConfig(enable_finding_layer=False)
-    result = score_graph_mrf(G, config=config)
+    result = score_graph_mrf(graph, config=config)
     assert result.n_findings == 0
     assert result.finding_posteriors == {}
 
 
 def test_existing_edge_tests_unchanged_with_finding_layer_off() -> None:
-    G = _make_scored_graph()
+    graph = _make_scored_graph()
     config = MRFConfig(enable_finding_layer=False)
-    result = score_graph_mrf(G, config=config)
+    result = score_graph_mrf(graph, config=config)
     assert result.posteriors["edge_ac"] > 0.38
     assert result.posteriors["edge_ab"] > 0.75
     assert result.posteriors["edge_bc"] > 0.75
@@ -685,14 +685,14 @@ def _make_3paper_integration_graph() -> nx.MultiDiGraph:
       - Paper 1: induces, positive, mouse, in_vitro
       - Paper 2: is_sufficient_for, positive, mouse, in_vitro (agreement)
     """
-    G = nx.MultiDiGraph()
-    G.add_node("bmp4", canonical_name="BMP4", entity_type="protein")
-    G.add_node("meso", canonical_name="mesoderm", entity_type="biological_process")
-    G.add_node("smad1", canonical_name="SMAD1", entity_type="protein")
-    G.add_node("neural", canonical_name="neural", entity_type="biological_process")
+    graph = nx.MultiDiGraph()
+    graph.add_node("bmp4", canonical_name="BMP4", entity_type="protein")
+    graph.add_node("meso", canonical_name="mesoderm", entity_type="biological_process")
+    graph.add_node("smad1", canonical_name="SMAD1", entity_type="protein")
+    graph.add_node("neural", canonical_name="neural", entity_type="biological_process")
 
     # Cluster 1 edges
-    G.add_edge(
+    graph.add_edge(
         "bmp4",
         "meso",
         edge_id="c1p1e1",
@@ -707,7 +707,7 @@ def _make_3paper_integration_graph() -> nx.MultiDiGraph:
         natural_language="BMP4 induces mesoderm (paper 1)",
         _kg_edge=None,
     )
-    G.add_edge(
+    graph.add_edge(
         "bmp4",
         "meso",
         edge_id="c1p1e2",
@@ -722,7 +722,7 @@ def _make_3paper_integration_graph() -> nx.MultiDiGraph:
         natural_language="BMP4 is sufficient for mesoderm (paper 1)",
         _kg_edge=None,
     )
-    G.add_edge(
+    graph.add_edge(
         "bmp4",
         "meso",
         edge_id="c1p2e1",
@@ -737,7 +737,7 @@ def _make_3paper_integration_graph() -> nx.MultiDiGraph:
         natural_language="BMP4 does not induce mesoderm (paper 2)",
         _kg_edge=None,
     )
-    G.add_edge(
+    graph.add_edge(
         "bmp4",
         "meso",
         edge_id="c1p3e1",
@@ -754,7 +754,7 @@ def _make_3paper_integration_graph() -> nx.MultiDiGraph:
     )
 
     # Cluster 2 edges
-    G.add_edge(
+    graph.add_edge(
         "smad1",
         "neural",
         edge_id="c2p1e1",
@@ -769,7 +769,7 @@ def _make_3paper_integration_graph() -> nx.MultiDiGraph:
         natural_language="SMAD1 induces neural (paper 1)",
         _kg_edge=None,
     )
-    G.add_edge(
+    graph.add_edge(
         "smad1",
         "neural",
         edge_id="c2p2e1",
@@ -784,15 +784,15 @@ def _make_3paper_integration_graph() -> nx.MultiDiGraph:
         natural_language="SMAD1 is sufficient for neural (paper 2)",
         _kg_edge=None,
     )
-    return G
+    return graph
 
 
 def test_integration_clusters_form_correctly() -> None:
     """Cluster 1 (BMP4→mesoderm) and Cluster 2 (SMAD1→neural) should form."""
     from autoreview.knowledge_graph.cluster import build_topic_clusters
 
-    G = _make_3paper_integration_graph()
-    clusters = build_topic_clusters(G)
+    graph = _make_3paper_integration_graph()
+    clusters = build_topic_clusters(graph)
     assert len(clusters) == 2
     subjects = {c.subject_id for c in clusters}
     assert "bmp4" in subjects
@@ -803,9 +803,9 @@ def test_integration_findings_form_correctly() -> None:
     """Cluster 1 should have 3 findings (pos+mouse, neg+mouse, pos+human)."""
     from autoreview.knowledge_graph.cluster import build_topic_clusters, form_findings
 
-    G = _make_3paper_integration_graph()
-    clusters = build_topic_clusters(G)
-    findings = form_findings(clusters, G)
+    graph = _make_3paper_integration_graph()
+    clusters = build_topic_clusters(graph)
+    findings = form_findings(clusters, graph)
     # Cluster 1: 3 findings (pos/mouse/invitro, neg/mouse/invitro, pos/human/invitro)
     # Cluster 2: 1 finding (pos/mouse/invitro)
     assert len(findings) >= 4
@@ -819,10 +819,10 @@ def test_integration_contradictions_detected() -> None:
         form_findings,
     )
 
-    G = _make_3paper_integration_graph()
-    clusters = build_topic_clusters(G)
-    findings = form_findings(clusters, G)
-    contradictions = detect_finding_contradictions(findings, clusters, graph=G)
+    graph = _make_3paper_integration_graph()
+    clusters = build_topic_clusters(graph)
+    findings = form_findings(clusters, graph)
+    contradictions = detect_finding_contradictions(findings, clusters, graph=graph)
     assert len(contradictions) >= 1
     directional = [c for c in contradictions if c.contradiction_type == "directional"]
     assert len(directional) >= 1
@@ -830,9 +830,9 @@ def test_integration_contradictions_detected() -> None:
 
 def test_integration_mrf_resolves() -> None:
     """MRF with finding layer should resolve contradictions."""
-    G = _make_3paper_integration_graph()
+    graph = _make_3paper_integration_graph()
     config = MRFConfig(enable_finding_layer=True)
-    result = score_graph_mrf(G, config=config)
+    result = score_graph_mrf(graph, config=config)
     assert result.converged
     assert result.n_findings >= 4
     assert len(result.finding_posteriors) >= 4
@@ -844,11 +844,11 @@ def test_integration_mrf_resolves() -> None:
 
 def test_integration_non_contradicted_unaffected() -> None:
     """Cluster 2 (SMAD1→neural, no contradiction) should be stable."""
-    G = _make_3paper_integration_graph()
+    graph = _make_3paper_integration_graph()
     config_on = MRFConfig(enable_finding_layer=True)
-    result_on = score_graph_mrf(G, config=config_on)
+    result_on = score_graph_mrf(graph, config=config_on)
     config_off = MRFConfig(enable_finding_layer=False)
-    result_off = score_graph_mrf(G, config=config_off)
+    result_off = score_graph_mrf(graph, config=config_off)
     for eid in ["c2p1e1", "c2p2e1"]:
         diff = abs(result_on.posteriors[eid] - result_off.posteriors[eid])
         assert diff < 0.15, f"Non-contradicted edge {eid} shifted too much: {diff:.4f}"

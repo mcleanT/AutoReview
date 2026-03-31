@@ -43,13 +43,14 @@ def build_contradiction_graph(
 
     Args:
         kg: Knowledge graph MultiDiGraph with entity nodes and claim edges.
-        contradictions: List of contradiction dicts with claim_a_id, claim_b_id, p_contradiction, etc.
+        contradictions: List of contradiction dicts with claim_a_id, claim_b_id,
+            p_contradiction, etc.
         min_p: Minimum p_contradiction threshold for including an edge.
 
     Returns:
         Undirected nx.Graph with claims as nodes and contradictions as edges.
     """
-    G: nx.Graph = nx.Graph()
+    graph: nx.Graph = nx.Graph()
 
     # Build a lookup: claim_id -> (u, v, key, edge_data) for all KG edges
     claim_lookup: dict[str, tuple[str, str, int, dict[str, Any]]] = {}
@@ -71,7 +72,7 @@ def build_contradiction_graph(
         object_name = kg.nodes[v].get("canonical_name", v) if v in kg.nodes else v
         label = f"{subject_name} → {predicate} → {object_name}"
 
-        G.add_node(
+        graph.add_node(
             claim_id,
             label=label,
             assertion_type=data.get("assertion_type", ""),
@@ -93,10 +94,10 @@ def build_contradiction_graph(
         claim_b_id = contradiction["claim_b_id"]
 
         # Only add edge if both nodes exist
-        if claim_a_id not in G.nodes or claim_b_id not in G.nodes:
+        if claim_a_id not in graph.nodes or claim_b_id not in graph.nodes:
             continue
 
-        G.add_edge(
+        graph.add_edge(
             claim_a_id,
             claim_b_id,
             p_contradiction=p_contradiction,
@@ -109,11 +110,11 @@ def build_contradiction_graph(
 
     log.info(
         "contradiction_graph_built",
-        n_claim_nodes=G.number_of_nodes(),
-        n_contradiction_edges=G.number_of_edges(),
+        n_claim_nodes=graph.number_of_nodes(),
+        n_contradiction_edges=graph.number_of_edges(),
         min_p_threshold=min_p,
     )
-    return G
+    return graph
 
 
 def compute_uncertainty(alpha: float, beta_param: float) -> float:
@@ -141,18 +142,18 @@ def compute_uncertainty(alpha: float, beta_param: float) -> float:
 
 
 def find_bridges_and_articulation_points(
-    G: nx.Graph,
+    graph: nx.Graph,
 ) -> dict[str, Any]:
     """Find bridge edges and articulation points in the contradiction graph.
 
     Args:
-        G: Undirected contradiction graph.
+        graph: Undirected contradiction graph.
 
     Returns:
         Dict with keys: bridges, articulation_points, n_bridges, n_articulation_points.
     """
-    bridges = list(nx.bridges(G))
-    articulation_points = list(nx.articulation_points(G))
+    bridges = list(nx.bridges(graph))
+    articulation_points = list(nx.articulation_points(graph))
 
     result = {
         "bridges": bridges,
@@ -169,17 +170,21 @@ def find_bridges_and_articulation_points(
     return result
 
 
-def compute_edge_betweenness(G: nx.Graph) -> list[tuple[str, str, float]]:
+def compute_edge_betweenness(graph: nx.Graph) -> list[tuple[str, str, float]]:
     """Compute edge betweenness centrality for all contradiction edges.
 
     Args:
-        G: Undirected contradiction graph.
+        graph: Undirected contradiction graph.
 
     Returns:
         List of (claim_a_id, claim_b_id, betweenness_score) tuples, sorted descending.
     """
-    log.info("computing_edge_betweenness", n_nodes=G.number_of_nodes(), n_edges=G.number_of_edges())
-    betweenness: dict[tuple[str, str], float] = nx.edge_betweenness_centrality(G)
+    log.info(
+        "computing_edge_betweenness",
+        n_nodes=graph.number_of_nodes(),
+        n_edges=graph.number_of_edges(),
+    )
+    betweenness: dict[tuple[str, str], float] = nx.edge_betweenness_centrality(graph)
 
     sorted_results = sorted(
         ((u, v, score) for (u, v), score in betweenness.items()),
@@ -190,7 +195,7 @@ def compute_edge_betweenness(G: nx.Graph) -> list[tuple[str, str, float]]:
 
 
 def simulate_resolution(
-    G: nx.Graph,
+    graph: nx.Graph,
     claim_a: str,
     claim_b: str,
     scenario: str,
@@ -198,7 +203,7 @@ def simulate_resolution(
     """Simulate the effect of resolving a contradiction between two claims.
 
     Args:
-        G: Undirected contradiction graph.
+        graph: Undirected contradiction graph.
         claim_a: Node ID of the first claim.
         claim_b: Node ID of the second claim.
         scenario: One of "a_wins", "b_wins", or "dissolved".
@@ -207,39 +212,41 @@ def simulate_resolution(
         ResolutionResult dataclass describing graph changes.
     """
     # Before state
-    components_before = nx.number_connected_components(G)
-    component_sizes_before = sorted((len(c) for c in nx.connected_components(G)), reverse=True)
+    components_before = nx.number_connected_components(graph)
+    component_sizes_before = sorted((len(c) for c in nx.connected_components(graph)), reverse=True)
     largest_component_before = component_sizes_before[0] if component_sizes_before else 0
 
-    G_copy = G.copy()
+    graph_copy = graph.copy()
     removed_node: str | None = None
 
     if scenario == "a_wins":
         removed_node = claim_b
-        if claim_b in G_copy:
-            G_copy.remove_node(claim_b)
+        if claim_b in graph_copy:
+            graph_copy.remove_node(claim_b)
     elif scenario == "b_wins":
         removed_node = claim_a
-        if claim_a in G_copy:
-            G_copy.remove_node(claim_a)
+        if claim_a in graph_copy:
+            graph_copy.remove_node(claim_a)
     elif scenario == "dissolved":
         removed_node = None
-        if G_copy.has_edge(claim_a, claim_b):
-            G_copy.remove_edge(claim_a, claim_b)
+        if graph_copy.has_edge(claim_a, claim_b):
+            graph_copy.remove_edge(claim_a, claim_b)
     else:
         raise ValueError(
             f"Unknown scenario: {scenario!r}. Must be 'a_wins', 'b_wins', or 'dissolved'."
         )
 
     # After state
-    components_after = nx.number_connected_components(G_copy)
-    component_sizes_after = sorted((len(c) for c in nx.connected_components(G_copy)), reverse=True)
+    components_after = nx.number_connected_components(graph_copy)
+    component_sizes_after = sorted(
+        (len(c) for c in nx.connected_components(graph_copy)), reverse=True
+    )
     largest_component_after = component_sizes_after[0] if component_sizes_after else 0
 
     # Orphaned claims = claims now in singleton components
     orphaned_claims = [
         node
-        for component in nx.connected_components(G_copy)
+        for component in nx.connected_components(graph_copy)
         if len(component) == 1
         for node in component
     ]
@@ -261,7 +268,7 @@ def simulate_resolution(
 
 
 def compute_voi(
-    G: nx.Graph,
+    graph: nx.Graph,
     kg: nx.MultiDiGraph,
 ) -> list[dict[str, Any]]:
     """Compute Value of Information (VOI) for each contradiction edge.
@@ -270,36 +277,36 @@ def compute_voi(
     fragment (or clarify) the contradiction network.
 
     Args:
-        G: Undirected contradiction graph built by build_contradiction_graph.
+        graph: Undirected contradiction graph built by build_contradiction_graph.
         kg: Original knowledge graph (used to look up node labels).
 
     Returns:
         List of dicts sorted by VOI descending, each containing claim IDs, labels,
         VOI score, component metrics, and resolution predictions.
     """
-    log.info("computing_voi", n_edges=G.number_of_edges())
+    log.info("computing_voi", n_edges=graph.number_of_edges())
 
     # Precompute edge betweenness once
-    betweenness_raw: dict[tuple[str, str], float] = nx.edge_betweenness_centrality(G)
+    betweenness_raw: dict[tuple[str, str], float] = nx.edge_betweenness_centrality(graph)
     # Normalize key order for lookup
     betweenness_lookup: dict[frozenset[str], float] = {
         frozenset([u, v]): score for (u, v), score in betweenness_raw.items()
     }
 
     # Identify bridge edges
-    bridge_set: set[frozenset[str]] = {frozenset([u, v]) for u, v in nx.bridges(G)}
+    bridge_set: set[frozenset[str]] = {frozenset([u, v]) for u, v in nx.bridges(graph)}
 
     results: list[dict[str, Any]] = []
 
-    for claim_a, claim_b, edge_data in G.edges(data=True):
+    for claim_a, claim_b, edge_data in graph.edges(data=True):
         edge_key = frozenset([claim_a, claim_b])
 
         # Betweenness for this edge
         betweenness = betweenness_lookup.get(edge_key, 0.0)
 
         # Uncertainty: average of both claims' Beta distribution entropies
-        node_a_data = G.nodes[claim_a]
-        node_b_data = G.nodes[claim_b]
+        node_a_data = graph.nodes[claim_a]
+        node_b_data = graph.nodes[claim_b]
         alpha_a = node_a_data.get("nli_alpha", 1.0)
         beta_a = node_a_data.get("nli_beta", 1.0)
         alpha_b = node_b_data.get("nli_alpha", 1.0)
@@ -309,9 +316,9 @@ def compute_voi(
         ) / 2.0
 
         # Simulate all 3 scenarios
-        res_a_wins = simulate_resolution(G, claim_a, claim_b, "a_wins")
-        res_b_wins = simulate_resolution(G, claim_a, claim_b, "b_wins")
-        res_dissolved = simulate_resolution(G, claim_a, claim_b, "dissolved")
+        res_a_wins = simulate_resolution(graph, claim_a, claim_b, "a_wins")
+        res_b_wins = simulate_resolution(graph, claim_a, claim_b, "b_wins")
+        res_dissolved = simulate_resolution(graph, claim_a, claim_b, "dissolved")
 
         blast_radius = max(
             res_a_wins.delta_components,
@@ -390,19 +397,19 @@ def run_topology_analysis(
     log.info("contradictions_loaded", n_contradictions=len(contradictions))
 
     # Build contradiction graph
-    G = build_contradiction_graph(kg, contradictions, min_p=min_p)
+    contra_graph = build_contradiction_graph(kg, contradictions, min_p=min_p)
 
     # Structural analysis
-    bridge_info = find_bridges_and_articulation_points(G)
+    bridge_info = find_bridges_and_articulation_points(contra_graph)
 
     # VOI ranking (includes betweenness + simulation internally)
-    voi_results = compute_voi(G, kg)
+    voi_results = compute_voi(contra_graph, kg)
 
     # Summary stats
-    connected_components = nx.number_connected_components(G)
+    connected_components = nx.number_connected_components(contra_graph)
     summary = {
-        "total_claims": G.number_of_nodes(),
-        "total_contradictions": G.number_of_edges(),
+        "total_claims": contra_graph.number_of_nodes(),
+        "total_contradictions": contra_graph.number_of_edges(),
         "connected_components": connected_components,
         "bridges": bridge_info["n_bridges"],
         "articulation_points": bridge_info["n_articulation_points"],

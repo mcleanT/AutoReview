@@ -120,7 +120,7 @@ def _build_claim_graph(
         entity_to_claims[v].add(claim_id)
 
     # ── Step 2: Build claim-claim edges from shared entities ──
-    MAX_CLAIMS_PER_ENTITY = 20  # Cap: entities with 20+ claims only connect top 20
+    max_claims_per_entity = 20  # Cap: entities with 20+ claims only connect top 20
     edge_weights: dict[tuple[str, str], dict] = {}
 
     for entity_id, claim_ids in entity_to_claims.items():
@@ -128,18 +128,18 @@ def _build_claim_graph(
             continue
         entity_name = kg.nodes[entity_id].get("canonical_name", entity_id)
         claim_list = sorted(claim_ids)
-        if len(claim_list) > MAX_CLAIMS_PER_ENTITY:
+        if len(claim_list) > max_claims_per_entity:
             log.debug(
                 "claim_graph.hub_capped",
                 entity=entity_id,
                 original=len(claim_list),
-                capped=MAX_CLAIMS_PER_ENTITY,
+                capped=max_claims_per_entity,
             )
             claim_list = sorted(
                 claim_list,
                 key=lambda cid: claims.get(cid, {}).get("evidence_count", 0),
                 reverse=True,
-            )[:MAX_CLAIMS_PER_ENTITY]
+            )[:max_claims_per_entity]
         for i in range(len(claim_list)):
             for j in range(i + 1, len(claim_list)):
                 pair = (claim_list[i], claim_list[j])
@@ -217,7 +217,6 @@ def _build_claim_graph(
 
     # ── Step 4: Build vis.js node data ──
     max_evidence = max((c["evidence_count"] for c in claims.values()), default=1)
-    max_degree = max(claim_degrees.values(), default=1)
 
     nodes: list[dict] = []
     for cid, c in claims.items():
@@ -266,8 +265,8 @@ def _build_claim_graph(
             f"Controversy: <b>{c['controversy']:.2f}</b><br>"
             f"Shared-entity neighbors: <b>{degree}</b> &nbsp;|&nbsp; "
             f"Community: {comm_id}"
-            f"{'<hr style="border-color:#2a2d3a;margin:6px 0">' + ev_html if ev_html else ''}"
-            f"</div>"
+            + ('<hr style="border-color:#2a2d3a;margin:6px 0">' + ev_html if ev_html else "")
+            + "</div>"
         )
 
         nodes.append(
@@ -362,31 +361,61 @@ _HTML_TEMPLATE = r"""<!DOCTYPE html>
 <script src="https://unpkg.com/vis-network@9.1.6/standalone/umd/vis-network.min.js"></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: Arial, Helvetica, sans-serif; background: #0f1117; color: #e0e0e0; display: flex; height: 100vh; overflow: hidden; }
+  body {
+    font-family: Arial, Helvetica, sans-serif; background: #0f1117;
+    color: #e0e0e0; display: flex; height: 100vh; overflow: hidden;
+  }
 
   /* Sidebar */
-  #sidebar { width: 320px; min-width: 320px; background: #1a1d27; padding: 16px; overflow-y: auto; border-right: 1px solid #2a2d3a; display: flex; flex-direction: column; gap: 14px; }
-  #sidebar h1 { font-size: 16px; color: #fff; border-bottom: 1px solid #2a2d3a; padding-bottom: 10px; }
+  #sidebar {
+    width: 320px; min-width: 320px; background: #1a1d27; padding: 16px;
+    overflow-y: auto; border-right: 1px solid #2a2d3a;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  #sidebar h1 {
+    font-size: 16px; color: #fff;
+    border-bottom: 1px solid #2a2d3a; padding-bottom: 10px;
+  }
   #sidebar .subtitle { font-size: 11px; color: #6a7080; margin-top: -8px; }
-  #sidebar h2 { font-size: 13px; color: #8890a0; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  #sidebar h2 {
+    font-size: 13px; color: #8890a0; text-transform: uppercase;
+    letter-spacing: 0.5px; margin-bottom: 6px;
+  }
 
   /* Search */
-  #search-box { width: 100%; padding: 8px 12px; background: #252833; border: 1px solid #3a3d4a; border-radius: 6px; color: #e0e0e0; font-size: 13px; outline: none; }
+  #search-box {
+    width: 100%; padding: 8px 12px; background: #252833;
+    border: 1px solid #3a3d4a; border-radius: 6px;
+    color: #e0e0e0; font-size: 13px; outline: none;
+  }
   #search-box:focus { border-color: #0072B2; }
   #search-results { max-height: 200px; overflow-y: auto; font-size: 12px; }
-  .search-result { padding: 5px 8px; cursor: pointer; border-radius: 4px; line-height: 1.3; border-bottom: 1px solid #252833; }
+  .search-result {
+    padding: 5px 8px; cursor: pointer; border-radius: 4px;
+    line-height: 1.3; border-bottom: 1px solid #252833;
+  }
   .search-result:hover { background: #252833; }
   .search-result .sr-predicate { color: #56B4E9; font-weight: bold; }
   .search-result .sr-entities { color: #8890a0; font-size: 11px; }
 
   /* Controls */
   .control-group { display: flex; flex-direction: column; gap: 6px; }
-  .toggle-row { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
-  .toggle-row input[type="checkbox"], .toggle-row input[type="radio"] { accent-color: #0072B2; width: 16px; height: 16px; }
+  .toggle-row {
+    display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer;
+  }
+  .toggle-row input[type="checkbox"], .toggle-row input[type="radio"] {
+    accent-color: #0072B2; width: 16px; height: 16px;
+  }
 
   /* Assertion type filters */
-  .type-filter { display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; padding: 2px 0; }
-  .type-filter .swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; flex-shrink: 0; }
+  .type-filter {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; cursor: pointer; padding: 2px 0;
+  }
+  .type-filter .swatch {
+    width: 12px; height: 12px; border-radius: 3px;
+    display: inline-block; flex-shrink: 0;
+  }
   .type-filter span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .type-count { color: #6a7080; margin-left: auto; font-size: 11px; flex-shrink: 0; }
 
@@ -404,39 +433,71 @@ _HTML_TEMPLATE = r"""<!DOCTYPE html>
   #network { width: 100%; height: 100%; }
 
   /* Legend overlay */
-  #legend { position: absolute; bottom: 16px; right: 16px; background: rgba(26,29,39,0.92); padding: 12px 16px; border-radius: 8px; font-size: 12px; border: 1px solid #2a2d3a; max-width: 220px; }
+  #legend {
+    position: absolute; bottom: 16px; right: 16px;
+    background: rgba(26,29,39,0.92); padding: 12px 16px;
+    border-radius: 8px; font-size: 12px; border: 1px solid #2a2d3a; max-width: 220px;
+  }
   #legend .legend-item { display: flex; align-items: center; gap: 6px; padding: 2px 0; }
   #legend .swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
-  #legend h3 { font-size: 11px; color: #8890a0; text-transform: uppercase; margin-bottom: 4px; }
+  #legend h3 {
+    font-size: 11px; color: #8890a0;
+    text-transform: uppercase; margin-bottom: 4px;
+  }
 
   /* Loading overlay */
-  #loading { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15,17,23,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 18px; z-index: 100; gap: 12px; }
+  #loading {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(15,17,23,0.9); display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    font-size: 18px; z-index: 100; gap: 12px;
+  }
   #loading .progress { font-size: 13px; color: #6a7080; }
   #loading.hidden { display: none; }
 
   /* Node detail panel */
-  #detail-panel { position: absolute; top: 16px; right: 16px; width: 380px; background: rgba(26,29,39,0.96); padding: 16px; border-radius: 8px; border: 1px solid #2a2d3a; display: none; max-height: 70vh; overflow-y: auto; }
+  #detail-panel {
+    position: absolute; top: 16px; right: 16px; width: 380px;
+    background: rgba(26,29,39,0.96); padding: 16px;
+    border-radius: 8px; border: 1px solid #2a2d3a;
+    display: none; max-height: 70vh; overflow-y: auto;
+  }
   #detail-panel h3 { font-size: 15px; color: #fff; margin-bottom: 8px; }
-  #detail-panel .close-btn { position: absolute; top: 8px; right: 12px; cursor: pointer; font-size: 18px; color: #6a7080; }
+  #detail-panel .close-btn {
+    position: absolute; top: 8px; right: 12px;
+    cursor: pointer; font-size: 18px; color: #6a7080;
+  }
   #detail-panel .close-btn:hover { color: #fff; }
   #detail-panel table { width: 100%; font-size: 12px; border-collapse: collapse; }
   #detail-panel td { padding: 3px 0; vertical-align: top; }
   #detail-panel td:first-child { color: #6a7080; width: 110px; }
   .claim-arrow { color: #56B4E9; margin: 0 4px; }
   .neighbor-list { margin-top: 8px; font-size: 12px; max-height: 250px; overflow-y: auto; }
-  .neighbor-item { padding: 5px 4px; border-bottom: 1px solid #252833; line-height: 1.4; cursor: pointer; border-radius: 3px; }
+  .neighbor-item {
+    padding: 5px 4px; border-bottom: 1px solid #252833;
+    line-height: 1.4; cursor: pointer; border-radius: 3px;
+  }
   .neighbor-item:hover { background: #252833; }
   .neighbor-item:last-child { border-bottom: none; }
   .neighbor-shared { color: #6a7080; font-size: 11px; }
 
   /* Contradiction visualization */
-  .contra-badge { display: inline-block; padding: 1px 6px; border-radius: 8px; font-size: 10px; font-weight: bold; }
+  .contra-badge {
+    display: inline-block; padding: 1px 6px;
+    border-radius: 8px; font-size: 10px; font-weight: bold;
+  }
   .contra-cross { background: #D55E0033; color: #D55E00; }
   .contra-intra { background: #CC79A733; color: #CC79A7; }
-  .disagreement-item { padding: 6px 4px; border-bottom: 1px solid #252833; cursor: pointer; border-radius: 3px; }
+  .disagreement-item {
+    padding: 6px 4px; border-bottom: 1px solid #252833;
+    cursor: pointer; border-radius: 3px;
+  }
   .disagreement-item:hover { background: #252833; }
   .disagreement-score { float: right; font-weight: bold; color: #D55E00; }
-  .deg-btn { padding: 4px 10px; background: #252833; border: 1px solid #3a3d4a; border-radius: 4px; color: #c0c8d8; font-size: 12px; cursor: pointer; }
+  .deg-btn {
+    padding: 4px 10px; background: #252833; border: 1px solid #3a3d4a;
+    border-radius: 4px; color: #c0c8d8; font-size: 12px; cursor: pointer;
+  }
   .deg-btn:hover { background: #2a2d3a; border-color: #0072B2; }
   .deg-btn.active { background: #0072B2; border-color: #0072B2; color: #fff; }
 </style>
@@ -449,14 +510,17 @@ _HTML_TEMPLATE = r"""<!DOCTYPE html>
 
   <div class="control-group">
     <h2>Search Claims</h2>
-    <input id="search-box" type="text" placeholder="Search by entity, predicate..." autocomplete="off">
+    <input id="search-box" type="text"
+      placeholder="Search by entity, predicate..." autocomplete="off">
     <div id="search-results"></div>
   </div>
 
   <div class="control-group">
     <h2>Coloring</h2>
-    <label class="toggle-row"><input type="radio" name="coloring" value="assertion" checked> Assertion Type</label>
-    <label class="toggle-row"><input type="radio" name="coloring" value="community"> Community Cluster</label>
+    <label class="toggle-row">
+      <input type="radio" name="coloring" value="assertion" checked> Assertion Type</label>
+    <label class="toggle-row">
+      <input type="radio" name="coloring" value="community"> Community Cluster</label>
   </div>
 
   <div class="control-group">
@@ -490,21 +554,25 @@ _HTML_TEMPLATE = r"""<!DOCTYPE html>
 
   <div class="control-group">
     <h2>Display</h2>
-    <label class="toggle-row"><input type="checkbox" id="toggle-physics" checked> Physics simulation</label>
+    <label class="toggle-row">
+      <input type="checkbox" id="toggle-physics" checked> Physics simulation</label>
     <label class="toggle-row"><input type="checkbox" id="toggle-labels"> Show all labels</label>
     <label class="toggle-row"><input type="checkbox" id="toggle-edges" checked> Show edges</label>
   </div>
 
   <div class="control-group" id="topology-group" style="display:none">
     <h2>Topology Analysis</h2>
-    <label class="toggle-row"><input type="checkbox" id="toggle-high-impact"> Highlight high-impact nodes</label>
+    <label class="toggle-row">
+      <input type="checkbox" id="toggle-high-impact"> Highlight high-impact nodes</label>
     <div id="topology-stats" style="font-size:11px;color:#6a7080;margin-top:4px"></div>
   </div>
 
   <div class="control-group" id="edge-mode-group">
     <h2>Edge Mode</h2>
-    <label class="toggle-row"><input type="radio" name="edgeMode" value="shared" checked> Shared Entity</label>
-    <label class="toggle-row"><input type="radio" name="edgeMode" value="contradiction"> Contradictions</label>
+    <label class="toggle-row">
+      <input type="radio" name="edgeMode" value="shared" checked> Shared Entity</label>
+    <label class="toggle-row">
+      <input type="radio" name="edgeMode" value="contradiction"> Contradictions</label>
     <label class="toggle-row"><input type="radio" name="edgeMode" value="both"> Both</label>
     <div class="slider-row" id="contra-threshold-row" style="display:none;margin-top:8px">
       <label>Min contradiction <span id="contra-val">0.90</span></label>
@@ -517,8 +585,10 @@ _HTML_TEMPLATE = r"""<!DOCTYPE html>
 
   <div class="control-group">
     <h2>View</h2>
-    <label class="toggle-row"><input type="radio" name="viewMode" value="claims" checked> Claim Graph</label>
-    <label class="toggle-row"><input type="radio" name="viewMode" value="communities"> Community Overview</label>
+    <label class="toggle-row">
+      <input type="radio" name="viewMode" value="claims" checked> Claim Graph</label>
+    <label class="toggle-row">
+      <input type="radio" name="viewMode" value="communities"> Community Overview</label>
   </div>
 
   <div class="control-group">
@@ -579,10 +649,11 @@ const nodeIndex = {};
 allNodes.forEach(n => { nodeIndex[n.id] = n; });
 
 function initTopology() {
-  if (TOPOLOGY_DATA && TOPOLOGY_DATA.highImpactNodes && Object.keys(TOPOLOGY_DATA.highImpactNodes).length > 0) {
+  const hiNodes = TOPOLOGY_DATA && TOPOLOGY_DATA.highImpactNodes;
+  if (hiNodes && Object.keys(hiNodes).length > 0) {
     document.getElementById("topology-group").style.display = "";
     const s = TOPOLOGY_DATA.summary || {};
-    const nHi = Object.keys(TOPOLOGY_DATA.highImpactNodes).length;
+    const nHi = Object.keys(hiNodes).length;
     document.getElementById("topology-stats").innerHTML =
       `<b>${nHi}</b> high-impact nodes<br>` +
       `${s.bridges || 0} bridges &middot; ${s.articulation_points || 0} hubs`;
@@ -658,7 +729,8 @@ function prepareNodes(nodes) {
   }).map(n => {
     const baseColor = colorMode === "assertion" ? n.assertionColor : n.communityColor;
     const labelVisible = showLabels || n.degree >= 40;
-    const hiNode = showHighImpact && TOPOLOGY_DATA.highImpactNodes ? TOPOLOGY_DATA.highImpactNodes[n.id] : null;
+    const _hiMap = showHighImpact && TOPOLOGY_DATA.highImpactNodes;
+    const hiNode = _hiMap ? _hiMap[n.id] : null;
     const borderColor = hiNode ? "#FF3333" : darken(baseColor, 30);
     const borderW = hiNode ? 3.5 : undefined;
     return {
@@ -704,8 +776,15 @@ function getActiveEdges() {
         from: e.from,
         to: e.to,
         width: 2.5 + e.p_contradiction * 3.5,
-        color: { color: e.is_cross_paper ? "#D55E00" : "#CC79A7", highlight: "#FF0000", hover: "#FF4444" },
-        title: `<div style='font-family:Arial;font-size:13px'><b style='color:${e.is_cross_paper ? "#D55E00" : "#CC79A7"}'>Contradiction (p=${e.p_contradiction.toFixed(2)})</b><br>${e.method}${e.is_cross_paper ? ' | Cross-paper' : ''}<br>Shared: ${e.shared_entities.join(", ")}</div>`,
+        color: {
+          color: e.is_cross_paper ? "#D55E00" : "#CC79A7",
+          highlight: "#FF0000", hover: "#FF4444",
+        },
+        title: `<div style='font-family:Arial;font-size:13px'>`
+          + `<b style='color:${e.is_cross_paper ? "#D55E00" : "#CC79A7"}'>`
+          + `Contradiction (p=${e.p_contradiction.toFixed(2)})</b><br>`
+          + `${e.method}${e.is_cross_paper ? ' | Cross-paper' : ''}`
+          + `<br>Shared: ${e.shared_entities.join(", ")}</div>`,
         smooth: { type: "curvedCW", roundness: 0.15 },
       }));
     edges = edges.concat(contraEdges);
@@ -731,7 +810,9 @@ function refreshGraph() {
 // ── Controls ──
 function bindControls() {
   document.querySelectorAll('input[name="coloring"]').forEach(r => {
-    r.addEventListener("change", (e) => { colorMode = e.target.value; refreshGraph(); buildLegend(); });
+    r.addEventListener("change", (e) => {
+      colorMode = e.target.value; refreshGraph(); buildLegend();
+    });
   });
 
   document.getElementById("conf-slider").addEventListener("input", (e) => {
@@ -767,7 +848,10 @@ function bindControls() {
       physics: enable ? {
         enabled: true,
         solver: "barnesHut",
-        barnesHut: { gravitationalConstant: -4000, springLength: 140, springConstant: 0.01, damping: 0.7 },
+        barnesHut: {
+          gravitationalConstant: -4000, springLength: 140,
+          springConstant: 0.01, damping: 0.7,
+        },
         stabilization: false,
       } : { enabled: false },
     });
@@ -797,8 +881,9 @@ function bindControls() {
     r.addEventListener("change", (e) => {
       edgeMode = e.target.value;
       const showContraControls = edgeMode !== "shared";
-      document.getElementById("contra-threshold-row").style.display = showContraControls ? "flex" : "none";
-      document.getElementById("cross-paper-row").style.display = showContraControls ? "flex" : "none";
+      const dispMode = showContraControls ? "flex" : "none";
+      document.getElementById("contra-threshold-row").style.display = dispMode;
+      document.getElementById("cross-paper-row").style.display = dispMode;
       refreshGraph();
       buildLegend();
     });
@@ -846,7 +931,8 @@ function bindControls() {
       div.className = "search-result";
       div.innerHTML = `
         <span class="sr-predicate">${escapeHtml(n.predicate)}</span><br>
-        <span class="sr-entities">${escapeHtml(n.subjectName)} &rarr; ${escapeHtml(n.objectName)}</span>
+        <span class="sr-entities">${escapeHtml(n.subjectName)}
+          &rarr; ${escapeHtml(n.objectName)}</span>
       `;
       div.addEventListener("click", () => {
         network.selectNodes([n.id]);
@@ -891,18 +977,28 @@ function buildLegend() {
   if (colorMode === "assertion") {
     const types = Object.entries(ASSERTION_COLORS);
     legend.innerHTML = `<h3>Assertion Types</h3>` + types.map(([t, c]) =>
-      `<div class="legend-item"><span class="swatch" style="background:${c}"></span>${t.replace(/_/g, " ")}</div>`
+      `<div class="legend-item">`
+      + `<span class="swatch" style="background:${c}"></span>`
+      + `${t.replace(/_/g, " ")}</div>`
     ).join("");
   } else {
-    legend.innerHTML = `<h3>Communities</h3><div style="color:#6a7080;font-size:11px">Colors represent claim<br>community clusters</div>`;
+    legend.innerHTML = `<h3>Communities</h3>`
+      + `<div style="color:#6a7080;font-size:11px">`
+      + `Colors represent claim<br>community clusters</div>`;
   }
   if (edgeMode === "shared") {
-    legend.innerHTML += `<h3 style="margin-top:8px">Edges</h3><div style="color:#6a7080;font-size:11px">Width = # shared entities</div>`;
+    legend.innerHTML += `<h3 style="margin-top:8px">Edges</h3>`
+      + `<div style="color:#6a7080;font-size:11px">Width = # shared entities</div>`;
   } else if (edgeMode === "contradiction") {
     legend.innerHTML += `<h3 style="margin-top:8px">Edges</h3>
-      <div class="legend-item"><span style="border-bottom:2px dashed #D55E00;width:20px;display:inline-block"></span> Cross-paper contradiction</div>
-      <div class="legend-item"><span style="border-bottom:2px dashed #CC79A7;width:20px;display:inline-block"></span> Intra-paper contradiction</div>
-      <div style="color:#6a7080;font-size:11px;margin-top:4px">Width = contradiction probability</div>`;
+      <div class="legend-item">
+        <span style="border-bottom:2px dashed #D55E00;width:20px;display:inline-block">
+        </span> Cross-paper contradiction</div>
+      <div class="legend-item">
+        <span style="border-bottom:2px dashed #CC79A7;width:20px;display:inline-block">
+        </span> Intra-paper contradiction</div>
+      <div style="color:#6a7080;font-size:11px;margin-top:4px">
+        Width = contradiction probability</div>`;
   } else {
     legend.innerHTML += `<h3 style="margin-top:8px">Edges</h3>
       <div style="color:#6a7080;font-size:11px">Gray = shared entities<br>
@@ -923,17 +1019,26 @@ function showDetail(nodeId) {
     <div style="margin-bottom:12px">
       <span style="font-size:15px;font-weight:bold">${escapeHtml(n.subjectName)}</span>
       <span class="claim-arrow">&rarr;</span>
-      <span style="font-size:15px;color:#56B4E9;font-weight:bold">${escapeHtml(n.predicate)}</span>
+      <span style="font-size:15px;color:#56B4E9;font-weight:bold">
+        ${escapeHtml(n.predicate)}</span>
       <span class="claim-arrow">&rarr;</span>
       <span style="font-size:15px;font-weight:bold">${escapeHtml(n.objectName)}</span>
     </div>
     <table>
-      <tr><td>Assertion type</td><td><span style="color:${n.assertionColor}">\u25CF</span> ${n.assertionType.replace(/_/g, " ")}</td></tr>
+      <tr><td>Assertion type</td><td>
+        <span style="color:${n.assertionColor}">\u25CF</span>
+        ${n.assertionType.replace(/_/g, " ")}</td></tr>
       <tr><td>Confidence</td><td>${n.confidence.toFixed(3)}</td></tr>
       <tr><td>Evidence</td><td>${n.evidenceCount} source(s)</td></tr>
       <tr><td>Controversy</td><td>${n.controversy.toFixed(3)}</td></tr>
       <tr><td>Neighbors</td><td>${n.degree} claims share entities</td></tr>
-      <tr><td>Community</td><td>${n.communityId}${COMMUNITY_LABELS[n.communityId] ? ' \u2014 ' + escapeHtml(COMMUNITY_LABELS[n.communityId].subfield || COMMUNITY_LABELS[n.communityId].auto_label) : ''}</td></tr>
+      <tr><td>Community</td><td>${n.communityId}${
+        COMMUNITY_LABELS[n.communityId]
+          ? ' \u2014 ' + escapeHtml(
+              COMMUNITY_LABELS[n.communityId].subfield
+              || COMMUNITY_LABELS[n.communityId].auto_label)
+          : ''
+      }</td></tr>
     </table>
   `;
 
@@ -942,7 +1047,8 @@ function showDetail(nodeId) {
   if (connected.length > 0) {
     // Sort by shared count descending
     connected.sort((a, b) => (b.sharedCount || 0) - (a.sharedCount || 0));
-    html += `<h3 style="margin-top:12px;font-size:13px">Related Claims (${connected.length})</h3><div class="neighbor-list">`;
+    html += `<h3 style="margin-top:12px;font-size:13px">`
+      + `Related Claims (${connected.length})</h3><div class="neighbor-list">`;
     connected.slice(0, 30).forEach(e => {
       const otherId = e.from === nodeId ? e.to : e.from;
       const other = nodeIndex[otherId];
@@ -950,11 +1056,15 @@ function showDetail(nodeId) {
       html += `<div class="neighbor-item" onclick="navigateTo('${otherId}')">
         <span style="color:${other.assertionColor}">\u25CF</span>
         <b>${escapeHtml(other.predicate)}</b><br>
-        <span class="neighbor-shared">${escapeHtml(other.subjectName)} &rarr; ${escapeHtml(other.objectName)}
-        &nbsp;|&nbsp; ${e.sharedCount || 1} shared entit${(e.sharedCount || 1) === 1 ? 'y' : 'ies'}</span>
+        <span class="neighbor-shared">
+          ${escapeHtml(other.subjectName)} &rarr; ${escapeHtml(other.objectName)}
+          &nbsp;|&nbsp;
+          ${e.sharedCount || 1} shared entit${(e.sharedCount || 1) === 1 ? 'y' : 'ies'}
+        </span>
       </div>`;
     });
-    if (connected.length > 30) html += `<div style="color:#6a7080;padding:4px">...and ${connected.length - 30} more</div>`;
+    if (connected.length > 30)
+      html += `<div style="color:#6a7080;padding:4px">...and ${connected.length - 30} more</div>`;
     html += `</div>`;
   }
 
@@ -982,18 +1092,21 @@ function showEdgeDetail(edgeId) {
   const panel = document.getElementById("detail-panel");
   const content = document.getElementById("detail-content");
 
-  const pctColor = contra.p_contradiction > 0.8 ? "#D55E00" : contra.p_contradiction > 0.5 ? "#E69F00" : "#56B4E9";
+  const pctColor = contra.p_contradiction > 0.8
+    ? "#D55E00" : contra.p_contradiction > 0.5 ? "#E69F00" : "#56B4E9";
   const typeLabel = contra.is_cross_paper ? "Cross-paper" : "Intra-paper";
   const typeBadgeClass = contra.is_cross_paper ? "contra-cross" : "contra-intra";
 
   let html = `
     <div style="margin-bottom:12px">
       <span style="font-size:16px;font-weight:bold;color:${pctColor}">Contradiction</span>
-      <span style="font-size:14px;color:${pctColor};margin-left:8px">p = ${contra.p_contradiction.toFixed(3)}</span>
+      <span style="font-size:14px;color:${pctColor};margin-left:8px">
+        p = ${contra.p_contradiction.toFixed(3)}</span>
       <span class="contra-badge ${typeBadgeClass}" style="margin-left:8px">${typeLabel}</span>
     </div>
 
-    <div style="background:#1e2130;border-radius:6px;padding:10px;margin-bottom:8px;border-left:3px solid ${nodeA.assertionColor}">
+    <div style="background:#1e2130;border-radius:6px;padding:10px;margin-bottom:8px;
+      border-left:3px solid ${nodeA.assertionColor}">
       <div style="font-size:11px;color:#6a7080;margin-bottom:4px">Claim A</div>
       <span style="font-weight:bold">${escapeHtml(nodeA.subjectName)}</span>
       <span class="claim-arrow">&rarr;</span>
@@ -1001,16 +1114,24 @@ function showEdgeDetail(edgeId) {
       <span class="claim-arrow">&rarr;</span>
       <span style="font-weight:bold">${escapeHtml(nodeA.objectName)}</span>
       <div style="margin-top:4px;font-size:11px;color:#6a7080">
-        <span style="color:${nodeA.assertionColor}">\u25CF</span> ${nodeA.assertionType.replace(/_/g, " ")}
+        <span style="color:${nodeA.assertionColor}">\u25CF</span>
+        ${nodeA.assertionType.replace(/_/g, " ")}
         &nbsp;|&nbsp; Evidence: ${nodeA.evidenceCount}
         &nbsp;|&nbsp; Community: ${nodeA.communityId}
       </div>
-      <div style="margin-top:4px"><a href="#" onclick="network.selectNodes(['${edge.from.replace(/'/g, "\\'")}']); network.focus('${edge.from.replace(/'/g, "\\'")}', {scale:2,animation:{duration:500}}); showDetail('${edge.from.replace(/'/g, "\\'")}'); return false;" style="color:#56B4E9;font-size:11px;text-decoration:none">Focus this claim &rarr;</a></div>
+      <div style="margin-top:4px"><a href="#"
+        onclick="network.selectNodes(['${edge.from.replace(/'/g, "\\'")}']);
+          network.focus('${edge.from.replace(/'/g, "\\'")}',
+            {scale:2,animation:{duration:500}});
+          showDetail('${edge.from.replace(/'/g, "\\'")}'); return false;"
+        style="color:#56B4E9;font-size:11px;text-decoration:none">Focus this claim &rarr;</a>
+      </div>
     </div>
 
     <div style="text-align:center;font-size:18px;color:#D55E00;margin:4px 0">&#x26A1;</div>
 
-    <div style="background:#1e2130;border-radius:6px;padding:10px;margin-bottom:12px;border-left:3px solid ${nodeB.assertionColor}">
+    <div style="background:#1e2130;border-radius:6px;padding:10px;margin-bottom:12px;
+      border-left:3px solid ${nodeB.assertionColor}">
       <div style="font-size:11px;color:#6a7080;margin-bottom:4px">Claim B</div>
       <span style="font-weight:bold">${escapeHtml(nodeB.subjectName)}</span>
       <span class="claim-arrow">&rarr;</span>
@@ -1018,16 +1139,26 @@ function showEdgeDetail(edgeId) {
       <span class="claim-arrow">&rarr;</span>
       <span style="font-weight:bold">${escapeHtml(nodeB.objectName)}</span>
       <div style="margin-top:4px;font-size:11px;color:#6a7080">
-        <span style="color:${nodeB.assertionColor}">\u25CF</span> ${nodeB.assertionType.replace(/_/g, " ")}
+        <span style="color:${nodeB.assertionColor}">\u25CF</span>
+        ${nodeB.assertionType.replace(/_/g, " ")}
         &nbsp;|&nbsp; Evidence: ${nodeB.evidenceCount}
         &nbsp;|&nbsp; Community: ${nodeB.communityId}
       </div>
-      <div style="margin-top:4px"><a href="#" onclick="network.selectNodes(['${edge.to.replace(/'/g, "\\'")}']); network.focus('${edge.to.replace(/'/g, "\\'")}', {scale:2,animation:{duration:500}}); showDetail('${edge.to.replace(/'/g, "\\'")}'); return false;" style="color:#56B4E9;font-size:11px;text-decoration:none">Focus this claim &rarr;</a></div>
+      <div style="margin-top:4px"><a href="#"
+        onclick="network.selectNodes(['${edge.to.replace(/'/g, "\\'")}']);
+          network.focus('${edge.to.replace(/'/g, "\\'")}',
+            {scale:2,animation:{duration:500}});
+          showDetail('${edge.to.replace(/'/g, "\\'")}'); return false;"
+        style="color:#56B4E9;font-size:11px;text-decoration:none">Focus this claim &rarr;</a>
+      </div>
     </div>
 
     <table>
       <tr><td>Method</td><td>${contra.method.replace(/_/g, " ")}</td></tr>
-      <tr><td>Shared entities</td><td>${contra.shared_entities.length > 0 ? escapeHtml(contra.shared_entities.join(", ")) : "none"}</td></tr>
+      <tr><td>Shared entities</td><td>${
+        contra.shared_entities.length > 0
+          ? escapeHtml(contra.shared_entities.join(", ")) : "none"
+      }</td></tr>
     </table>
   `;
 
@@ -1113,21 +1244,37 @@ function initCommunityNetwork() {
       id: cl.community_id,
       value: cl.claim_count,
       label: cl.subfield || cl.auto_label,
-      title: `<div style='font-family:Arial;font-size:13px'><b>${escapeHtml(cl.subfield || cl.auto_label)}</b><br>${cl.claim_count} claims${cScore > 0 ? '<br>Controversy: ' + cScore.toFixed(2) : ''}<br>Top entities: ${cl.top_entities.slice(0, 3).join(", ")}</div>`,
-      color: { background: bg, border: darkenRGB(bg), highlight: { background: "#FFD700", border: "#FFA500" } },
+      title: `<div style='font-family:Arial;font-size:13px'>`
+        + `<b>${escapeHtml(cl.subfield || cl.auto_label)}</b><br>`
+        + `${cl.claim_count} claims`
+        + `${cScore > 0 ? '<br>Controversy: ' + cScore.toFixed(2) : ''}`
+        + `<br>Top entities: ${cl.top_entities.slice(0, 3).join(", ")}</div>`,
+      color: {
+        background: bg, border: darkenRGB(bg),
+        highlight: { background: "#FFD700", border: "#FFA500" },
+      },
       font: { color: "#e0e0e0", strokeWidth: 3, strokeColor: "rgba(26,29,39,0.8)" },
     };
   });
 
   // Build edges from disagreements — only show top disagreements to avoid clutter
-  const maxScore = COMMUNITY_DISAGREEMENTS.length > 0 ? COMMUNITY_DISAGREEMENTS[0].normalized_score : 1;
+  const maxScore = COMMUNITY_DISAGREEMENTS.length > 0
+    ? COMMUNITY_DISAGREEMENTS[0].normalized_score : 1;
   const commEdges = COMMUNITY_DISAGREEMENTS.slice(0, 100).map((d, i) => ({
     id: `cd_${i}`,
     from: d.comm_a_id,
     to: d.comm_b_id,
     width: 1 + (d.normalized_score / maxScore) * 8,
-    color: { color: `rgba(213,94,0,${0.3 + 0.7 * d.normalized_score / maxScore})`, highlight: "#FF0000" },
-    title: `<div style='font-family:Arial;font-size:13px'><b style='color:#D55E00'>Disagreement Score: ${d.normalized_score.toFixed(2)}</b><br>${d.num_contradictions} contradicting claim pairs<br><b>${escapeHtml(COMMUNITY_LABELS[d.comm_a_id]?.subfield || d.comm_a_label)}</b> vs<br><b>${escapeHtml(COMMUNITY_LABELS[d.comm_b_id]?.subfield || d.comm_b_label)}</b></div>`,
+    color: {
+      color: `rgba(213,94,0,${0.3 + 0.7 * d.normalized_score / maxScore})`,
+      highlight: "#FF0000",
+    },
+    title: `<div style='font-family:Arial;font-size:13px'>`
+      + `<b style='color:#D55E00'>Disagreement Score: ${d.normalized_score.toFixed(2)}</b><br>`
+      + `${d.num_contradictions} contradicting claim pairs<br>`
+      + `<b>${escapeHtml(COMMUNITY_LABELS[d.comm_a_id]?.subfield || d.comm_a_label)}</b>`
+      + ` vs<br>`
+      + `<b>${escapeHtml(COMMUNITY_LABELS[d.comm_b_id]?.subfield || d.comm_b_label)}</b></div>`,
     label: d.normalized_score.toFixed(1),
     font: { size: 10, color: "#D55E00", strokeWidth: 3, strokeColor: "#1a1d27" },
   }));
@@ -1179,15 +1326,22 @@ function initCommunityNetwork() {
 
     let html = `
       <div style="margin-bottom:12px">
-        <span style="font-size:16px;font-weight:bold;color:#fff">${escapeHtml(cl.subfield || cl.auto_label)}</span>
-        ${cl.subfield ? '<br><span style="color:#6a7080;font-size:12px">' + escapeHtml(cl.auto_label) + '</span>' : ''}
+        <span style="font-size:16px;font-weight:bold;color:#fff">
+          ${escapeHtml(cl.subfield || cl.auto_label)}</span>
+        ${cl.subfield
+          ? '<br><span style="color:#6a7080;font-size:12px">'
+            + escapeHtml(cl.auto_label) + '</span>'
+          : ''}
       </div>
       <table>
         <tr><td>Claims</td><td>${cl.claim_count}</td></tr>
-        <tr><td>Controversy</td><td style="color:${cScore > 0 ? '#D55E00' : '#6a7080'}">${cScore.toFixed(2)}</td></tr>
+        <tr><td>Controversy</td>
+          <td style="color:${cScore > 0 ? '#D55E00' : '#6a7080'}">${cScore.toFixed(2)}</td></tr>
         <tr><td>Top entities</td><td>${cl.top_entities.join(", ")}</td></tr>
         <tr><td>Predicates</td><td>${cl.top_predicates.join(", ")}</td></tr>
-        ${cl.top_entity_types && cl.top_entity_types.length ? '<tr><td>Entity types</td><td>' + cl.top_entity_types.join(", ") + '</td></tr>' : ''}
+        ${cl.top_entity_types && cl.top_entity_types.length
+          ? '<tr><td>Entity types</td><td>' + cl.top_entity_types.join(", ") + '</td></tr>'
+          : ''}
       </table>
     `;
 
@@ -1197,22 +1351,27 @@ function initCommunityNetwork() {
     ).sort((a, b) => b.normalized_score - a.normalized_score);
 
     if (disagreements.length > 0) {
-      html += '<h3 style="margin-top:14px;font-size:13px;color:#fff">Disagreements (' + disagreements.length + ')</h3><div class="neighbor-list">';
+      html += '<h3 style="margin-top:14px;font-size:13px;color:#fff">Disagreements ('
+        + disagreements.length + ')</h3><div class="neighbor-list">';
       disagreements.slice(0, 15).forEach(d => {
         const otherId = d.comm_a_id === communityId ? d.comm_b_id : d.comm_a_id;
         const other = COMMUNITY_LABELS[otherId];
         const otherName = other ? (other.subfield || other.auto_label) : 'Community ' + otherId;
-        html += '<div class="neighbor-item" onclick="event.stopPropagation(); window._navComm && window._navComm(' + otherId + ')">'
+        html += '<div class="neighbor-item"'
+          + ' onclick="event.stopPropagation();'
+          + ' window._navComm && window._navComm(' + otherId + ')">'
           + '<span style="color:#D55E00">●</span> '
           + '<b>' + escapeHtml(otherName) + '</b>'
-          + '<span style="float:right;color:#D55E00;font-size:11px">' + d.normalized_score.toFixed(2) + '</span><br>'
+          + '<span style="float:right;color:#D55E00;font-size:11px">'
+          + d.normalized_score.toFixed(2) + '</span><br>'
           + '<span class="neighbor-shared">' + d.num_contradictions + ' contradictions</span>'
           + '</div>';
 
         // Top 2 contradicting claim pairs
         if (d.top_claims && d.top_claims.length > 0) {
           d.top_claims.slice(0, 2).forEach(tc => {
-            html += '<div style="margin:2px 0 6px 16px;font-size:11px;color:#6a7080;line-height:1.3">'
+            html += '<div style="margin:2px 0 6px 16px;font-size:11px;'
+              + 'color:#6a7080;line-height:1.3">'
               + '“' + escapeHtml(tc.claim_a_text) + '”<br>'
               + '<span style="color:#D55E00;margin-left:8px">vs</span> '
               + '“' + escapeHtml(tc.claim_b_text) + '”'
@@ -1222,11 +1381,13 @@ function initCommunityNetwork() {
         }
       });
       if (disagreements.length > 15) {
-        html += '<div style="color:#6a7080;padding:4px">...and ' + (disagreements.length - 15) + ' more</div>';
+        html += '<div style="color:#6a7080;padding:4px">...and '
+          + (disagreements.length - 15) + ' more</div>';
       }
       html += '</div>';
     } else {
-      html += '<div style="margin-top:12px;color:#6a7080;font-size:12px">No disagreements with other communities</div>';
+      html += '<div style="margin-top:12px;color:#6a7080;font-size:12px">'
+        + 'No disagreements with other communities</div>';
     }
 
     content.innerHTML = html;
@@ -1262,7 +1423,8 @@ function buildDisagreementList() {
     `;
     div.addEventListener("click", () => {
       // Switch to community view and focus on these two communities
-      document.querySelector('input[name="viewMode"][value="communities"]').checked = true;
+      const vmInput = document.querySelector('input[name="viewMode"][value="communities"]');
+      vmInput.checked = true;
       viewMode = "communities";
       document.getElementById("network").style.display = "none";
       document.getElementById("community-network").style.display = "block";
@@ -1276,7 +1438,9 @@ function buildDisagreementList() {
 }
 
 // ── Utilities ──
-function escapeHtml(str) { return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function escapeHtml(str) {
+  return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
 
 function darken(hex, pct) {
   const num = parseInt(hex.replace("#",""), 16);
@@ -1307,31 +1471,61 @@ _MULTI_HTML_TEMPLATE = r"""<!DOCTYPE html>
 <script src="https://unpkg.com/vis-network@9.1.6/standalone/umd/vis-network.min.js"></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: Arial, Helvetica, sans-serif; background: #0f1117; color: #e0e0e0; display: flex; height: 100vh; overflow: hidden; }
+  body {
+    font-family: Arial, Helvetica, sans-serif; background: #0f1117;
+    color: #e0e0e0; display: flex; height: 100vh; overflow: hidden;
+  }
 
   /* Sidebar */
-  #sidebar { width: 320px; min-width: 320px; background: #1a1d27; padding: 16px; overflow-y: auto; border-right: 1px solid #2a2d3a; display: flex; flex-direction: column; gap: 14px; }
-  #sidebar h1 { font-size: 16px; color: #fff; border-bottom: 1px solid #2a2d3a; padding-bottom: 10px; }
+  #sidebar {
+    width: 320px; min-width: 320px; background: #1a1d27; padding: 16px;
+    overflow-y: auto; border-right: 1px solid #2a2d3a;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  #sidebar h1 {
+    font-size: 16px; color: #fff;
+    border-bottom: 1px solid #2a2d3a; padding-bottom: 10px;
+  }
   #sidebar .subtitle { font-size: 11px; color: #6a7080; margin-top: -8px; }
-  #sidebar h2 { font-size: 13px; color: #8890a0; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  #sidebar h2 {
+    font-size: 13px; color: #8890a0; text-transform: uppercase;
+    letter-spacing: 0.5px; margin-bottom: 6px;
+  }
 
   /* Search */
-  #search-box { width: 100%; padding: 8px 12px; background: #252833; border: 1px solid #3a3d4a; border-radius: 6px; color: #e0e0e0; font-size: 13px; outline: none; }
+  #search-box {
+    width: 100%; padding: 8px 12px; background: #252833;
+    border: 1px solid #3a3d4a; border-radius: 6px;
+    color: #e0e0e0; font-size: 13px; outline: none;
+  }
   #search-box:focus { border-color: #0072B2; }
   #search-results { max-height: 200px; overflow-y: auto; font-size: 12px; }
-  .search-result { padding: 5px 8px; cursor: pointer; border-radius: 4px; line-height: 1.3; border-bottom: 1px solid #252833; }
+  .search-result {
+    padding: 5px 8px; cursor: pointer; border-radius: 4px;
+    line-height: 1.3; border-bottom: 1px solid #252833;
+  }
   .search-result:hover { background: #252833; }
   .search-result .sr-predicate { color: #56B4E9; font-weight: bold; }
   .search-result .sr-entities { color: #8890a0; font-size: 11px; }
 
   /* Controls */
   .control-group { display: flex; flex-direction: column; gap: 6px; }
-  .toggle-row { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
-  .toggle-row input[type="checkbox"], .toggle-row input[type="radio"] { accent-color: #0072B2; width: 16px; height: 16px; }
+  .toggle-row {
+    display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer;
+  }
+  .toggle-row input[type="checkbox"], .toggle-row input[type="radio"] {
+    accent-color: #0072B2; width: 16px; height: 16px;
+  }
 
   /* Assertion type filters */
-  .type-filter { display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; padding: 2px 0; }
-  .type-filter .swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; flex-shrink: 0; }
+  .type-filter {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; cursor: pointer; padding: 2px 0;
+  }
+  .type-filter .swatch {
+    width: 12px; height: 12px; border-radius: 3px;
+    display: inline-block; flex-shrink: 0;
+  }
   .type-filter span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .type-count { color: #6a7080; margin-left: auto; font-size: 11px; flex-shrink: 0; }
 
@@ -1349,39 +1543,71 @@ _MULTI_HTML_TEMPLATE = r"""<!DOCTYPE html>
   #network { width: 100%; height: calc(100% - 44px); }
 
   /* Legend overlay */
-  #legend { position: absolute; bottom: 60px; right: 16px; background: rgba(26,29,39,0.92); padding: 12px 16px; border-radius: 8px; font-size: 12px; border: 1px solid #2a2d3a; max-width: 220px; }
+  #legend {
+    position: absolute; bottom: 60px; right: 16px;
+    background: rgba(26,29,39,0.92); padding: 12px 16px;
+    border-radius: 8px; font-size: 12px; border: 1px solid #2a2d3a; max-width: 220px;
+  }
   #legend .legend-item { display: flex; align-items: center; gap: 6px; padding: 2px 0; }
   #legend .swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
-  #legend h3 { font-size: 11px; color: #8890a0; text-transform: uppercase; margin-bottom: 4px; }
+  #legend h3 {
+    font-size: 11px; color: #8890a0;
+    text-transform: uppercase; margin-bottom: 4px;
+  }
 
   /* Loading overlay */
-  #loading { position: absolute; top: 0; left: 0; right: 0; bottom: 44px; background: rgba(15,17,23,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 18px; z-index: 100; gap: 12px; }
+  #loading {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 44px;
+    background: rgba(15,17,23,0.9); display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    font-size: 18px; z-index: 100; gap: 12px;
+  }
   #loading .progress { font-size: 13px; color: #6a7080; }
   #loading.hidden { display: none; }
 
   /* Node detail panel */
-  #detail-panel { position: absolute; top: 16px; right: 16px; width: 380px; background: rgba(26,29,39,0.96); padding: 16px; border-radius: 8px; border: 1px solid #2a2d3a; display: none; max-height: 70vh; overflow-y: auto; }
+  #detail-panel {
+    position: absolute; top: 16px; right: 16px; width: 380px;
+    background: rgba(26,29,39,0.96); padding: 16px;
+    border-radius: 8px; border: 1px solid #2a2d3a;
+    display: none; max-height: 70vh; overflow-y: auto;
+  }
   #detail-panel h3 { font-size: 15px; color: #fff; margin-bottom: 8px; }
-  #detail-panel .close-btn { position: absolute; top: 8px; right: 12px; cursor: pointer; font-size: 18px; color: #6a7080; }
+  #detail-panel .close-btn {
+    position: absolute; top: 8px; right: 12px;
+    cursor: pointer; font-size: 18px; color: #6a7080;
+  }
   #detail-panel .close-btn:hover { color: #fff; }
   #detail-panel table { width: 100%; font-size: 12px; border-collapse: collapse; }
   #detail-panel td { padding: 3px 0; vertical-align: top; }
   #detail-panel td:first-child { color: #6a7080; width: 110px; }
   .claim-arrow { color: #56B4E9; margin: 0 4px; }
   .neighbor-list { margin-top: 8px; font-size: 12px; max-height: 250px; overflow-y: auto; }
-  .neighbor-item { padding: 5px 4px; border-bottom: 1px solid #252833; line-height: 1.4; cursor: pointer; border-radius: 3px; }
+  .neighbor-item {
+    padding: 5px 4px; border-bottom: 1px solid #252833;
+    line-height: 1.4; cursor: pointer; border-radius: 3px;
+  }
   .neighbor-item:hover { background: #252833; }
   .neighbor-item:last-child { border-bottom: none; }
   .neighbor-shared { color: #6a7080; font-size: 11px; }
 
   /* Contradiction visualization */
-  .contra-badge { display: inline-block; padding: 1px 6px; border-radius: 8px; font-size: 10px; font-weight: bold; }
+  .contra-badge {
+    display: inline-block; padding: 1px 6px;
+    border-radius: 8px; font-size: 10px; font-weight: bold;
+  }
   .contra-cross { background: #D55E0033; color: #D55E00; }
   .contra-intra { background: #CC79A733; color: #CC79A7; }
-  .disagreement-item { padding: 6px 4px; border-bottom: 1px solid #252833; cursor: pointer; border-radius: 3px; }
+  .disagreement-item {
+    padding: 6px 4px; border-bottom: 1px solid #252833;
+    cursor: pointer; border-radius: 3px;
+  }
   .disagreement-item:hover { background: #252833; }
   .disagreement-score { float: right; font-weight: bold; color: #D55E00; }
-  .deg-btn { padding: 4px 10px; background: #252833; border: 1px solid #3a3d4a; border-radius: 4px; color: #c0c8d8; font-size: 12px; cursor: pointer; }
+  .deg-btn {
+    padding: 4px 10px; background: #252833; border: 1px solid #3a3d4a;
+    border-radius: 4px; color: #c0c8d8; font-size: 12px; cursor: pointer;
+  }
   .deg-btn:hover { background: #2a2d3a; border-color: #0072B2; }
   .deg-btn.active { background: #0072B2; border-color: #0072B2; color: #fff; }
 
@@ -1430,14 +1656,17 @@ _MULTI_HTML_TEMPLATE = r"""<!DOCTYPE html>
 
   <div class="control-group">
     <h2>Search Claims</h2>
-    <input id="search-box" type="text" placeholder="Search by entity, predicate..." autocomplete="off">
+    <input id="search-box" type="text"
+      placeholder="Search by entity, predicate..." autocomplete="off">
     <div id="search-results"></div>
   </div>
 
   <div class="control-group">
     <h2>Coloring</h2>
-    <label class="toggle-row"><input type="radio" name="coloring" value="assertion" checked> Assertion Type</label>
-    <label class="toggle-row"><input type="radio" name="coloring" value="community"> Community Cluster</label>
+    <label class="toggle-row">
+      <input type="radio" name="coloring" value="assertion" checked> Assertion Type</label>
+    <label class="toggle-row">
+      <input type="radio" name="coloring" value="community"> Community Cluster</label>
   </div>
 
   <div class="control-group">
@@ -1471,21 +1700,25 @@ _MULTI_HTML_TEMPLATE = r"""<!DOCTYPE html>
 
   <div class="control-group">
     <h2>Display</h2>
-    <label class="toggle-row"><input type="checkbox" id="toggle-physics" checked> Physics simulation</label>
+    <label class="toggle-row">
+      <input type="checkbox" id="toggle-physics" checked> Physics simulation</label>
     <label class="toggle-row"><input type="checkbox" id="toggle-labels"> Show all labels</label>
     <label class="toggle-row"><input type="checkbox" id="toggle-edges" checked> Show edges</label>
   </div>
 
   <div class="control-group" id="topology-group" style="display:none">
     <h2>Topology Analysis</h2>
-    <label class="toggle-row"><input type="checkbox" id="toggle-high-impact"> Highlight high-impact nodes</label>
+    <label class="toggle-row">
+      <input type="checkbox" id="toggle-high-impact"> Highlight high-impact nodes</label>
     <div id="topology-stats" style="font-size:11px;color:#6a7080;margin-top:4px"></div>
   </div>
 
   <div class="control-group" id="edge-mode-group">
     <h2>Edge Mode</h2>
-    <label class="toggle-row"><input type="radio" name="edgeMode" value="shared" checked> Shared Entity</label>
-    <label class="toggle-row"><input type="radio" name="edgeMode" value="contradiction"> Contradictions</label>
+    <label class="toggle-row">
+      <input type="radio" name="edgeMode" value="shared" checked> Shared Entity</label>
+    <label class="toggle-row">
+      <input type="radio" name="edgeMode" value="contradiction"> Contradictions</label>
     <label class="toggle-row"><input type="radio" name="edgeMode" value="both"> Both</label>
     <div class="slider-row" id="contra-threshold-row" style="display:none;margin-top:8px">
       <label>Min contradiction <span id="contra-val">0.90</span></label>
@@ -1498,8 +1731,10 @@ _MULTI_HTML_TEMPLATE = r"""<!DOCTYPE html>
 
   <div class="control-group">
     <h2>View</h2>
-    <label class="toggle-row"><input type="radio" name="viewMode" value="claims" checked> Claim Graph</label>
-    <label class="toggle-row"><input type="radio" name="viewMode" value="communities"> Community Overview</label>
+    <label class="toggle-row">
+      <input type="radio" name="viewMode" value="claims" checked> Claim Graph</label>
+    <label class="toggle-row">
+      <input type="radio" name="viewMode" value="communities"> Community Overview</label>
   </div>
 
   <div class="control-group">
@@ -1580,10 +1815,13 @@ function loadTab(index) {
   Object.keys(nodeIndex).forEach(k => delete nodeIndex[k]);
   allNodes.forEach(n => { nodeIndex[n.id] = n; });
 
-  // Rebuild assertion type set from new data (keep current checked state for types present in new data)
+  // Rebuild assertion type set from new data
+  // (keep current checked state for types present in new data)
   const newTypes = new Set(allNodes.map(n => n.assertionType));
   // Preserve active types that exist in new data; add any new types as active
-  activeAssertionTypes = new Set([...activeAssertionTypes, ...newTypes].filter(t => newTypes.has(t)));
+  activeAssertionTypes = new Set(
+    [...activeAssertionTypes, ...newTypes].filter(t => newTypes.has(t))
+  );
 
   // Refresh vis.js data
   refreshGraph();
@@ -1603,14 +1841,17 @@ function loadTab(index) {
   // Apply tab-specific defaults (colorMode, edgeMode)
   if (tab.defaultColorMode) {
     colorMode = tab.defaultColorMode;
-    document.querySelector(`input[name="coloring"][value="${colorMode}"]`).checked = true;
+    document.querySelector(
+      `input[name="coloring"][value="${colorMode}"]`).checked = true;
   }
   if (tab.defaultEdgeMode) {
     edgeMode = tab.defaultEdgeMode;
     document.querySelector(`input[name="edgeMode"][value="${edgeMode}"]`).checked = true;
     const showContraControls = edgeMode !== "shared";
-    document.getElementById("contra-threshold-row").style.display = showContraControls ? "flex" : "none";
-    document.getElementById("cross-paper-row").style.display = showContraControls ? "flex" : "none";
+    document.getElementById("contra-threshold-row").style.display =
+      showContraControls ? "flex" : "none";
+    document.getElementById("cross-paper-row").style.display =
+      showContraControls ? "flex" : "none";
   }
 
   // If community view was active, reset to claim view
@@ -1754,7 +1995,8 @@ function prepareNodes(nodes) {
   }).map(n => {
     const baseColor = colorMode === "assertion" ? n.assertionColor : n.communityColor;
     const labelVisible = showLabels || n.degree >= 40;
-    const hiNode = showHighImpact && TOPOLOGY_DATA_CURRENT.highImpactNodes ? TOPOLOGY_DATA_CURRENT.highImpactNodes[n.id] : null;
+    const hiNodes = TOPOLOGY_DATA_CURRENT.highImpactNodes;
+    const hiNode = showHighImpact && hiNodes ? hiNodes[n.id] : null;
     const borderColor = hiNode ? "#FF3333" : darken(baseColor, 30);
     const borderW = hiNode ? 3.5 : undefined;
     return {
@@ -1800,8 +2042,15 @@ function getActiveEdges() {
         from: e.from,
         to: e.to,
         width: 2.5 + e.p_contradiction * 3.5,
-        color: { color: e.is_cross_paper ? "#D55E00" : "#CC79A7", highlight: "#FF0000", hover: "#FF4444" },
-        title: `<div style='font-family:Arial;font-size:13px'><b style='color:${e.is_cross_paper ? "#D55E00" : "#CC79A7"}'>Contradiction (p=${e.p_contradiction.toFixed(2)})</b><br>${e.method}${e.is_cross_paper ? ' | Cross-paper' : ''}<br>Shared: ${e.shared_entities.join(", ")}</div>`,
+        color: {
+          color: e.is_cross_paper ? "#D55E00" : "#CC79A7",
+          highlight: "#FF0000", hover: "#FF4444",
+        },
+        title: `<div style='font-family:Arial;font-size:13px'>`
+          + `<b style='color:${e.is_cross_paper ? "#D55E00" : "#CC79A7"}'>`
+          + `Contradiction (p=${e.p_contradiction.toFixed(2)})</b><br>`
+          + `${e.method}${e.is_cross_paper ? ' | Cross-paper' : ''}`
+          + `<br>Shared: ${e.shared_entities.join(", ")}</div>`,
         smooth: { type: "curvedCW", roundness: 0.15 },
       }));
     edges = edges.concat(contraEdges);
@@ -1827,7 +2076,9 @@ function refreshGraph() {
 // ── Controls ──
 function bindControls() {
   document.querySelectorAll('input[name="coloring"]').forEach(r => {
-    r.addEventListener("change", (e) => { colorMode = e.target.value; refreshGraph(); buildLegend(); });
+    r.addEventListener("change", (e) => {
+      colorMode = e.target.value; refreshGraph(); buildLegend();
+    });
   });
 
   document.getElementById("conf-slider").addEventListener("input", (e) => {
@@ -1863,7 +2114,10 @@ function bindControls() {
       physics: enable ? {
         enabled: true,
         solver: "barnesHut",
-        barnesHut: { gravitationalConstant: -4000, springLength: 140, springConstant: 0.01, damping: 0.7 },
+        barnesHut: {
+          gravitationalConstant: -4000, springLength: 140,
+          springConstant: 0.01, damping: 0.7,
+        },
         stabilization: false,
       } : { enabled: false },
     });
@@ -1893,8 +2147,9 @@ function bindControls() {
     r.addEventListener("change", (e) => {
       edgeMode = e.target.value;
       const showContraControls = edgeMode !== "shared";
-      document.getElementById("contra-threshold-row").style.display = showContraControls ? "flex" : "none";
-      document.getElementById("cross-paper-row").style.display = showContraControls ? "flex" : "none";
+      const dispMode = showContraControls ? "flex" : "none";
+      document.getElementById("contra-threshold-row").style.display = dispMode;
+      document.getElementById("cross-paper-row").style.display = dispMode;
       refreshGraph();
       buildLegend();
     });
@@ -1942,7 +2197,8 @@ function bindControls() {
       div.className = "search-result";
       div.innerHTML = `
         <span class="sr-predicate">${escapeHtml(n.predicate)}</span><br>
-        <span class="sr-entities">${escapeHtml(n.subjectName)} &rarr; ${escapeHtml(n.objectName)}</span>
+        <span class="sr-entities">${escapeHtml(n.subjectName)}
+          &rarr; ${escapeHtml(n.objectName)}</span>
       `;
       div.addEventListener("click", () => {
         network.selectNodes([n.id]);
@@ -1988,18 +2244,28 @@ function buildLegend() {
   if (colorMode === "assertion") {
     const types = Object.entries(ASSERTION_COLORS);
     legend.innerHTML = `<h3>Assertion Types</h3>` + types.map(([t, c]) =>
-      `<div class="legend-item"><span class="swatch" style="background:${c}"></span>${t.replace(/_/g, " ")}</div>`
+      `<div class="legend-item">`
+      + `<span class="swatch" style="background:${c}"></span>`
+      + `${t.replace(/_/g, " ")}</div>`
     ).join("");
   } else {
-    legend.innerHTML = `<h3>Communities</h3><div style="color:#6a7080;font-size:11px">Colors represent claim<br>community clusters</div>`;
+    legend.innerHTML = `<h3>Communities</h3>`
+      + `<div style="color:#6a7080;font-size:11px">`
+      + `Colors represent claim<br>community clusters</div>`;
   }
   if (edgeMode === "shared") {
-    legend.innerHTML += `<h3 style="margin-top:8px">Edges</h3><div style="color:#6a7080;font-size:11px">Width = # shared entities</div>`;
+    legend.innerHTML += `<h3 style="margin-top:8px">Edges</h3>`
+      + `<div style="color:#6a7080;font-size:11px">Width = # shared entities</div>`;
   } else if (edgeMode === "contradiction") {
     legend.innerHTML += `<h3 style="margin-top:8px">Edges</h3>
-      <div class="legend-item"><span style="border-bottom:2px dashed #D55E00;width:20px;display:inline-block"></span> Cross-paper contradiction</div>
-      <div class="legend-item"><span style="border-bottom:2px dashed #CC79A7;width:20px;display:inline-block"></span> Intra-paper contradiction</div>
-      <div style="color:#6a7080;font-size:11px;margin-top:4px">Width = contradiction probability</div>`;
+      <div class="legend-item">
+        <span style="border-bottom:2px dashed #D55E00;width:20px;display:inline-block">
+        </span> Cross-paper contradiction</div>
+      <div class="legend-item">
+        <span style="border-bottom:2px dashed #CC79A7;width:20px;display:inline-block">
+        </span> Intra-paper contradiction</div>
+      <div style="color:#6a7080;font-size:11px;margin-top:4px">
+        Width = contradiction probability</div>`;
   } else {
     legend.innerHTML += `<h3 style="margin-top:8px">Edges</h3>
       <div style="color:#6a7080;font-size:11px">Gray = shared entities<br>
@@ -2020,17 +2286,23 @@ function showDetail(nodeId) {
     <div style="margin-bottom:12px">
       <span style="font-size:15px;font-weight:bold">${escapeHtml(n.subjectName)}</span>
       <span class="claim-arrow">&rarr;</span>
-      <span style="font-size:15px;color:#56B4E9;font-weight:bold">${escapeHtml(n.predicate)}</span>
+      <span style="font-size:15px;color:#56B4E9;font-weight:bold">
+        ${escapeHtml(n.predicate)}</span>
       <span class="claim-arrow">&rarr;</span>
       <span style="font-size:15px;font-weight:bold">${escapeHtml(n.objectName)}</span>
     </div>
     <table>
-      <tr><td>Assertion type</td><td><span style="color:${n.assertionColor}">\u25CF</span> ${n.assertionType.replace(/_/g, " ")}</td></tr>
+      <tr><td>Assertion type</td><td>
+        <span style="color:${n.assertionColor}">\u25CF</span>
+        ${n.assertionType.replace(/_/g, " ")}</td></tr>
       <tr><td>Confidence</td><td>${n.confidence.toFixed(3)}</td></tr>
       <tr><td>Evidence</td><td>${n.evidenceCount} source(s)</td></tr>
       <tr><td>Controversy</td><td>${n.controversy.toFixed(3)}</td></tr>
       <tr><td>Neighbors</td><td>${n.degree} claims share entities</td></tr>
-      <tr><td>Community</td><td>${n.communityId}${COMMUNITY_LABELS_CURRENT[n.communityId] ? ' \u2014 ' + escapeHtml(COMMUNITY_LABELS_CURRENT[n.communityId].subfield || COMMUNITY_LABELS_CURRENT[n.communityId].auto_label) : ''}</td></tr>
+      <tr><td>Community</td><td>${n.communityId}${COMMUNITY_LABELS_CURRENT[n.communityId]
+        ? ' \u2014 ' + escapeHtml(COMMUNITY_LABELS_CURRENT[n.communityId].subfield
+          || COMMUNITY_LABELS_CURRENT[n.communityId].auto_label)
+        : ''}</td></tr>
     </table>
   `;
 
@@ -2039,7 +2311,8 @@ function showDetail(nodeId) {
   if (connected.length > 0) {
     // Sort by shared count descending
     connected.sort((a, b) => (b.sharedCount || 0) - (a.sharedCount || 0));
-    html += `<h3 style="margin-top:12px;font-size:13px">Related Claims (${connected.length})</h3><div class="neighbor-list">`;
+    html += `<h3 style="margin-top:12px;font-size:13px">`
+      + `Related Claims (${connected.length})</h3><div class="neighbor-list">`;
     connected.slice(0, 30).forEach(e => {
       const otherId = e.from === nodeId ? e.to : e.from;
       const other = nodeIndex[otherId];
@@ -2047,11 +2320,15 @@ function showDetail(nodeId) {
       html += `<div class="neighbor-item" onclick="navigateTo('${otherId}')">
         <span style="color:${other.assertionColor}">\u25CF</span>
         <b>${escapeHtml(other.predicate)}</b><br>
-        <span class="neighbor-shared">${escapeHtml(other.subjectName)} &rarr; ${escapeHtml(other.objectName)}
-        &nbsp;|&nbsp; ${e.sharedCount || 1} shared entit${(e.sharedCount || 1) === 1 ? 'y' : 'ies'}</span>
+        <span class="neighbor-shared">
+          ${escapeHtml(other.subjectName)} &rarr; ${escapeHtml(other.objectName)}
+          &nbsp;|&nbsp;
+          ${e.sharedCount || 1} shared entit${(e.sharedCount || 1) === 1 ? 'y' : 'ies'}
+        </span>
       </div>`;
     });
-    if (connected.length > 30) html += `<div style="color:#6a7080;padding:4px">...and ${connected.length - 30} more</div>`;
+    if (connected.length > 30)
+      html += `<div style="color:#6a7080;padding:4px">...and ${connected.length - 30} more</div>`;
     html += `</div>`;
   }
 
@@ -2079,18 +2356,21 @@ function showEdgeDetail(edgeId) {
   const panel = document.getElementById("detail-panel");
   const content = document.getElementById("detail-content");
 
-  const pctColor = contra.p_contradiction > 0.8 ? "#D55E00" : contra.p_contradiction > 0.5 ? "#E69F00" : "#56B4E9";
+  const pctColor = contra.p_contradiction > 0.8
+    ? "#D55E00" : contra.p_contradiction > 0.5 ? "#E69F00" : "#56B4E9";
   const typeLabel = contra.is_cross_paper ? "Cross-paper" : "Intra-paper";
   const typeBadgeClass = contra.is_cross_paper ? "contra-cross" : "contra-intra";
 
   let html = `
     <div style="margin-bottom:12px">
       <span style="font-size:16px;font-weight:bold;color:${pctColor}">Contradiction</span>
-      <span style="font-size:14px;color:${pctColor};margin-left:8px">p = ${contra.p_contradiction.toFixed(3)}</span>
+      <span style="font-size:14px;color:${pctColor};margin-left:8px">
+        p = ${contra.p_contradiction.toFixed(3)}</span>
       <span class="contra-badge ${typeBadgeClass}" style="margin-left:8px">${typeLabel}</span>
     </div>
 
-    <div style="background:#1e2130;border-radius:6px;padding:10px;margin-bottom:8px;border-left:3px solid ${nodeA.assertionColor}">
+    <div style="background:#1e2130;border-radius:6px;padding:10px;margin-bottom:8px;
+      border-left:3px solid ${nodeA.assertionColor}">
       <div style="font-size:11px;color:#6a7080;margin-bottom:4px">Claim A</div>
       <span style="font-weight:bold">${escapeHtml(nodeA.subjectName)}</span>
       <span class="claim-arrow">&rarr;</span>
@@ -2098,16 +2378,24 @@ function showEdgeDetail(edgeId) {
       <span class="claim-arrow">&rarr;</span>
       <span style="font-weight:bold">${escapeHtml(nodeA.objectName)}</span>
       <div style="margin-top:4px;font-size:11px;color:#6a7080">
-        <span style="color:${nodeA.assertionColor}">\u25CF</span> ${nodeA.assertionType.replace(/_/g, " ")}
+        <span style="color:${nodeA.assertionColor}">\u25CF</span>
+        ${nodeA.assertionType.replace(/_/g, " ")}
         &nbsp;|&nbsp; Evidence: ${nodeA.evidenceCount}
         &nbsp;|&nbsp; Community: ${nodeA.communityId}
       </div>
-      <div style="margin-top:4px"><a href="#" onclick="network.selectNodes(['${edge.from.replace(/'/g, "\\'")}']); network.focus('${edge.from.replace(/'/g, "\\'")}', {scale:2,animation:{duration:500}}); showDetail('${edge.from.replace(/'/g, "\\'")}'); return false;" style="color:#56B4E9;font-size:11px;text-decoration:none">Focus this claim &rarr;</a></div>
+      <div style="margin-top:4px"><a href="#"
+        onclick="network.selectNodes(['${edge.from.replace(/'/g, "\\'")}']);
+          network.focus('${edge.from.replace(/'/g, "\\'")}',
+            {scale:2,animation:{duration:500}});
+          showDetail('${edge.from.replace(/'/g, "\\'")}'); return false;"
+        style="color:#56B4E9;font-size:11px;text-decoration:none">Focus this claim &rarr;</a>
+      </div>
     </div>
 
     <div style="text-align:center;font-size:18px;color:#D55E00;margin:4px 0">&#x26A1;</div>
 
-    <div style="background:#1e2130;border-radius:6px;padding:10px;margin-bottom:12px;border-left:3px solid ${nodeB.assertionColor}">
+    <div style="background:#1e2130;border-radius:6px;padding:10px;margin-bottom:12px;
+      border-left:3px solid ${nodeB.assertionColor}">
       <div style="font-size:11px;color:#6a7080;margin-bottom:4px">Claim B</div>
       <span style="font-weight:bold">${escapeHtml(nodeB.subjectName)}</span>
       <span class="claim-arrow">&rarr;</span>
@@ -2115,16 +2403,26 @@ function showEdgeDetail(edgeId) {
       <span class="claim-arrow">&rarr;</span>
       <span style="font-weight:bold">${escapeHtml(nodeB.objectName)}</span>
       <div style="margin-top:4px;font-size:11px;color:#6a7080">
-        <span style="color:${nodeB.assertionColor}">\u25CF</span> ${nodeB.assertionType.replace(/_/g, " ")}
+        <span style="color:${nodeB.assertionColor}">\u25CF</span>
+        ${nodeB.assertionType.replace(/_/g, " ")}
         &nbsp;|&nbsp; Evidence: ${nodeB.evidenceCount}
         &nbsp;|&nbsp; Community: ${nodeB.communityId}
       </div>
-      <div style="margin-top:4px"><a href="#" onclick="network.selectNodes(['${edge.to.replace(/'/g, "\\'")}']); network.focus('${edge.to.replace(/'/g, "\\'")}', {scale:2,animation:{duration:500}}); showDetail('${edge.to.replace(/'/g, "\\'")}'); return false;" style="color:#56B4E9;font-size:11px;text-decoration:none">Focus this claim &rarr;</a></div>
+      <div style="margin-top:4px"><a href="#"
+        onclick="network.selectNodes(['${edge.to.replace(/'/g, "\\'")}']);
+          network.focus('${edge.to.replace(/'/g, "\\'")}',
+            {scale:2,animation:{duration:500}});
+          showDetail('${edge.to.replace(/'/g, "\\'")}'); return false;"
+        style="color:#56B4E9;font-size:11px;text-decoration:none">Focus this claim &rarr;</a>
+      </div>
     </div>
 
     <table>
       <tr><td>Method</td><td>${contra.method.replace(/_/g, " ")}</td></tr>
-      <tr><td>Shared entities</td><td>${contra.shared_entities.length > 0 ? escapeHtml(contra.shared_entities.join(", ")) : "none"}</td></tr>
+      <tr><td>Shared entities</td><td>${
+        contra.shared_entities.length > 0
+          ? escapeHtml(contra.shared_entities.join(", ")) : "none"
+      }</td></tr>
     </table>
   `;
 
@@ -2210,21 +2508,38 @@ function initCommunityNetwork() {
       id: cl.community_id,
       value: cl.claim_count,
       label: cl.subfield || cl.auto_label,
-      title: `<div style='font-family:Arial;font-size:13px'><b>${escapeHtml(cl.subfield || cl.auto_label)}</b><br>${cl.claim_count} claims${cScore > 0 ? '<br>Controversy: ' + cScore.toFixed(2) : ''}<br>Top entities: ${cl.top_entities.slice(0, 3).join(", ")}</div>`,
-      color: { background: bg, border: darkenRGB(bg), highlight: { background: "#FFD700", border: "#FFA500" } },
+      title: `<div style='font-family:Arial;font-size:13px'>`
+        + `<b>${escapeHtml(cl.subfield || cl.auto_label)}</b><br>`
+        + `${cl.claim_count} claims`
+        + `${cScore > 0 ? '<br>Controversy: ' + cScore.toFixed(2) : ''}`
+        + `<br>Top entities: ${cl.top_entities.slice(0, 3).join(", ")}</div>`,
+      color: {
+        background: bg, border: darkenRGB(bg),
+        highlight: { background: "#FFD700", border: "#FFA500" },
+      },
       font: { color: "#e0e0e0", strokeWidth: 3, strokeColor: "rgba(26,29,39,0.8)" },
     };
   });
 
   // Build edges from disagreements — only show top disagreements to avoid clutter
-  const maxScore = COMMUNITY_DISAGREEMENTS_CURRENT.length > 0 ? COMMUNITY_DISAGREEMENTS_CURRENT[0].normalized_score : 1;
+  const maxScore = COMMUNITY_DISAGREEMENTS_CURRENT.length > 0
+    ? COMMUNITY_DISAGREEMENTS_CURRENT[0].normalized_score : 1;
   const commEdges = COMMUNITY_DISAGREEMENTS_CURRENT.slice(0, 100).map((d, i) => ({
     id: `cd_${i}`,
     from: d.comm_a_id,
     to: d.comm_b_id,
     width: 1 + (d.normalized_score / maxScore) * 8,
-    color: { color: `rgba(213,94,0,${0.3 + 0.7 * d.normalized_score / maxScore})`, highlight: "#FF0000" },
-    title: `<div style='font-family:Arial;font-size:13px'><b style='color:#D55E00'>Disagreement Score: ${d.normalized_score.toFixed(2)}</b><br>${d.num_contradictions} contradicting claim pairs<br><b>${escapeHtml(COMMUNITY_LABELS_CURRENT[d.comm_a_id]?.subfield || d.comm_a_label)}</b> vs<br><b>${escapeHtml(COMMUNITY_LABELS_CURRENT[d.comm_b_id]?.subfield || d.comm_b_label)}</b></div>`,
+    color: {
+      color: `rgba(213,94,0,${0.3 + 0.7 * d.normalized_score / maxScore})`,
+      highlight: "#FF0000",
+    },
+    title: `<div style='font-family:Arial;font-size:13px'>`
+      + `<b style='color:#D55E00'>Disagreement Score: ${d.normalized_score.toFixed(2)}</b>`
+      + `<br>${d.num_contradictions} contradicting claim pairs<br>`
+      + `<b>${escapeHtml(COMMUNITY_LABELS_CURRENT[d.comm_a_id]?.subfield || d.comm_a_label)}</b>`
+      + ` vs<br>`
+      + `<b>${escapeHtml(COMMUNITY_LABELS_CURRENT[d.comm_b_id]?.subfield || d.comm_b_label)}</b>`
+      + `</div>`,
     label: d.normalized_score.toFixed(1),
     font: { size: 10, color: "#D55E00", strokeWidth: 3, strokeColor: "#1a1d27" },
   }));
@@ -2276,15 +2591,22 @@ function initCommunityNetwork() {
 
     let html = `
       <div style="margin-bottom:12px">
-        <span style="font-size:16px;font-weight:bold;color:#fff">${escapeHtml(cl.subfield || cl.auto_label)}</span>
-        ${cl.subfield ? '<br><span style="color:#6a7080;font-size:12px">' + escapeHtml(cl.auto_label) + '</span>' : ''}
+        <span style="font-size:16px;font-weight:bold;color:#fff">
+          ${escapeHtml(cl.subfield || cl.auto_label)}</span>
+        ${cl.subfield
+          ? '<br><span style="color:#6a7080;font-size:12px">'
+            + escapeHtml(cl.auto_label) + '</span>'
+          : ''}
       </div>
       <table>
         <tr><td>Claims</td><td>${cl.claim_count}</td></tr>
-        <tr><td>Controversy</td><td style="color:${cScore > 0 ? '#D55E00' : '#6a7080'}">${cScore.toFixed(2)}</td></tr>
+        <tr><td>Controversy</td>
+          <td style="color:${cScore > 0 ? '#D55E00' : '#6a7080'}">${cScore.toFixed(2)}</td></tr>
         <tr><td>Top entities</td><td>${cl.top_entities.join(", ")}</td></tr>
         <tr><td>Predicates</td><td>${cl.top_predicates.join(", ")}</td></tr>
-        ${cl.top_entity_types && cl.top_entity_types.length ? '<tr><td>Entity types</td><td>' + cl.top_entity_types.join(", ") + '</td></tr>' : ''}
+        ${cl.top_entity_types && cl.top_entity_types.length
+          ? '<tr><td>Entity types</td><td>' + cl.top_entity_types.join(", ") + '</td></tr>'
+          : ''}
       </table>
     `;
 
@@ -2294,22 +2616,27 @@ function initCommunityNetwork() {
     ).sort((a, b) => b.normalized_score - a.normalized_score);
 
     if (disagreements.length > 0) {
-      html += '<h3 style="margin-top:14px;font-size:13px;color:#fff">Disagreements (' + disagreements.length + ')</h3><div class="neighbor-list">';
+      html += '<h3 style="margin-top:14px;font-size:13px;color:#fff">Disagreements ('
+        + disagreements.length + ')</h3><div class="neighbor-list">';
       disagreements.slice(0, 15).forEach(d => {
         const otherId = d.comm_a_id === communityId ? d.comm_b_id : d.comm_a_id;
         const other = COMMUNITY_LABELS_CURRENT[otherId];
         const otherName = other ? (other.subfield || other.auto_label) : 'Community ' + otherId;
-        html += '<div class="neighbor-item" onclick="event.stopPropagation(); window._navComm && window._navComm(' + otherId + ')">'
+        html += '<div class="neighbor-item"'
+          + ' onclick="event.stopPropagation();'
+          + ' window._navComm && window._navComm(' + otherId + ')">'
           + '<span style="color:#D55E00">●</span> '
           + '<b>' + escapeHtml(otherName) + '</b>'
-          + '<span style="float:right;color:#D55E00;font-size:11px">' + d.normalized_score.toFixed(2) + '</span><br>'
+          + '<span style="float:right;color:#D55E00;font-size:11px">'
+          + d.normalized_score.toFixed(2) + '</span><br>'
           + '<span class="neighbor-shared">' + d.num_contradictions + ' contradictions</span>'
           + '</div>';
 
         // Top 2 contradicting claim pairs
         if (d.top_claims && d.top_claims.length > 0) {
           d.top_claims.slice(0, 2).forEach(tc => {
-            html += '<div style="margin:2px 0 6px 16px;font-size:11px;color:#6a7080;line-height:1.3">'
+            html += '<div style="margin:2px 0 6px 16px;font-size:11px;'
+              + 'color:#6a7080;line-height:1.3">'
               + '“' + escapeHtml(tc.claim_a_text) + '”<br>'
               + '<span style="color:#D55E00;margin-left:8px">vs</span> '
               + '“' + escapeHtml(tc.claim_b_text) + '”'
@@ -2319,11 +2646,13 @@ function initCommunityNetwork() {
         }
       });
       if (disagreements.length > 15) {
-        html += '<div style="color:#6a7080;padding:4px">...and ' + (disagreements.length - 15) + ' more</div>';
+        html += '<div style="color:#6a7080;padding:4px">...and '
+          + (disagreements.length - 15) + ' more</div>';
       }
       html += '</div>';
     } else {
-      html += '<div style="margin-top:12px;color:#6a7080;font-size:12px">No disagreements with other communities</div>';
+      html += '<div style="margin-top:12px;color:#6a7080;font-size:12px">'
+        + 'No disagreements with other communities</div>';
     }
 
     content.innerHTML = html;
@@ -2360,7 +2689,8 @@ function buildDisagreementList() {
     `;
     div.addEventListener("click", () => {
       // Switch to community view and focus on these two communities
-      document.querySelector('input[name="viewMode"][value="communities"]').checked = true;
+      const vmInput = document.querySelector('input[name="viewMode"][value="communities"]');
+      vmInput.checked = true;
       viewMode = "communities";
       document.getElementById("network").style.display = "none";
       document.getElementById("community-network").style.display = "block";
@@ -2374,7 +2704,9 @@ function buildDisagreementList() {
 }
 
 // ── Utilities ──
-function escapeHtml(str) { return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function escapeHtml(str) {
+  return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
 
 function darken(hex, pct) {
   const num = parseInt(hex.replace("#",""), 16);

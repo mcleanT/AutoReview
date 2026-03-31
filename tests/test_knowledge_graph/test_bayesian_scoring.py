@@ -7,15 +7,15 @@ import pytest
 jax = pytest.importorskip("jax")
 numpyro = pytest.importorskip("numpyro")
 
-import networkx as nx
+import networkx as nx  # noqa: E402
 
 
 def _make_scored_graph() -> nx.MultiDiGraph:
     """3-node graph with composition chain and moderate confidence."""
-    G = nx.MultiDiGraph()
+    graph = nx.MultiDiGraph()
     for n in ["A", "B", "C"]:
-        G.add_node(n, canonical_name=n, entity_type="protein")
-    G.add_edge(
+        graph.add_node(n, canonical_name=n, entity_type="protein")
+    graph.add_edge(
         "A",
         "B",
         predicate="induces",
@@ -28,7 +28,7 @@ def _make_scored_graph() -> nx.MultiDiGraph:
         in_vitro=True,
         conditions={},
     )
-    G.add_edge(
+    graph.add_edge(
         "B",
         "C",
         predicate="induces",
@@ -41,7 +41,7 @@ def _make_scored_graph() -> nx.MultiDiGraph:
         in_vitro=True,
         conditions={},
     )
-    G.add_edge(
+    graph.add_edge(
         "A",
         "C",
         predicate="induces",
@@ -54,7 +54,7 @@ def _make_scored_graph() -> nx.MultiDiGraph:
         in_vitro=True,
         conditions={},
     )
-    return G
+    return graph
 
 
 def test_bayesian_result_empty() -> None:
@@ -68,11 +68,10 @@ def test_bayesian_result_empty() -> None:
 
 def test_score_graph_bayesian_returns_all_edges() -> None:
     """score_graph_bayesian should return posteriors for every edge."""
+    from autoreview.knowledge_graph.bayesian.config import BayesianConfig
     from autoreview.knowledge_graph.bayesian.scoring import score_graph_bayesian
 
-    from autoreview.knowledge_graph.bayesian.config import BayesianConfig
-
-    G = _make_scored_graph()
+    graph = _make_scored_graph()
     config = BayesianConfig(
         n_warmup=50,
         n_samples=100,
@@ -80,7 +79,7 @@ def test_score_graph_bayesian_returns_all_edges() -> None:
         seed=42,
         hotspot_top_k=0,  # Laplace only, no NUTS hotspots
     )
-    result = score_graph_bayesian(G, config=config)
+    result = score_graph_bayesian(graph, config=config)
     assert "ab" in result.posteriors
     assert "bc" in result.posteriors
     assert "ac" in result.posteriors
@@ -90,11 +89,10 @@ def test_score_graph_bayesian_returns_all_edges() -> None:
 
 def test_score_graph_bayesian_credible_intervals() -> None:
     """Credible intervals should bracket the posterior mean."""
+    from autoreview.knowledge_graph.bayesian.config import BayesianConfig
     from autoreview.knowledge_graph.bayesian.scoring import score_graph_bayesian
 
-    from autoreview.knowledge_graph.bayesian.config import BayesianConfig
-
-    G = _make_scored_graph()
+    graph = _make_scored_graph()
     config = BayesianConfig(
         n_warmup=50,
         n_samples=100,
@@ -102,7 +100,7 @@ def test_score_graph_bayesian_credible_intervals() -> None:
         seed=42,
         hotspot_top_k=0,
     )
-    result = score_graph_bayesian(G, config=config)
+    result = score_graph_bayesian(graph, config=config)
     for eid in result.credible_intervals:
         lo, hi = result.credible_intervals[eid]
         mean = result.posteriors[eid]
@@ -111,13 +109,12 @@ def test_score_graph_bayesian_credible_intervals() -> None:
 
 def test_score_graph_bayesian_with_hotspots() -> None:
     """With hotspot_top_k > 0 and contradictions present, hotspot edges should have NUTS samples."""
+    from autoreview.knowledge_graph.bayesian.config import BayesianConfig
     from autoreview.knowledge_graph.bayesian.scoring import score_graph_bayesian
 
-    from autoreview.knowledge_graph.bayesian.config import BayesianConfig
-
-    G = _make_scored_graph()
+    graph = _make_scored_graph()
     # Add contradicting edge so contradiction centrality finds hotspots
-    G.add_edge(
+    graph.add_edge(
         "A",
         "B",
         predicate="inhibits",
@@ -138,33 +135,31 @@ def test_score_graph_bayesian_with_hotspots() -> None:
         hotspot_top_k=3,
         hotspot_hop_radius=1,
     )
-    result = score_graph_bayesian(G, config=config)
+    result = score_graph_bayesian(graph, config=config)
     # Should have some edges with posterior samples from NUTS
     assert len(result.posterior_samples) > 0
 
 
 def test_score_graph_bayesian_empty_graph() -> None:
     """Empty graph should return empty result."""
+    from autoreview.knowledge_graph.bayesian.config import BayesianConfig
     from autoreview.knowledge_graph.bayesian.scoring import score_graph_bayesian
 
-    from autoreview.knowledge_graph.bayesian.config import BayesianConfig
-
-    G = nx.MultiDiGraph()
-    result = score_graph_bayesian(G, config=BayesianConfig())
+    graph = nx.MultiDiGraph()
+    result = score_graph_bayesian(graph, config=BayesianConfig())
     assert result.posteriors == {}
     assert result.n_variables == 0
 
 
 def test_update_graph_bayesian_returns_all_edges() -> None:
     """update_graph_bayesian should return posteriors for all edges."""
+    from autoreview.knowledge_graph.bayesian.config import BayesianConfig
     from autoreview.knowledge_graph.bayesian.scoring import (
         score_graph_bayesian,
         update_graph_bayesian,
     )
 
-    from autoreview.knowledge_graph.bayesian.config import BayesianConfig
-
-    G = _make_scored_graph()
+    graph = _make_scored_graph()
     config = BayesianConfig(
         n_warmup=50,
         n_samples=100,
@@ -172,10 +167,10 @@ def test_update_graph_bayesian_returns_all_edges() -> None:
         seed=42,
         hotspot_top_k=0,
     )
-    prior = score_graph_bayesian(G, config=config)
+    prior = score_graph_bayesian(graph, config=config)
 
     # Add a new edge
-    G.add_edge(
+    graph.add_edge(
         "A",
         "C",
         predicate="inhibits",
@@ -189,7 +184,7 @@ def test_update_graph_bayesian_returns_all_edges() -> None:
         conditions={},
     )
 
-    updated = update_graph_bayesian(G, ["ac2"], prior, config=config)
+    updated = update_graph_bayesian(graph, ["ac2"], prior, config=config)
     assert "ac2" in updated.posteriors
     assert "ab" in updated.posteriors
     assert "bc" in updated.posteriors

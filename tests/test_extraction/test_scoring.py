@@ -409,7 +409,9 @@ class TestScoreExtractionPairWithEmbeddings:
             methods="We trained a deep neural network on clinical records using cross-validation."
         )
         gold = _make_extraction(
-            methods="A deep learning model was fitted to patient medical data with k-fold validation."
+            methods=(
+                "A deep learning model was fitted to patient medical data with k-fold validation."
+            )
         )
         word_scores = score_extraction_pair(pred, gold)
         emb_scores = score_extraction_pair_with_embeddings(pred, gold, model=model)

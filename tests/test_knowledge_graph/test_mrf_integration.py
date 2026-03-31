@@ -19,7 +19,7 @@ class TestMRFIntegration:
         graph = build_graph(sample_extraction_dir)
         assert graph.number_of_nodes() > 0
         # No mrf_confidence attribute when use_mrf=False
-        for u, v, key, data in graph.edges(data=True, keys=True):
+        for _u, _v, _key, data in graph.edges(data=True, keys=True):
             assert "mrf_confidence" not in data
 
     def test_mrf_config_passthrough(self, sample_extraction_dir: Path):
