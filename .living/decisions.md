@@ -1350,3 +1350,24 @@ Date: 2026-03-30
 
 ## Citation supplement pass architecture (2026-03-30)
 - Citation supplement pass integrated into batch_extract_kg.py via `--supplement` flag. Architecture: main batch runs first, then `--supplement` scans cached extractions, identifies papers with 0 attributed_prior AND >5 citations in Intro/Discussion, submits a second batch with focused citation-only prompt on just Intro/Discussion/References sections, merges results back into cache. Uses same Anthropic batch API (50% discount). Supplement custom_ids use `{phash}_sup` suffix.
+
+---
+## 2026-03-31 — CI Infrastructure Decisions
+
+- **Excluded `Paper Extractor/` from ruff linting** via `exclude` in pyproject.toml. Rationale: these are research/exploration scripts, not library code. Applying library-grade lint standards (580 errors) would obscure signal and impede rapid iteration. If any Paper Extractor code graduates to the main library, it should be moved into `autoreview/` and become subject to linting at that point.
+- **Added mypy `[[tool.mypy.overrides]]` for numpyro, arviz, diptest, igraph** with `ignore_missing_imports = true`. These are scientific computing packages without PEP 561 type stubs. Overrides are scoped per-package to avoid masking errors in packages that do have stubs.
+
+---
+## 2026-03-30 — EZproxy Retrieval as Standalone Script (Not Pipeline-Integrated)
+
+**Decision:** Built `ezproxy_retrieve.py` as a standalone corpus-curation script rather than integrating it into AutoReview's `FullTextResolver`.
+
+**Rationale:**
+- EZproxy requires VPN connectivity and Penn institutional credentials — environment-specific dependencies that are not portable
+- The general AutoReview pipeline is designed to run in any environment (local, PARCC cluster, CI); baking in EZproxy would break pipeline runs outside Penn network
+- EZproxy retrieval is a one-time corpus-preparation step, not a per-paper runtime need
+- Standalone script keeps the concern isolated: corpus curators run it manually with VPN active, then ingest results into the corpus directory
+
+**Trade-off:** Future corpus expansions on non-Penn systems will not have access to this retrieval path. Acceptable because ~97 remaining inaccessible papers are mostly tangential, and open-access fetchers (bioRxiv TDM, Europe PMC, Unpaywall) cover the majority of priority papers without institutional access.
+
+**Alternative considered:** Adding an optional `--ezproxy` flag to `FullTextResolver` with graceful skip when VPN is unavailable. Rejected because it adds complexity for a rarely-exercised code path.

@@ -433,3 +433,6 @@
 | 2026-03-30 | 2026-03-30-008 | autoreview | main | 1m | 7 |  | | complete | | [log](2026-03-30-008-autoreview.md) |
 | 2026-03-30 | 2026-03-30-009 | autoreview | main | 2m | 22 | .gitignore,test_mrf_weight_learning.py | | complete | | [log](2026-03-30-009-autoreview.md) |
 | 2026-03-30 | 2026-03-30-010 | autoreview | main | 0m | 26 | cli.py,hybrid.py,programmatic.py (+14 more) | | complete | | [log](2026-03-30-010-autoreview.md) |
+| 2026-03-30 | 2026-03-30-011 | autoreview | main | 4m | 3 |  | | complete | | [log](2026-03-30-011-autoreview.md) |
+| 2026-03-30 | 2026-03-30-012 | autoreview | main | 0m | 4 |  | | complete | | [log](2026-03-30-012-autoreview.md) |
+| 2026-03-30 | 2026-03-30-013 | autoreview | main | 2m | 4 |  | | complete | | [log](2026-03-30-013-autoreview.md) |

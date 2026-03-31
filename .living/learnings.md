@@ -1509,3 +1509,41 @@ Apply all four signals when building corpus filters. A paper failing any signal 
 **Finding**: The full text cache stored negative (failure) entries from the initial non-VPN resolution pass. When retry_inaccessible.py ran, it read those cached negatives and skipped re-attempting resolution, silently missing papers that would have succeeded with VPN.
 **Fix**: Clear negative cache entries (or use a separate retry cache) before running any retry pass. Positive cache entries (successful resolutions) should be preserved.
 **Implication**: Cached failures are not permanent facts — they reflect the resolution environment at the time. Retry logic must not trust negative cache entries.
+
+---
+## 2026-03-31 — CI Fixes (Lint, Typecheck, Tests)
+
+- **CI scope**: `ruff check .` covers the whole repo, not just `autoreview/` and `tests/`. Any directory with Python files (scripts/, Paper Extractor/, etc.) is included unless explicitly excluded in pyproject.toml `exclude` list. Always audit all directories before committing.
+- **asyncio deprecation**: `asyncio.get_event_loop().run_until_complete()` is deprecated in Python 3.12 (DeprecationWarning) and raises `RuntimeError` in Python 3.13+ when there is no running event loop. Always use `asyncio.run()` instead — even in `__init__.py` module-level code.
+- **N806 at scale**: Uppercase variable names inside functions (N806) were the second-most-common lint violation (133 instances). The networkx convention of `G` for graph objects does not satisfy ruff — rename to `graph` (or `g`) throughout. Check all graph-processing modules when adding networkx code.
+
+---
+## 2026-03-30 — EZproxy URL Encoding Bug
+
+**Context:** Building `ezproxy_retrieve.py` for Penn institutional full-text access during gastruloid corpus expansion.
+
+**Learning:** `urllib.parse.quote_plus()` on the target URL parameter breaks EZproxy. EZproxy expects the raw, unencoded URL as its `url=` parameter — it handles its own rewriting (e.g., `www.nature.com` → `www-nature-com.proxy.library.upenn.edu`). Using `quote_plus()` produces a double-encoded URL that EZproxy cannot parse, returning a login redirect or 400 instead of the proxied page.
+
+**Fix:** Pass the raw URL string directly: `f"https://proxy.library.upenn.edu/login?url={target_url}"` — no encoding on `target_url`.
+
+**When useful:** Any future EZproxy or institutional proxy integration. Many university proxies follow this same convention.
+
+---
+## 2026-03-30 — Preprint/Published Deduplication Is Essential for Large Corpora
+
+**Context:** Gastruloid corpus contained 332 bioRxiv preprints. During expansion, 8 had published duplicates already in the corpus.
+
+**Learning:** DOI-based dedup is insufficient for preprint/published pairs — they have different DOIs. Title-normalized dedup (lowercase, strip punctuation, compare first N tokens) is required. The corpus ended up with 8 redundant pairs before this was caught. For any corpus with bioRxiv/medRxiv papers, run a title-based dedup pass before and after expansion.
+
+**Implementation:** Normalize title → `re.sub(r"[^a-z0-9 ]", "", title.lower())`, compare first 10 words as a fingerprint. Flag pairs with cosine similarity > 0.95 on title tokens for manual review.
+
+**When useful:** Any corpus expansion pipeline ingesting papers from multiple sources (preprint servers + publisher databases).
+
+---
+## 2026-03-30 — OpenAlex Relevance Filter Silently Drops Papers
+
+**Context:** Gap analysis cross-referenced 135 gastruloid-relevant gaps across 4 databases.
+
+**Learning:** 10/13 priority gap papers were absent from OpenAlex despite appearing in PubMed, Semantic Scholar, and Europe PMC. OpenAlex applies its own relevance/completeness filter that drops papers — including the 2023 ETS special issue on gastruloids, Warmflash 2016, and Moris 2020. Do not rely on OpenAlex alone for completeness checks. Always cross-reference with at least PubMed and Europe PMC.
+
+**When useful:** Any systematic literature search or corpus completeness audit.
