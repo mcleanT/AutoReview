@@ -158,7 +158,7 @@ def laplace_approximate(
             },
             {"truth": truth_vals},
         )
-        return log_p
+        return jnp.asarray(log_p)  # log_density returns Any; coerce to Array
 
     neg_log_post = lambda t: -log_posterior(t)  # noqa: E731
     val_and_grad_fn = jax.jit(jax.value_and_grad(neg_log_post))

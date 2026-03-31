@@ -499,7 +499,9 @@ def main() -> None:
         "--alpha",
         type=float,
         default=0.5,
-        help="Blend weight for dual composite: 1.0=similarity only, 0.0=factual only (default: 0.5)",
+        help=(
+            "Blend weight for dual composite: 1.0=similarity only, 0.0=factual only (default: 0.5)"
+        ),
     )
     parser.add_argument(
         "--manifest",

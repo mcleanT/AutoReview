@@ -1,6 +1,7 @@
 """Generate 5-tab analytical knowledge graph visualization."""
 
 import asyncio
+import contextlib
 import json
 import pickle
 from pathlib import Path
@@ -69,10 +70,8 @@ def load_nli_pairs(graph):
         if "claim_a_id" in r:
             # Strip unexpected fields so Pydantic validation doesn't fail on
             # records written by other tools.
-            try:
+            with contextlib.suppress(Exception):
                 pairs.append(NLIPairResult(**r))
-            except Exception:
-                pass
 
         # ── Format 2: nested claim dicts ───────────────────────────────────────
         elif "claim_a" in r and isinstance(r["claim_a"], dict):
@@ -132,7 +131,7 @@ def compute_communities(graph):
 
     claim_nx = nx.Graph()
     claim_nx.add_nodes_from(claim_nodes)
-    for entity, claims in entity_to_claims.items():
+    for _entity, claims in entity_to_claims.items():
         clist = list(claims)
         for i in range(len(clist)):
             for j in range(i + 1, len(clist)):
@@ -329,7 +328,7 @@ async def main():
     print(f"Tabs: {len(tabs)}")
 
     # Print tab summary
-    for label, g, viz, opts in tabs:
+    for label, g, viz, _opts in tabs:
         n_edges = g.number_of_edges()
         n_contra = len(viz.contradiction_edges) if viz else 0
         n_comm = len(viz.community_labels) if viz else 0

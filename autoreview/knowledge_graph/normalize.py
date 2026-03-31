@@ -591,5 +591,5 @@ class ClaimNormalizer:
         """Look up entity_type for a given canonical name."""
         for e in entities:
             if e["canonical_name"] == name:
-                return e["entity_type"]
+                return str(e["entity_type"])
         return "biological_process"

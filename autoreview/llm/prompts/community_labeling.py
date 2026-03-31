@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from autoreview.models.base import AutoReviewModel
 
 COMMUNITY_LABELING_SYSTEM_PROMPT = """\
@@ -29,7 +31,7 @@ class CommunitySubfieldBatch(AutoReviewModel):
 
 
 def build_community_labeling_prompt(
-    community_summaries: list[dict],
+    community_summaries: list[dict[str, Any]],
     domain_context: str = "",
 ) -> str:
     """Build a prompt for batch community subfield labeling.

@@ -2,7 +2,8 @@
 
 Usage:
     python scripts/reconstruct_kb.py output/arise/arise_rag_v2
-    python scripts/reconstruct_kb.py output/arise/arise_rag_v2 --output-dir output/arise/arise_rag_v3
+    python scripts/reconstruct_kb.py output/arise/arise_rag_v2 \
+        --output-dir output/arise/arise_rag_v3
 """
 
 from __future__ import annotations
@@ -156,9 +157,9 @@ def main() -> None:
     print(f"  domain:            {kb.domain}")
     print(f"  candidate_papers:  {len(kb.candidate_papers)}")
     print(f"  screened_papers:   {len(kb.screened_papers)}")
-    print(
-        f"  search_queries:    {sum(len(v) for v in kb.search_queries.values())} queries across {len(kb.search_queries)} sources"
-    )
+    n_queries = sum(len(v) for v in kb.search_queries.values())
+    n_sources = len(kb.search_queries)
+    print(f"  search_queries:    {n_queries} queries across {n_sources} sources")
     print(f"  current_phase:     {kb.current_phase}")
 
 

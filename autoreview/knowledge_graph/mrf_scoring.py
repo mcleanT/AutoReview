@@ -277,7 +277,7 @@ def _ground_rules(
                         new_composition = compose_predicates(last_pred, next_pred)
                     else:
                         new_composition = compose_predicates(
-                            composed_result.composed_predicate,  # type: ignore[union-attr]
+                            composed_result.composed_predicate,  # type: ignore[attr-defined]
                             next_pred,
                         )
 

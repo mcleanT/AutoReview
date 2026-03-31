@@ -76,6 +76,7 @@ markers = [
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+exclude = ["Paper Extractor/"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "B", "SIM"]
@@ -91,6 +92,10 @@ plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
 module = ["networkx", "networkx.*", "scipy", "scipy.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["numpyro", "numpyro.*", "arviz", "diptest", "igraph"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

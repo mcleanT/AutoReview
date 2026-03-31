@@ -221,9 +221,7 @@ class TestLLMDecomposition:
             "self-organization of human gastruloids into homogenous"
             " subpopulations of endoderm and mesoderm"
         )
-        result = asyncio.get_event_loop().run_until_complete(
-            llm_decompose_objects([long_obj], mock_llm)
-        )
+        result = asyncio.run(llm_decompose_objects([long_obj], mock_llm))
         assert result == [["endoderm differentiation", "mesoderm differentiation"]]
 
     def test_llm_fallback_atomic_passthrough(self):
@@ -232,9 +230,7 @@ class TestLLMDecomposition:
         async def mock_llm(objects: list[str]) -> list[list[str]]:
             return [["mesoderm differentiation"]]
 
-        result = asyncio.get_event_loop().run_until_complete(
-            llm_decompose_objects(["mesoderm differentiation"], mock_llm)
-        )
+        result = asyncio.run(llm_decompose_objects(["mesoderm differentiation"], mock_llm))
         assert result == [["mesoderm differentiation"]]
 
     def test_llm_fallback_batch(self):
@@ -246,7 +242,7 @@ class TestLLMDecomposition:
                 ["neural crest migration", "neural tube closure"],
             ]
 
-        result = asyncio.get_event_loop().run_until_complete(
+        result = asyncio.run(
             llm_decompose_objects(["obj1 long enough words", "obj2 long enough words"], mock_llm)
         )
         assert len(result) == 2
@@ -256,9 +252,7 @@ class TestLLMDecomposition:
     def test_llm_fallback_none_fn_returns_originals(self):
         from autoreview.knowledge_graph.normalize import llm_decompose_objects
 
-        result = asyncio.get_event_loop().run_until_complete(
-            llm_decompose_objects(["some verbose object name here"], None)
-        )
+        result = asyncio.run(llm_decompose_objects(["some verbose object name here"], None))
         assert result == [["some verbose object name here"]]
 
 
@@ -419,9 +413,7 @@ class TestClaimNormalizer:
         normalizer = ClaimNormalizer(llm_decompose=False)
         entities = [self._make_entity("the Wnt signaling pathway")]
         assertions = [self._make_assertion("BMP4", "the Wnt signaling pathway")]
-        new_ents, new_asserts, report = asyncio.get_event_loop().run_until_complete(
-            normalizer.pre_dedup(entities, assertions)
-        )
+        new_ents, new_asserts, report = asyncio.run(normalizer.pre_dedup(entities, assertions))
         assert new_ents[0]["canonical_name"] == "Wnt signaling"
         assert new_asserts[0]["object_canonical_name"] == "Wnt signaling"
         assert report.text_cleaned >= 1
@@ -437,9 +429,7 @@ class TestClaimNormalizer:
         assertions = [
             self._make_assertion("BMP4", "mesoderm differentiation", predicate="promoted.")
         ]
-        _, new_asserts, report = asyncio.get_event_loop().run_until_complete(
-            normalizer.pre_dedup(entities, assertions)
-        )
+        _, new_asserts, report = asyncio.run(normalizer.pre_dedup(entities, assertions))
         assert new_asserts[0]["predicate"] == "promotes"
         assert report.predicates_cleaned == 1
 
@@ -454,9 +444,7 @@ class TestClaimNormalizer:
         assertions = [
             self._make_assertion("BMP4", "endoderm and mesoderm differentiation", draft_id="a_001"),
         ]
-        new_ents, new_asserts, report = asyncio.get_event_loop().run_until_complete(
-            normalizer.pre_dedup(entities, assertions)
-        )
+        new_ents, new_asserts, report = asyncio.run(normalizer.pre_dedup(entities, assertions))
         assert len(new_asserts) == 2
         obj_names = {a["object_canonical_name"] for a in new_asserts}
         assert "endoderm differentiation" in obj_names
@@ -478,9 +466,7 @@ class TestClaimNormalizer:
         assertions = [
             self._make_assertion("BMP4", "endoderm and mesoderm differentiation", draft_id="a_001"),
         ]
-        _, new_asserts, _ = asyncio.get_event_loop().run_until_complete(
-            normalizer.pre_dedup(entities, assertions)
-        )
+        _, new_asserts, _ = asyncio.run(normalizer.pre_dedup(entities, assertions))
         for a in new_asserts:
             assert a["_decomposed_from"] == "a_001"
             assert a["draft_id"].startswith("a_001_d")
@@ -496,9 +482,7 @@ class TestClaimNormalizer:
                 natural_language="BMP4 at 10 ng/mL induces mesoderm at 48h",
             ),
         ]
-        new_asserts, report = asyncio.get_event_loop().run_until_complete(
-            normalizer.post_dedup(assertions)
-        )
+        new_asserts, report = asyncio.run(normalizer.post_dedup(assertions))
         assert new_asserts[0]["quantitative_context"]["concentration"] == "10 ng/mL"
         assert new_asserts[0]["quantitative_context"]["timepoint"] == "48h"
         assert report.quant_backfilled == 1

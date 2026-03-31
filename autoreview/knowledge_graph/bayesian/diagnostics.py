@@ -60,7 +60,7 @@ def detect_bimodality(
 
 
 def compute_mcmc_diagnostics(
-    mcmc,
+    mcmc: object,
     edge_ids: list[str],
     significance: float = 0.05,
 ) -> BayesianDiagnostics:

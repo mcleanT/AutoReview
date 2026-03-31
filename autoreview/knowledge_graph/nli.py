@@ -419,7 +419,7 @@ def _is_parallel_assertion(claim_a: dict[str, Any], claim_b: dict[str, Any]) -> 
     if claim_a["subj_id"] == claim_b["subj_id"] and claim_a["obj_id"] != claim_b["obj_id"]:
         return True
     # Same object, different subject
-    return claim_a["obj_id"] == claim_b["obj_id"] and claim_a["subj_id"] != claim_b["subj_id"]
+    return bool(claim_a["obj_id"] == claim_b["obj_id"] and claim_a["subj_id"] != claim_b["subj_id"])
 
 
 def _predicates_oppose(pred_a: str, pred_b: str) -> float | None:
@@ -823,8 +823,8 @@ def classify_cross_claims(
         nli_out = all_nli_results[(a_id, b_id)]
         if nli_out["method"] in ("parallel_skip", "predicate_opposition"):
             continue
-        claim_a = claims.get(a_id)
-        claim_b = claims.get(b_id)
+        claim_a: dict[str, Any] | None = claims.get(a_id)
+        claim_b: dict[str, Any] | None = claims.get(b_id)
         if claim_a and claim_b:
             mismatch = _contexts_mismatch(claim_a, claim_b)
             if mismatch:

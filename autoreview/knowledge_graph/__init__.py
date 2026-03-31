@@ -232,10 +232,8 @@ def build_graph(
         import asyncio
 
         normalizer = ClaimNormalizer(llm_decompose=llm_decompose)
-        corpus.all_entities, corpus.all_assertions, pre_dedup_report = (
-            asyncio.get_event_loop().run_until_complete(
-                normalizer.pre_dedup(corpus.all_entities, corpus.all_assertions)
-            )
+        corpus.all_entities, corpus.all_assertions, pre_dedup_report = asyncio.run(
+            normalizer.pre_dedup(corpus.all_entities, corpus.all_assertions)
         )
         log.info(
             "kg.pipeline.pre_dedup_normalize",
@@ -300,7 +298,7 @@ def build_graph(
         import asyncio
 
         normalizer = ClaimNormalizer(llm_decompose=False)
-        normalized_assertions, post_dedup_report = asyncio.get_event_loop().run_until_complete(
+        normalized_assertions, post_dedup_report = asyncio.run(
             normalizer.post_dedup(normalized_assertions)
         )
         log.info(
