@@ -6,7 +6,7 @@ Thanks for your interest in contributing! This guide covers everything you need 
 
 1. **Clone the repo**
    ```bash
-   git clone https://github.com/your-username/autoreview.git
+   git clone https://github.com/mcleanT/AutoReview.git
    cd autoreview
    ```
 

@@ -43,7 +43,7 @@ Each stage is an async DAG node with typed Pydantic inputs/outputs. Pipeline sta
 
 ```bash
 # Clone and install with uv
-git clone https://github.com/your-username/autoreview.git
+git clone https://github.com/mcleanT/AutoReview.git
 cd autoreview
 uv sync --all-extras
 ```
@@ -169,7 +169,7 @@ AutoReview includes an MCP server that exposes literature search as tools for Cl
 python mcp_server.py
 ```
 
-The `.mcp.json` file is pre-configured for use with Claude Code. Available tools: `search_pubmed`, `search_semantic_scholar`, `search_openalex`.
+The `.mcp.json` file is pre-configured for use with Claude Code. Available tools: `search_pubmed`, `search_semantic_scholar`, `search_openalex`, `search_crossref`, `search_europe_pmc`, `search_core`.
 
 ## Tech Stack
 

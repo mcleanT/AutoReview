@@ -6,7 +6,7 @@
 - Knowledge graph pipeline, Bayesian inference, MRF scoring, and claim extraction moved to standalone **Scientific Claims Knowledge Graph** project
 - Removed `autoreview/knowledge_graph/`, `tests/test_knowledge_graph/`, `Paper Extractor/KnowledgeGraph Extraction/`
 - Removed `nli-score` and `nli-diagnose` CLI commands
-- Removed KG dependencies: `networkx`, `rapidfuzz`, `sentence-transformers`, `jax`, `numpyro`, `arviz`, `diptest`
+- Removed KG dependencies: `networkx`, `sentence-transformers`, `jax`, `numpyro`, `arviz`, `diptest`
 
 ## v0.3.0 — Extraction & Pipeline Quality
 
