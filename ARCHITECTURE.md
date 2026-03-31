@@ -272,42 +272,6 @@ The `EvidenceWeightedAllocator` runs as a post-processing step inside the outlin
 
 ---
 
-## Knowledge Graph — Finding Layer
-
-The KG pipeline detects contradictions at two levels: **edge-level** (pairwise between claims) and **finding-level** (cross-paper scientific disagreements).
-
-### Graph Hierarchy
-
-```
-Community (Louvain — existing)
-  └── TopicCluster (subject_id, predicate_class, object_id)
-        └── Finding (topic_cluster + direction + condition_group)
-              └── KGEdge (individual claim)
-```
-
-**TopicCluster** groups edges by a 6-class predicate collapse table (e.g., `induces` + `is_sufficient_for` → `activating`). **Finding** partitions each cluster by direction and experimental conditions (organism class + in_vitro). **FindingContradiction** detects three types: directional (opposite conclusions under similar conditions), boundary (opposite conclusions under different conditions), and interpretive (same direction but conflicting Discussion-section interpretations from different papers).
-
-### HL-MRF Integration
-
-Findings become first-class variables in the MRF alongside edges:
-
-| Rule | Formula | Weight | Purpose |
-|------|---------|--------|---------|
-| Upward aggregation | `w × (f - mean(edges))²` | 10.0 | Anchors finding to constituent evidence |
-| Finding contradiction | `w × max(0, f_a + f_b - 1)²` | 12.0 | Opposing findings can't both be true |
-| Downward propagation | `w × max(0, e - f)²` | 3.0 | Member edges follow their finding down |
-
-All toggled via `MRFConfig.enable_finding_layer` (default: `True`).
-
-### Module: `autoreview/knowledge_graph/cluster.py`
-
-- `PREDICATE_CLASS_TABLE` — 6-class, 18-predicate collapse mapping
-- `TopicCluster`, `Finding`, `FindingContradiction` dataclasses
-- `build_topic_clusters()`, `form_findings()`, `detect_finding_contradictions()`
-- `get_predicate_class()`, `get_organism_class()`
-
----
-
 ## Technology Stack
 
 | Component | Choice | Rationale |

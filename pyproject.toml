@@ -27,11 +27,7 @@ dependencies = [
     "biopython>=1.84",
     "pyalex>=0.14",
     "beautifulsoup4>=4.12",
-    "networkx>=3.0",
-    "rapidfuzz>=3.0",
     "textstat>=0.7",
-    "sentence-transformers>=5.3.0",
-    "scipy>=1.17.1",
 ]
 
 [project.optional-dependencies]
@@ -44,13 +40,6 @@ analysis = [
     "numpy>=1.26",
     "scipy>=1.11",
 ]
-bayesian = [
-    "jax>=0.4.20",
-    "jaxlib>=0.4.20",
-    "numpyro>=0.15.0",
-    "arviz>=0.18.0",
-    "diptest>=0.8.0",
-]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
@@ -60,7 +49,7 @@ dev = [
     "mcp[cli]",
 ]
 all = [
-    "autoreview[output,analysis,bayesian,dev]",
+    "autoreview[output,analysis,dev]",
 ]
 
 [project.scripts]
@@ -91,16 +80,8 @@ strict = true
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["networkx", "networkx.*", "scipy", "scipy.*"]
+module = ["scipy", "scipy.*"]
 ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = ["numpyro", "numpyro.*", "arviz", "diptest", "igraph"]
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "autoreview.knowledge_graph.*"
-disallow_any_generics = false
 
 [tool.hatch.build.targets.wheel]
 packages = ["autoreview"]

@@ -1,51 +1,14 @@
 # Changelog
 
-## v0.4.0 — Meta-Level Contradiction Structure & Bayesian Inference
+## v0.4.0 — Project Split
 
-### Meta-Level Finding Contradictions
-- **Hierarchical finding layer**: TopicCluster → Finding → FindingContradiction hierarchy built algorithmically from graph structure at graph-time (no extraction schema changes)
-- **Predicate class collapse**: 6-class grouping table (activating, inhibiting, regulatory, associative, structural, transformative) maps 18 predicates so related assertions cluster together
-- **Finding formation**: edges partitioned by (direction, organism_class, in_vitro) within each topic cluster; anchor selection prefers interpretive claims over empirical
-- **Three contradiction types**: directional (opposite direction, overlapping conditions), boundary (opposite direction, different conditions), interpretive (same direction, both anchors from Discussion sections of different papers)
-- **HL-MRF integration**: finding-level truth variables with upward aggregation (edge→finding), finding contradiction (finding↔finding, weight=12.0), and downward propagation (finding→edge, weight=3.0)
-- **New aggregation rule type** in HL-MRF engine: `weight × (head - weighted_mean(body))²` with analytical gradients across solve(), solve_incremental(), and compute_diagnostics()
-- **Finding-level analysis**: `summarize_topic_clusters()` for reporting, `score_finding_contradiction_centrality()` for entity-level contradiction scoring
-- **Toggle**: `MRFConfig.enable_finding_layer` (default True) for backward-compatible A/B comparison
-- New module: `autoreview/knowledge_graph/cluster.py` (541 lines)
+### Knowledge Graph Split
+- Knowledge graph pipeline, Bayesian inference, MRF scoring, and claim extraction moved to standalone **Scientific Claims Knowledge Graph** project
+- Removed `autoreview/knowledge_graph/`, `tests/test_knowledge_graph/`, `Paper Extractor/KnowledgeGraph Extraction/`
+- Removed `nli-score` and `nli-diagnose` CLI commands
+- Removed KG dependencies: `networkx`, `rapidfuzz`, `sentence-transformers`, `jax`, `numpyro`, `arviz`, `diptest`
 
-### Bayesian Inference (Phase 1)
-- **New `bayesian/` package** (6 modules) — parallel inference path producing full posterior distributions instead of MAP point estimates
-- **NumPyro factor graph model** (`kg_flat_model`): Beta priors from Tier 1 scoring, vectorized softplus contradiction factors, per-chain composition factors with weakest-link semantics
-- **Laplace approximation**: scipy L-BFGS-B MAP optimization + JAX Hessian inversion for fast full-graph credible intervals (~1s for 2000 edges)
-- **NUTS MCMC sampling**: NumPyro NUTS on targeted hotspot subgraphs identified via `score_contradiction_centrality()`, with ArviZ diagnostics (R-hat, ESS, divergences)
-- **Bimodality detection**: Hartigan's dip test per edge — flags genuine scientific controversy vs. insufficient data
-- **`score_graph_bayesian(graph, config)`**: hybrid Laplace + targeted NUTS orchestration
-- **`update_graph_bayesian()`**: incremental updates via subgraph extraction + NUTS on changed neighborhoods
-- **`build_graph(bayesian=True)`**: writes `bayesian_confidence`, `bayesian_ci_low`, `bayesian_ci_high`, `bayesian_bimodal` edge attributes
-- **New optional dependencies**: `jax`, `jaxlib`, `numpyro`, `arviz`, `diptest` (install via `pip install autoreview[bayesian]`)
-- HL-MRF system unchanged — serves as baseline for Phase 2 model comparison
-
-### Knowledge Graph Improvements
-- MRF weight learning via grid search or gradient descent (`learn_weights()`)
-- Incremental MRF update (`update_graph_mrf()`) with warm-start solving
-- MRF diagnostics: per-rule violation tracking, top-N violation reporting, mean violation by rule type
-- Post-extraction normalization layer: `ClaimNormalizer` with text cleaning, predicate normalization, compound object decomposition, quantitative context backfilling
-- Condition-aware assertion merging (v2): separate edges for claims with distinct experimental contexts
-
-## v0.3.0 — Knowledge Graph & Extraction Overhaul
-
-### Knowledge Graph Pipeline
-- Full KG construction pipeline: entity deduplication, predicate normalization, assertion merging, Beta-Binomial confidence scoring, community detection, contradiction detection, and gap analysis
-- NetworkX graph construction with GraphML export and visualization (network plots, confidence histograms)
-- `autoreview/knowledge_graph/` package: models, ingest, dedup, graph, scoring, analysis, viz, and public API
-
-### KG Extraction v4
-- Pydantic schema (`kg_schema.py`) with 34-predicate closed vocabulary and deterministic coercion layer (15-entry map catches LLM predicate drift)
-- `evidence_links` with per-claim direction (`supports`/`refutes`/`mixed`/`not_applicable`) replacing flat `evidence_ids`
-- `result_summary` on evidence units captures conclusions, not methods
-- Post-processing: absence claims automatically mapped to `refutes` direction
-- Anthropic Message Batches API batch runner (`batch_extract_kg.py`) for corpus-scale extraction with Haiku
-- `kg-extract` Claude Code skill for both single-paper local extraction and full corpus batch API runs
+## v0.3.0 — Extraction & Pipeline Quality
 
 ### Hybrid Extraction
 - Programmatic zero-token paper extractor: deterministic extraction with no LLM calls
