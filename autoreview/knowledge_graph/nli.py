@@ -823,8 +823,8 @@ def classify_cross_claims(
         nli_out = all_nli_results[(a_id, b_id)]
         if nli_out["method"] in ("parallel_skip", "predicate_opposition"):
             continue
-        claim_a: dict[str, Any] | None = claims.get(a_id)
-        claim_b: dict[str, Any] | None = claims.get(b_id)
+        claim_a = claims.get(a_id)
+        claim_b = claims.get(b_id)
         if claim_a and claim_b:
             mismatch = _contexts_mismatch(claim_a, claim_b)
             if mismatch:
