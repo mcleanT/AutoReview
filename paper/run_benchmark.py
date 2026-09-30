@@ -67,11 +67,14 @@ _WRITING_COST_ESTIMATES: dict[tuple[str, str], float] = {
 
 
 def _model_tier(model: str) -> str:
-    if "opus" in model:
-        return "opus"
-    if "haiku" in model:
-        return "haiku"
-    return "sonnet"
+    for tier in ("opus", "haiku", "sonnet"):
+        if tier in model:
+            return tier
+    # No estimate exists for other families (e.g. Fable); refuse rather than
+    # silently pricing them as Sonnet.
+    raise ValueError(
+        f"No per-run cost estimate for model {model!r} (known tiers: opus, sonnet, haiku)"
+    )
 
 
 def estimate_cost(matrix: list[RunKey], *, shared_corpus: bool = True) -> float:

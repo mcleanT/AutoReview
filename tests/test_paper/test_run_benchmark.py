@@ -211,6 +211,22 @@ class TestSharedCorpusCostEstimate:
             corpus_only, shared_corpus=False
         )
 
+    def test_model_outside_known_tiers_refuses_rather_than_guessing(self) -> None:
+        from paper.run_benchmark import estimate_cost
+
+        # No per-run estimate exists for Fable; it must not be priced as Sonnet.
+        matrix: list[tuple[str, str, str, str]] = [
+            ("t1", "claude-fable-5-1", "medium", "end_to_end")
+        ]
+        with pytest.raises(ValueError, match="claude-fable-5-1"):
+            estimate_cost(matrix)
+
+    def test_known_tiers_still_estimate(self) -> None:
+        from paper.run_benchmark import estimate_cost
+
+        for model in ("claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-4-5"):
+            assert estimate_cost([("t1", model, "medium", "end_to_end")]) > 0
+
 
 class TestForkLogic:
     """Integration tests for the shared-corpus fork path in _execute_runs."""

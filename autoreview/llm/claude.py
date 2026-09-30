@@ -8,6 +8,7 @@ import structlog
 from pydantic import BaseModel
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
+from autoreview.llm.model_capabilities import sampling_params
 from autoreview.llm.provider import LLMResponse, LLMStructuredResponse
 
 logger = structlog.get_logger()
@@ -54,7 +55,7 @@ class ClaudeLLMProvider:
             "model": effective_model,
             "max_tokens": max_tokens if max_tokens is not None else self.max_tokens_generate,
             "messages": messages,
-            "temperature": temperature,
+            **sampling_params(effective_model, temperature=temperature),
         }
         if system:
             kwargs["system"] = [
@@ -108,7 +109,7 @@ class ClaudeLLMProvider:
             "model": effective_model,
             "max_tokens": max_tokens if max_tokens is not None else self.max_tokens_structured,
             "messages": messages,
-            "temperature": temperature,
+            **sampling_params(effective_model, temperature=temperature),
         }
         if system:
             kwargs["system"] = [

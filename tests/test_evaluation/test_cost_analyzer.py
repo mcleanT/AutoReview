@@ -6,6 +6,9 @@ import json
 import tempfile
 from pathlib import Path
 
+import pytest
+
+from autoreview.evaluation import cost_analyzer
 from autoreview.evaluation.cost_analyzer import compare_costs, compute_cost
 from autoreview.pipeline.nodes import _GlobalTokenAccumulator
 
@@ -20,11 +23,49 @@ def test_compute_cost_sonnet() -> None:
     assert result.total_cost_usd == 4.5
 
 
-def test_compute_cost_unknown_model() -> None:
+def test_compute_cost_unknown_model_is_unpriced_not_zero(monkeypatch: pytest.MonkeyPatch) -> None:
+    warnings: list[dict] = []
+    monkeypatch.setattr(
+        cost_analyzer.logger, "warning", lambda event, **kw: warnings.append({"event": event, **kw})
+    )
     usage = {"total": {"input_tokens": 500_000, "output_tokens": 50_000}}
     result = compute_cost(usage, "unknown-model-xyz")
-    assert result.total_cost_usd == 0.0
     assert result.model == "unknown-model-xyz"
+    assert result.priced is False
+    assert result.input_cost_usd is None
+    assert result.output_cost_usd is None
+    assert result.total_cost_usd is None
+    # Tokens are still measured; only the price is unknown.
+    assert result.total_input_tokens == 500_000
+    assert [w["event"] for w in warnings] == ["cost_analyzer.unknown_model"]
+
+
+@pytest.mark.parametrize(
+    ("model", "input_price", "output_price"),
+    [
+        ("claude-opus-5-5", 4.0, 20.0),
+        ("claude-sonnet-5-5", 2.0, 10.0),
+        ("claude-haiku-4-5", 1.0, 5.0),
+        ("claude-haiku-4-5-20251001", 1.0, 5.0),
+        ("claude-fable-5-1", 10.0, 50.0),
+    ],
+)
+def test_compute_cost_current_models(model: str, input_price: float, output_price: float) -> None:
+    usage = {"total": {"input_tokens": 1_000_000, "output_tokens": 1_000_000}}
+    result = compute_cost(usage, model)
+    assert result.priced is True
+    assert result.input_cost_usd == input_price
+    assert result.output_cost_usd == output_price
+    assert result.total_cost_usd == input_price + output_price
+
+
+def test_compare_costs_keeps_unknown_model_unpriced(tmp_path: Path) -> None:
+    f = tmp_path / "run_x" / "token_usage.json"
+    f.parent.mkdir()
+    f.write_text(json.dumps({"total": {"input_tokens": 10, "output_tokens": 10}}))
+    rows = compare_costs([f])
+    assert rows[0].model == "unknown"
+    assert rows[0].cost.total_cost_usd is None
 
 
 def test_compare_costs() -> None:
